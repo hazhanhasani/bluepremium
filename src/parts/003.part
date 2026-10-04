@@ -1,0 +1,137 @@
+ of result.results || []) {
+    try {
+      await reconcileOrder(env, order, ctx);
+      touched++;
+    } catch (error) {
+      console.error('reconcile order failed', order.order_code, error);
+    }
+  }
+  return { touched };
+}
+
+async function reconcileOrder(env, order, ctx) {
+  let current = order;
+  if (current.status === 'awaiting_payment') {
+    const key = await getProviderSecret(env, 'blupal_api_key');
+    if (!key || !current.blupal_invoice_id) return;
+    const remote = await blupalRequest(key, 'GET', `/v1/invoices/${encodeURIComponent(current.blupal_invoice_id)}`);
+    if (!remote.ok) return;
+    const data = remote.data || remote.raw || {};
+    const status = String(data.status || data.data?.status || '').toUpperCase();
+    if (status !== 'PAID') return;
+    const amount = Number(data.amount ?? data.data?.amount ?? 0);
+    const expected = Number(current.price_toman) * 10;
+    if (amount && amount !== expected) {
+      await env.DB.prepare(`UPDATE orders SET status='payment_mismatch', provider_error='amount_mismatch', updated_at=? WHERE id=? AND status='awaiting_payment'`)
+        .bind(new Date().toISOString(), current.id).run();
+      return;
+    }
+    await env.DB.prepare(`UPDATE orders SET status='paid', paid_at=?, updated_at=? WHERE id=? AND status='awaiting_payment'`)
+      .bind(new Date().toISOString(), new Date().toISOString(), current.id).run();
+    current = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
+  }
+
+  if (current.status === 'paid') {
+    const claim = await env.DB.prepare(`UPDATE orders SET status='processing', updated_at=? WHERE id=? AND status='paid'`)
+      .bind(new Date().toISOString(), current.id).run();
+    if (!claim.meta?.changes) return;
+    current = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
+    ctx?.waitUntil?.(deliverPremium(env, current));
+    if (!ctx?.waitUntil) await deliverPremium(env, current);
+    return;
+  }
+
+  if (current.status === 'processing') {
+    await deliverPremium(env, current);
+    return;
+  }
+
+  if (current.status === 'provider_pending' && current.tg_transaction_id) {
+    const key = await getProviderSecret(env, 'tgtools_api_key');
+    if (!key) return;
+    const remote = await tgRequest(key, 'GET', `/api/transaction/${encodeURIComponent(current.tg_transaction_id)}`);
+    if (!remote.ok) return;
+    const state = tgState(remote.data || {});
+    if (state === 'completed') {
+      await env.DB.prepare(`UPDATE orders SET status='delivered', delivered_at=?, updated_at=?, provider_error=NULL WHERE id=? AND status='provider_pending'`)
+        .bind(new Date().toISOString(), new Date().toISOString(), current.id).run();
+    } else if (state === 'failed') {
+      await env.DB.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='provider_pending'`)
+        .bind(safeProviderMessage(remote.message || 'provider_failed'), new Date().toISOString(), current.id).run();
+    }
+  }
+}
+
+async function deliverPremium(env, order) {
+  if (!order || order.status !== 'processing') return;
+  const key = await getProviderSecret(env, 'tgtools_api_key');
+  if (!key) {
+    await markOrderError(env.DB, order.id, 'provider_not_configured');
+    return;
+  }
+  const username = normalizeUsername(order.username);
+  const months = Number(order.months);
+  if (!username || !ALLOWED_MONTHS.includes(months)) {
+    await markOrderError(env.DB, order.id, 'invalid_order_data');
+    return;
+  }
+
+  const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+  if (!lookup.ok || lookup.data?.found === false || lookup.data?.premiumEligible === false) {
+    await markOrderError(env.DB, order.id, 'telegram_account_not_eligible');
+    return;
+  }
+
+  const purchase = await tgRequest(key, 'POST', '/api/purchase/premium', {
+    recipientUsername: username,
+    months,
+    paymentMethod: 'ton',
+    trackingCode: order.order_code,
+  });
+  if (!purchase.ok) {
+    const msg = safeProviderMessage(purchase.message || 'provider_request_failed');
+    const lower = msg.toLowerCase();
+    const retryable = purchase.http_status === 0 || purchase.http_status >= 500 || lower.includes('insufficient');
+    await env.DB.prepare(`UPDATE orders SET status=?, provider_error=?, updated_at=? WHERE id=? AND status='processing'`)
+      .bind(retryable ? 'paid' : 'failed', msg, new Date().toISOString(), order.id).run();
+    return;
+  }
+
+  const data = purchase.data || {};
+  const tx = String(data.transactionId || data.id || '').trim();
+  if (!tx) {
+    await env.DB.prepare(`UPDATE orders SET status='provider_pending', provider_error='missing_transaction_id', updated_at=? WHERE id=? AND status='processing'`)
+      .bind(new Date().toISOString(), order.id).run();
+    return;
+  }
+  const state = tgState(data);
+  if (state === 'failed') {
+    await env.DB.prepare(`UPDATE orders SET status='failed', tg_transaction_id=?, provider_error=?, updated_at=? WHERE id=? AND status='processing'`)
+      .bind(tx, safeProviderMessage(data.message || purchase.message || 'provider_failed'), new Date().toISOString(), order.id).run();
+  } else if (state === 'completed') {
+    await env.DB.prepare(`UPDATE orders SET status='delivered', tg_transaction_id=?, delivered_at=?, provider_error=NULL, updated_at=? WHERE id=? AND status='processing'`)
+      .bind(tx, new Date().toISOString(), new Date().toISOString(), order.id).run();
+  } else {
+    await env.DB.prepare(`UPDATE orders SET status='provider_pending', tg_transaction_id=?, provider_error=NULL, updated_at=? WHERE id=? AND status='processing'`)
+      .bind(tx, new Date().toISOString(), order.id).run();
+  }
+}
+
+async function syncPricing(env) {
+  const prices = await tgRequest(null, 'GET', '/api/purchase/prices', null, false);
+  if (!prices.ok) return { ok: false, error: 'tgtools_prices_failed', message: prices.message };
+  const pd = prices.data || {};
+
+  let tonToman = 0;
+  try {
+    const response = await fetch(NOBITEX_ORDERBOOK, { headers: { accept: 'application/json' } });
+    if (response.ok) {
+      const data = await response.json();
+      const raw = Number(data.lastTradePrice || data.last_trade_price || data.latest || 0);
+      if (raw > 0) tonToman = raw / 10;
+    }
+  } catch (_) {}
+  if (!tonToman) tonToman = Number(await getSetting(env.DB, 'last_ton_toman', '0'));
+  if (!tonToman) return { ok: false, error: 'ton_rate_unavailable' };
+
+  const profit = clampNumber(await getSetting(env.D
