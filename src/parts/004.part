@@ -1,0 +1,142 @@
+B, 'profit_percent', '15'), 0, 500);
+  const rounding = Math.max(100, Number(await getSetting(env.DB, 'rounding', '1000')) || 1000);
+  const now = new Date().toISOString();
+  for (const months of ALLOWED_MONTHS) {
+    const ton = Number(pd[`premium_${months}m_ton`] || 0);
+    if (!(ton > 0)) continue;
+    const auto = roundUp(ton * tonToman * (1 + profit / 100), rounding);
+    const current = await env.DB.prepare(`SELECT manual_price_toman FROM plans WHERE months=?`).bind(months).first();
+    const chosen = Number(current?.manual_price_toman || auto);
+    await env.DB.prepare(`UPDATE plans SET wholesale_ton=?, auto_price_toman=?, price_toman=?, updated_at=? WHERE months=?`)
+      .bind(ton, auto, chosen, now, months).run();
+  }
+  await setSetting(env.DB, 'last_ton_toman', String(tonToman));
+  await setSetting(env.DB, 'last_price_sync', now);
+  return { ok: true, ton_toman: tonToman, profit_percent: profit };
+}
+
+async function providerHealth(env) {
+  const [tgKey, blupalKey] = await Promise.all([
+    getProviderSecret(env, 'tgtools_api_key'),
+    getProviderSecret(env, 'blupal_api_key'),
+  ]);
+  const out = {
+    tgtools: { configured: !!tgKey, ok: false, balance_ton: null, wallet_address: '' },
+    blupal: { configured: !!blupalKey, ok: !!blupalKey },
+  };
+  if (tgKey) {
+    const wallet = await tgRequest(tgKey, 'GET', '/api/wallet');
+    out.tgtools.ok = wallet.ok;
+    const d = wallet.data || {};
+    out.tgtools.balance_ton = firstNumber(d, ['balanceTon','tonBalance','availableTon','availableBalance','walletBalance','balance']);
+    out.tgtools.wallet_address = firstString(d, ['depositAddress','walletAddress','tonAddress','address']);
+  }
+  return out;
+}
+
+async function tgRequest(apiKey, method, path, payload = null, auth = true) {
+  const headers = { accept: 'application/json', 'content-type': 'application/json' };
+  if (auth) {
+    if (!apiKey) return { ok: false, http_status: 0, data: {}, message: 'not_configured' };
+    headers['X-Api-Key'] = apiKey;
+  }
+  try {
+    const response = await fetch(`${TG_BASE}${path}`, {
+      method,
+      headers,
+      body: payload == null || method === 'GET' ? undefined : JSON.stringify(payload),
+    });
+    const raw = await response.json().catch(() => ({}));
+    const success = !Object.prototype.hasOwnProperty.call(raw, 'isSuccess') || !!raw.isSuccess;
+    const data = raw && typeof raw.data === 'object' && raw.data !== null ? raw.data : raw;
+    const message = String(raw.message || data.message || data.error || '');
+    return { ok: response.ok && success, http_status: response.status, data, message, raw };
+  } catch (error) {
+    return { ok: false, http_status: 0, data: {}, message: String(error?.message || 'network_error') };
+  }
+}
+
+async function blupalRequest(apiKey, method, path, payload = null) {
+  if (!apiKey) return { ok: false, http_status: 0, data: {}, message: 'not_configured' };
+  try {
+    const response = await fetch(`${BLUPAL_BASE}${path}`, {
+      method,
+      headers: { accept: 'application/json', 'content-type': 'application/json', 'X-API-Key': apiKey },
+      body: payload == null || method === 'GET' ? undefined : JSON.stringify(payload),
+      redirect: 'manual',
+    });
+    const raw = await response.json().catch(() => ({}));
+    const ok = response.ok && raw.success !== false;
+    const data = raw && typeof raw.data === 'object' && raw.data !== null ? raw.data : raw;
+    return { ok, http_status: response.status, data, raw, message: String(raw.message || raw.error || '') };
+  } catch (error) {
+    return { ok: false, http_status: 0, data: {}, message: String(error?.message || 'network_error') };
+  }
+}
+
+async function getAuthorizedOrder(db, code, token) {
+  const order = await db.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(code).first();
+  if (!order) return null;
+  const hash = await sha256Hex(token);
+  return timingSafeEqual(hash, String(order.public_token_hash || '')) ? order : null;
+}
+
+function publicOrder(order) {
+  return {
+    code: order.order_code,
+    username: order.username,
+    months: Number(order.months),
+    price_toman: Number(order.price_toman),
+    status: order.status,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    delivered_at: order.delivered_at || null,
+    payment_url: order.status === 'awaiting_payment' ? order.payment_url : null,
+    message: customerStatusMessage(order.status),
+  };
+}
+
+function customerStatusMessage(status) {
+  return ({
+    creating_payment: 'در حال ساخت لینک پرداخت',
+    awaiting_payment: 'در انتظار پرداخت',
+    paid: 'پرداخت تایید شد',
+    processing: 'در حال فعال‌سازی پرمیوم',
+    provider_pending: 'در حال پردازش توسط سرویس فعال‌سازی',
+    delivered: 'پرمیوم با موفقیت فعال شد',
+    payment_error: 'ساخت پرداخت ناموفق بود',
+    payment_mismatch: 'پرداخت نیاز به بررسی دارد',
+    failed: 'سفارش نیاز به بررسی پشتیبانی دارد',
+  })[status] || 'در حال بررسی';
+}
+
+function tgState(data) {
+  const raw = String(data.status || '').toLowerCase().trim();
+  if (['completed','complete','delivered','success','succeeded'].includes(raw)) return 'completed';
+  if (['failed','error','rejected','cancelled','canceled','refunded'].includes(raw)) return 'failed';
+  return 'pending';
+}
+
+async function markOrderError(db, id, message) {
+  await db.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='processing'`)
+    .bind(safeProviderMessage(message), new Date().toISOString(), id).run();
+}
+
+async function setProviderSecret(env, key, value) {
+  const encrypted = await encryptSecret(env.CONFIG_ENCRYPTION_KEY, value);
+  await env.DB.prepare(`INSERT INTO provider_secrets(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`)
+    .bind(key, encrypted, new Date().toISOString()).run();
+}
+
+async function getProviderSecret(env, key) {
+  const row = await env.DB.prepare(`SELECT value FROM provider_secrets WHERE key=?`).bind(key).first();
+  if (!row?.value) return '';
+  try { return await decryptSecret(env.CONFIG_ENCRYPTION_KEY, String(row.value)); } catch (_) { return ''; }
+}
+
+async function encryptSecret(base64Key, plaintext) {
+  const keyRaw = base64ToBytes(base64Key || '');
+  if (keyRaw.length !== 32) throw new Error('CONFIG_ENCRYPTION_KEY must decode to 32 bytes');
+  const key = await crypto.subtle.importKey('raw', keyRaw, 'AES-GCM', false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = new Uint8Arra
