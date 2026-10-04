@@ -1,1 +1,54 @@
-# bluepremium
+# Blue Premium / بلوپرمیوم
+
+Independent Telegram Premium storefront built on Cloudflare Workers + D1 with an Android client.
+
+## Architecture
+
+- **Cloudflare Worker**: storefront, admin panel, REST API, payment verification, provider delivery and scheduled reconciliation.
+- **Cloudflare D1**: plans, orders, encrypted provider credentials and application settings.
+- **TG Tools**: Telegram username lookup, Premium purchase and transaction reconciliation.
+- **BluePal**: invoice creation and server-side payment verification.
+- **Android**: secure WebView client that only keeps the Blue Premium origin in-app; payment pages open externally.
+- **GitHub Actions**: builds an installable Android APK on every Android change.
+
+## Security
+
+Provider API keys are never committed to GitHub. The admin panel stores them encrypted with AES-GCM using `CONFIG_ENCRYPTION_KEY`, which only exists as a Cloudflare Worker secret. Order lookups require a random per-order token and BluePal webhook data is never trusted without re-fetching the invoice from BluePal.
+
+## Local development
+
+```bash
+npm install
+npx wrangler d1 migrations apply blue-premium-db --local
+npm run dev
+```
+
+## Production deployment
+
+Cloudflare bindings are defined in `wrangler.jsonc`. Apply migrations and deploy:
+
+```bash
+npx wrangler d1 migrations apply blue-premium-db --remote
+npm run deploy
+```
+
+Required Worker secrets:
+
+- `ADMIN_PASSWORD_HASH` — SHA-256 hex of the admin password.
+- `SESSION_SECRET` — random high-entropy session signing secret.
+- `CONFIG_ENCRYPTION_KEY` — Base64-encoded 32-byte AES key.
+
+TG Tools and BluePal API keys are entered from `/admin` after deployment and are stored encrypted in D1.
+
+## API flow
+
+1. Client loads active 3/6/12-month plans.
+2. Telegram username is verified with TG Tools.
+3. BluePal invoice is created in Rial from the Toman plan price.
+4. Payment is re-verified from BluePal before any provider call.
+5. Paid order is atomically claimed and sent to TG Tools.
+6. Pending TG Tools transactions are reconciled automatically by the Worker cron.
+
+## Android
+
+The Android project lives under `android/`. GitHub Actions produces `app-debug.apk` as the `bluepremium-apk` artifact. This debug-signed APK is directly installable for testing; production Play/Bazaar signing should use a persistent private release keystore stored outside the repository.
