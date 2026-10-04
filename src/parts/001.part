@@ -1,0 +1,126 @@
+const BRAND = 'Blue Premium';
+const BRAND_FA = 'بلوپرمیوم';
+const TG_BASE = 'https://api.tg-tools.shop';
+const BLUPAL_BASE = 'https://blupal.top/api';
+const NOBITEX_ORDERBOOK = 'https://apiv2.nobitex.ir/v3/orderbook/GRAMIRT';
+const ALLOWED_MONTHS = [3, 6, 12];
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      return await route(request, env, ctx);
+    } catch (error) {
+      console.error('Unhandled error', error);
+      return json({ ok: false, error: 'internal_error' }, 500);
+    }
+  },
+
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(runMaintenance(env));
+  },
+};
+
+async function route(request, env, ctx) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+
+  if (path === '/' && request.method === 'GET') return html(storeHtml());
+  if (path === '/admin' && request.method === 'GET') return html(adminHtml());
+  if (path === '/manifest.webmanifest' && request.method === 'GET') {
+    return new Response(JSON.stringify({
+      name: `${BRAND_FA} | ${BRAND}`,
+      short_name: BRAND_FA,
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      background_color: '#06101f',
+      theme_color: '#0a67ff',
+      lang: 'fa',
+      dir: 'rtl',
+      icons: [
+        { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+      ],
+    }), { headers: { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'public,max-age=3600' } });
+  }
+  if (path === '/icon.svg' && request.method === 'GET') return svgIcon();
+  if (path === '/sw.js' && request.method === 'GET') {
+    return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
+  }
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.0.0' });
+
+  if (path === '/api/config' && request.method === 'GET') {
+    const settings = await publicSettings(env.DB);
+    return api({ ok: true, brand: BRAND, brand_fa: BRAND_FA, support: settings.support || '', currency: 'TOMAN' });
+  }
+
+  if (path === '/api/plans' && request.method === 'GET') {
+    const result = await env.DB.prepare(`SELECT id, months, title, price_toman, auto_price_toman, manual_price_toman, wholesale_ton, active, updated_at FROM plans WHERE active = 1 ORDER BY months`).all();
+    const plans = (result.results || []).map(p => ({
+      id: p.id,
+      months: Number(p.months),
+      title: p.title,
+      price_toman: Number(p.manual_price_toman || p.price_toman || p.auto_price_toman || 0),
+      wholesale_ton: p.wholesale_ton == null ? null : Number(p.wholesale_ton),
+      updated_at: p.updated_at,
+    })).filter(p => p.price_toman > 0);
+    return api({ ok: true, plans });
+  }
+
+  if (path === '/api/telegram/lookup' && request.method === 'GET') {
+    const username = normalizeUsername(url.searchParams.get('username'));
+    if (!username) return api({ ok: false, error: 'invalid_username' }, 400);
+    const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+    if (!lookup.ok) return api({ ok: false, error: 'lookup_failed', message: safeProviderMessage(lookup.message) }, 502);
+    const profile = lookup.data || {};
+    return api({
+      ok: true,
+      username,
+      found: profile.found !== false,
+      premium_eligible: profile.premiumEligible !== false,
+      display_name: String(profile.name || profile.displayName || profile.firstName || username).slice(0, 80),
+    });
+  }
+
+  if (path === '/api/orders' && request.method === 'POST') {
+    const body = await readJson(request);
+    const planId = Number(body.plan_id || 0);
+    const username = normalizeUsername(body.username);
+    const deviceId = sanitizeToken(body.device_id, 128) || 'web';
+    if (!planId || !username) return api({ ok: false, error: 'invalid_request' }, 400);
+
+    const plan = await env.DB.prepare(`SELECT * FROM plans WHERE id = ? AND active = 1`).bind(planId).first();
+    if (!plan) return api({ ok: false, error: 'plan_not_found' }, 404);
+    const months = Number(plan.months);
+    if (!ALLOWED_MONTHS.includes(months)) return api({ ok: false, error: 'invalid_plan' }, 400);
+    const priceToman = Number(plan.manual_price_toman || plan.price_toman || plan.auto_price_toman || 0);
+    if (!Number.isFinite(priceToman) || priceToman < 10000) return api({ ok: false, error: 'plan_unavailable' }, 409);
+
+    const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+    if (!lookup.ok) return api({ ok: false, error: 'telegram_lookup_failed', message: safeProviderMessage(lookup.message) }, 502);
+    const profile = lookup.data || {};
+    if (profile.found === false) return api({ ok: false, error: 'telegram_user_not_found' }, 422);
+    if (profile.premiumEligible === false) return api({ ok: false, error: 'not_premium_eligible' }, 422);
+
+    const blupalKey = await getProviderSecret(env, 'blupal_api_key');
+    if (!blupalKey) return api({ ok: false, error: 'payment_not_configured' }, 503);
+
+    const orderCode = `BP-${crypto.randomUUID().replaceAll('-', '').slice(0, 14).toUpperCase()}`;
+    const publicToken = randomToken(24);
+    const publicTokenHash = await sha256Hex(publicToken);
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO orders(order_code, public_token_hash, plan_id, months, username, price_toman, status, device_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'creating_payment', ?, ?, ?)
+    `).bind(orderCode, publicTokenHash, planId, months, username, Math.round(priceToman), deviceId, now, now).run();
+
+    const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', { amount: Math.round(priceToman) * 10 });
+    const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
+    const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
+    if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
+      await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error=?, updated_at=? WHERE order_code=?`)
+        .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(),
