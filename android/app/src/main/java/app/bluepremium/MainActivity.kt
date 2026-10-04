@@ -84,7 +84,10 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = true
             setSupportZoom(false)
-            userAgentString = userAgentString + " BluePremiumAndroid/" + BuildConfig.VERSION_NAME
+            val appVersion = runCatching {
+                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.1"
+            }.getOrDefault("1.1")
+            userAgentString = userAgentString + " BluePremiumAndroid/" + appVersion
         }
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
