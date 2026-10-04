@@ -54,9 +54,6 @@ jobs:
               env.write(f"BLUEPREMIUM_KEY_PASSWORD={data['key_password']}\n")
               env.write(f"BLUEPREMIUM_CERT_SHA256={data['cert_sha256']}\n")
           PY
-        env:
-          SIGNING_JSON: ${{ env.SIGNING_JSON }}
-
       - name: Build stable release APK
         working-directory: android
         run: gradle assembleRelease --no-daemon
