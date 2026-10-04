@@ -38,7 +38,8 @@
     const body = await readJson(request);
     const password = String(body.password || '');
     const candidate = await sha256Hex(password);
-    if (!timingSafeEqual(candidate, env.ADMIN_PASSWORD_HASH || '')) return api({ ok: false, error: 'invalid_credentials' }, 401);
+    const adminHash = await getSetting(env.DB, 'admin_password_hash', env.ADMIN_PASSWORD_HASH || '');
+    if (!timingSafeEqual(candidate, adminHash)) return api({ ok: false, error: 'invalid_credentials' }, 401);
     const token = await signAdminToken(env, { exp: Date.now() + 12 * 60 * 60 * 1000 });
     return api({ ok: true, token, expires_in: 43200 });
   }
@@ -80,6 +81,11 @@
       if (body.profit_percent != null) await setSetting(env.DB, 'profit_percent', clampNumber(body.profit_percent, 0, 500).toString());
       if (body.support != null) await setSetting(env.DB, 'support', String(body.support).slice(0, 120));
       if (body.rounding != null) await setSetting(env.DB, 'rounding', String(Math.max(100, Math.min(100000, Math.round(Number(body.rounding) || 1000)))));
+      if (body.new_password != null) {
+        const newPassword = String(body.new_password || '');
+        if (newPassword.length < 10 || newPassword.length > 128) return api({ ok: false, error: 'weak_password' }, 400);
+        await setSetting(env.DB, 'admin_password_hash', await sha256Hex(newPassword));
+      }
       return api({ ok: true, settings: await adminSettings(env.DB) });
     }
 
