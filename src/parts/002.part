@@ -1,0 +1,126 @@
+ orderCode).run();
+      return api({ ok: false, error: 'payment_create_failed' }, 502);
+    }
+
+    await env.DB.prepare(`UPDATE orders SET status='awaiting_payment', blupal_invoice_id=?, payment_url=?, updated_at=? WHERE order_code=?`)
+      .bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
+
+    return api({
+      ok: true,
+      order: { code: orderCode, token: publicToken, username, months, price_toman: Math.round(priceToman), status: 'awaiting_payment' },
+      payment_url: paymentLink,
+    }, 201);
+  }
+
+  const orderMatch = path.match(/^\/api\/orders\/([A-Za-z0-9-]{6,40})(?:\/(check))?$/);
+  if (orderMatch && request.method === 'GET') {
+    const code = orderMatch[1];
+    const token = sanitizeToken(url.searchParams.get('token'), 128);
+    if (!token) return api({ ok: false, error: 'unauthorized' }, 401);
+    const order = await getAuthorizedOrder(env.DB, code, token);
+    if (!order) return api({ ok: false, error: 'not_found' }, 404);
+    if (orderMatch[2] === 'check') await reconcileOrder(env, order, ctx);
+    const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+    return api({ ok: true, order: publicOrder(fresh || order) });
+  }
+
+  if (path === '/api/webhooks/blupal' && request.method === 'POST') {
+    const body = await readJson(request, 65536);
+    const invoiceId = sanitizeToken(body.invoice_id || body.invoiceId || body.invoice, 128);
+    if (!invoiceId) return api({ ok: false, error: 'invalid_invoice' }, 400);
+    const order = await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first();
+    if (!order) return api({ ok: false, error: 'not_found' }, 404);
+    await reconcileOrder(env, order, ctx);
+    return api({ ok: true });
+  }
+
+  if (path === '/api/admin/login' && request.method === 'POST') {
+    const body = await readJson(request);
+    const password = String(body.password || '');
+    const candidate = await sha256Hex(password);
+    if (!timingSafeEqual(candidate, env.ADMIN_PASSWORD_HASH || '')) return api({ ok: false, error: 'invalid_credentials' }, 401);
+    const token = await signAdminToken(env, { exp: Date.now() + 12 * 60 * 60 * 1000 });
+    return api({ ok: true, token, expires_in: 43200 });
+  }
+
+  if (path.startsWith('/api/admin/')) {
+    const auth = await requireAdmin(request, env);
+    if (!auth) return api({ ok: false, error: 'unauthorized' }, 401);
+
+    if (path === '/api/admin/summary' && request.method === 'GET') {
+      const [orders, providers, settings, plans] = await Promise.all([
+        env.DB.prepare(`SELECT status, COUNT(*) count, COALESCE(SUM(price_toman),0) total FROM orders GROUP BY status`).all(),
+        providerHealth(env),
+        adminSettings(env.DB),
+        env.DB.prepare(`SELECT * FROM plans ORDER BY months`).all(),
+      ]);
+      return api({ ok: true, orders: orders.results || [], providers, settings, plans: plans.results || [] });
+    }
+
+    if (path === '/api/admin/orders' && request.method === 'GET') {
+      const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, blupal_invoice_id, tg_transaction_id, provider_error, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
+      return api({ ok: true, orders: result.results || [] });
+    }
+
+    if (path === '/api/admin/providers' && request.method === 'POST') {
+      const body = await readJson(request);
+      if (Object.prototype.hasOwnProperty.call(body, 'tgtools_api_key')) {
+        const value = String(body.tgtools_api_key || '').trim();
+        if (value) await setProviderSecret(env, 'tgtools_api_key', value);
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'blupal_api_key')) {
+        const value = String(body.blupal_api_key || '').trim();
+        if (value) await setProviderSecret(env, 'blupal_api_key', value);
+      }
+      return api({ ok: true, providers: await providerHealth(env) });
+    }
+
+    if (path === '/api/admin/settings' && request.method === 'PATCH') {
+      const body = await readJson(request);
+      if (body.profit_percent != null) await setSetting(env.DB, 'profit_percent', clampNumber(body.profit_percent, 0, 500).toString());
+      if (body.support != null) await setSetting(env.DB, 'support', String(body.support).slice(0, 120));
+      if (body.rounding != null) await setSetting(env.DB, 'rounding', String(Math.max(100, Math.min(100000, Math.round(Number(body.rounding) || 1000)))));
+      return api({ ok: true, settings: await adminSettings(env.DB) });
+    }
+
+    const planPatch = path.match(/^\/api\/admin\/plans\/(\d+)$/);
+    if (planPatch && request.method === 'PATCH') {
+      const body = await readJson(request);
+      const id = Number(planPatch[1]);
+      const plan = await env.DB.prepare(`SELECT * FROM plans WHERE id=?`).bind(id).first();
+      if (!plan) return api({ ok: false, error: 'not_found' }, 404);
+      const active = body.active == null ? Number(plan.active) : (body.active ? 1 : 0);
+      let manualPrice = plan.manual_price_toman;
+      if (Object.prototype.hasOwnProperty.call(body, 'manual_price_toman')) {
+        const n = Number(body.manual_price_toman || 0);
+        manualPrice = n > 0 ? Math.round(n) : null;
+      }
+      const price = manualPrice || plan.auto_price_toman || plan.price_toman || 0;
+      await env.DB.prepare(`UPDATE plans SET active=?, manual_price_toman=?, price_toman=?, updated_at=? WHERE id=?`)
+        .bind(active, manualPrice, price, new Date().toISOString(), id).run();
+      return api({ ok: true });
+    }
+
+    if (path === '/api/admin/sync' && request.method === 'POST') {
+      const result = await syncPricing(env);
+      return api({ ok: result.ok, result }, result.ok ? 200 : 502);
+    }
+
+    if (path === '/api/admin/reconcile' && request.method === 'POST') {
+      const result = await reconcileOpenOrders(env, ctx, 30);
+      return api({ ok: true, result });
+    }
+  }
+
+  return api({ ok: false, error: 'not_found' }, 404);
+}
+
+async function runMaintenance(env) {
+  await syncPricing(env).catch(error => console.error('price sync failed', error));
+  await reconcileOpenOrders(env, { waitUntil: p => p }, 40).catch(error => console.error('reconcile failed', error));
+}
+
+async function reconcileOpenOrders(env, ctx, limit = 30) {
+  const result = await env.DB.prepare(`SELECT * FROM orders WHERE status IN ('awaiting_payment','paid','processing','provider_pending') ORDER BY id ASC LIMIT ?`).bind(limit).all();
+  let touched = 0;
+  for (const order
