@@ -56,3 +56,14 @@ The Android project lives under `android/`. GitHub Actions produces `app-debug.a
 - Admin: `https://bluepremium.hazhanhasani4268-0f9.workers.dev/admin`
 - Health: `/health`
 - Cloudflare cron: every 5 minutes for price sync and order reconciliation.
+
+
+## Android stable signing
+
+Production APKs are built as signed `release` artifacts with a persistent signing identity.
+
+- Certificate SHA-256: `EB:E3:B4:F6:52:FF:A9:C9:73:1B:CE:07:D9:E5:3B:66:6A:EE:C5:A8:FC:ED:2C:6A:2F:BB:13:60:D5:15:5F:D2`
+- The private signing material is not committed to GitHub.
+- GitHub Actions obtains signing material from the Blue Premium Worker using GitHub OIDC scoped to this repository and the `main` branch.
+- CI verifies the final APK certificate fingerprint before uploading the artifact.
+- The original debug-signed test APK cannot be upgraded in place to the first stable-signed release; uninstall it once. Stable releases after that can update each other normally.
