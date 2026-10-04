@@ -1,0 +1,170 @@
+y(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext)));
+  return `${bytesToBase64(iv)}.${bytesToBase64(ciphertext)}`;
+}
+
+async function decryptSecret(base64Key, packed) {
+  const [ivB64, ctB64] = packed.split('.');
+  const keyRaw = base64ToBytes(base64Key || '');
+  const key = await crypto.subtle.importKey('raw', keyRaw, 'AES-GCM', false, ['decrypt']);
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBytes(ivB64) }, key, base64ToBytes(ctB64));
+  return dec.decode(plaintext);
+}
+
+async function requireAdmin(request, env) {
+  const header = request.headers.get('authorization') || '';
+  if (!header.startsWith('Bearer ')) return false;
+  return verifyAdminToken(env, header.slice(7));
+}
+
+async function signAdminToken(env, payload) {
+  const body = base64Url(enc.encode(JSON.stringify(payload)));
+  const key = await crypto.subtle.importKey('raw', enc.encode(env.SESSION_SECRET || ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(body)));
+  return `${body}.${base64Url(sig)}`;
+}
+
+async function verifyAdminToken(env, token) {
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [body, sig] = parts;
+  try {
+    const key = await crypto.subtle.importKey('raw', enc.encode(env.SESSION_SECRET || ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('HMAC', key, base64UrlToBytes(sig), enc.encode(body));
+    if (!ok) return false;
+    const payload = JSON.parse(dec.decode(base64UrlToBytes(body)));
+    return Number(payload.exp || 0) > Date.now();
+  } catch (_) { return false; }
+}
+
+async function publicSettings(db) {
+  const result = await db.prepare(`SELECT key,value FROM settings WHERE key IN ('support')`).all();
+  return Object.fromEntries((result.results || []).map(r => [r.key, r.value]));
+}
+
+async function adminSettings(db) {
+  const result = await db.prepare(`SELECT key,value FROM settings`).all();
+  return Object.fromEntries((result.results || []).map(r => [r.key, r.value]));
+}
+
+async function getSetting(db, key, fallback = '') {
+  const row = await db.prepare(`SELECT value FROM settings WHERE key=?`).bind(key).first();
+  return row?.value ?? fallback;
+}
+
+async function setSetting(db, key, value) {
+  await db.prepare(`INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`)
+    .bind(key, String(value), new Date().toISOString()).run();
+}
+
+async function readJson(request, maxBytes = 32768) {
+  const len = Number(request.headers.get('content-length') || 0);
+  if (len > maxBytes) throw new Error('payload_too_large');
+  const text = await request.text();
+  if (text.length > maxBytes) throw new Error('payload_too_large');
+  return text ? JSON.parse(text) : {};
+}
+
+function normalizeUsername(value) {
+  const s = String(value || '').trim().replace(/^@+/, '');
+  return /^[A-Za-z0-9_]{5,32}$/.test(s) ? s : '';
+}
+
+function sanitizeToken(value, max = 128) {
+  const s = String(value || '').trim();
+  return /^[A-Za-z0-9_.-]+$/.test(s) && s.length <= max ? s : '';
+}
+
+function safeProviderMessage(value) {
+  const s = String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
+  return s.slice(0, 300) || 'provider_error';
+}
+
+function firstNumber(obj, keys) {
+  for (const key of keys) {
+    for (const actual of Object.keys(obj || {})) {
+      if (actual.toLowerCase() === key.toLowerCase() && Number.isFinite(Number(obj[actual]))) return Number(obj[actual]);
+    }
+  }
+  return null;
+}
+
+function firstString(obj, keys) {
+  for (const key of keys) {
+    for (const actual of Object.keys(obj || {})) {
+      if (actual.toLowerCase() === key.toLowerCase() && obj[actual] != null) return String(obj[actual]);
+    }
+  }
+  return '';
+}
+
+function isHttpsUrl(value) {
+  try { return new URL(value).protocol === 'https:'; } catch (_) { return false; }
+}
+
+function randomToken(bytes = 24) {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  return base64Url(data);
+}
+
+async function sha256Hex(value) {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(String(value))));
+  return [...hash].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function timingSafeEqual(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a.length !== b.length || !a.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function base64Url(bytes) {
+  return bytesToBase64(bytes).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/g, '');
+}
+function base64UrlToBytes(s) {
+  s = s.replaceAll('-', '+').replaceAll('_', '/');
+  while (s.length % 4) s += '=';
+  return base64ToBytes(s);
+}
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+function base64ToBytes(s) {
+  if (!s) return new Uint8Array();
+  const binary = atob(s);
+  return Uint8Array.from(binary, c => c.charCodeAt(0));
+}
+function clampNumber(value, min, max) {
+  const n = Number(value);
+  return Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
+}
+function roundUp(value, step) { return Math.ceil(value / step) * step; }
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+}
+function api(data, status = 200) { return cors(json(data, status)); }
+function cors(response) {
+  const h = new Headers(response.headers);
+  h.set('access-control-allow-origin', '*');
+  h.set('access-control-allow-headers', 'content-type, authorization');
+  h.set('access-control-allow-methods', 'GET,POST,PATCH,OPTIONS');
+  h.set('x-content-type-options', 'nosniff');
+  h.set('referrer-policy', 'no-referrer');
+  return new Response(response.body, { status: response.status, headers: h });
+}
+function html(value) {
+  return new Response(value, { headers: {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-cache',
+    'content-security-policy': "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    'x-frame-options': 'DENY',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+  } });
+}
+
+functio
