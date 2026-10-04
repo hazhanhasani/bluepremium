@@ -50,7 +50,29 @@ async function route(request, env, ctx) {
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
   }
-  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.0.0' });
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.1.0' });
+
+  if (path === '/api/build/android-signing' && request.method === 'GET') {
+    const claims = await verifyGitHubOidc(request);
+    if (!claims) return json({ ok: false, error: 'unauthorized' }, 401);
+    const [keystoreBase64, storePassword, keyPassword, fingerprint] = await Promise.all([
+      getSetting(env.DB, 'internal_android_keystore_b64', ''),
+      getSetting(env.DB, 'internal_android_store_password', ''),
+      getSetting(env.DB, 'internal_android_key_password', ''),
+      getSetting(env.DB, 'internal_android_cert_sha256', ''),
+    ]);
+    if (!keystoreBase64 || !storePassword || !keyPassword || !fingerprint) {
+      return json({ ok: false, error: 'signing_material_unavailable' }, 503);
+    }
+    return json({
+      ok: true,
+      keystore_base64: keystoreBase64,
+      store_password: storePassword,
+      key_alias: 'bluepremium',
+      key_password: keyPassword,
+      cert_sha256: fingerprint,
+    });
+  }
 
   if (path === '/api/config' && request.method === 'GET') {
     const settings = await publicSettings(env.DB);
