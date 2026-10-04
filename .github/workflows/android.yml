@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -40,7 +40,7 @@ jobs:
 
           SIGNING_JSON="$(curl -fsSL             -H "Authorization: Bearer $OIDC_TOKEN"             "https://bluepremium.hazhanhasani4268-0f9.workers.dev/api/build/android-signing")"
 
-          python3 - <<'PY'
+          SIGNING_JSON="$SIGNING_JSON" python3 - <<'PY'
           import base64, json, os, pathlib
           data = json.loads(os.environ["SIGNING_JSON"])
           if not data.get("ok"):
