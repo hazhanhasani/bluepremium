@@ -1,0 +1,10 @@
+.tgtools.wallet_address?'<br>آدرس: '+d.providers.tgtools.wallet_address:'');document.getElementById('bp').innerHTML='وضعیت: <b class="'+(d.providers.blupal.configured?'ok':'bad')+'">'+(d.providers.blupal.configured?'تنظیم شده':'تنظیم نشده')+'</b>';document.getElementById('plans').innerHTML=(d.plans||[]).map(p=>'<div class="c"><b>'+p.months+' ماهه</b><div class="muted">Auto: '+(p.auto_price_toman||0)+' | Current: '+(p.price_toman||0)+'</div><input id="price-'+p.id+'" type="number" value="'+(p.manual_price_toman||'')+'" placeholder="قیمت دستی (خالی=خودکار)"><button onclick="savePlan('+p.id+')">ذخیره</button></div>').join('');loadOrders()}
+  async function loadOrders(){const d=await fetch('/api/admin/orders',{headers:H()}).then(r=>r.json());document.getElementById('orders').innerHTML=(d.orders||[]).map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+'m</td><td>'+o.price_toman+'</td><td>'+o.status+'</td><td>'+o.created_at+'</td></tr>').join('')}
+  async function saveProviders(which){const body={};if(which==='tg')body.tgtools_api_key=document.getElementById('tgkey').value;if(which==='bp')body.blupal_api_key=document.getElementById('bpkey').value;await fetch('/api/admin/providers',{method:'POST',headers:H(),body:JSON.stringify(body)});document.getElementById('tgkey').value='';document.getElementById('bpkey').value='';load()}
+  async function saveSettings(){await fetch('/api/admin/settings',{method:'PATCH',headers:H(),body:JSON.stringify({profit_percent:Number(document.getElementById('profit').value),rounding:Number(document.getElementById('rounding').value),support:document.getElementById('support').value})});load()}
+  async function savePlan(id){const v=document.getElementById('price-'+id).value;await fetch('/api/admin/plans/'+id,{method:'PATCH',headers:H(),body:JSON.stringify({manual_price_toman:v?Number(v):0})});load()}
+  async function sync(){await fetch('/api/admin/sync',{method:'POST',headers:H()});load()}
+  async function reconcile(){await fetch('/api/admin/reconcile',{method:'POST',headers:H()});load()}
+  if(token)load();
+  </script></body></html>`;
+}
