@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val signingStorePath = System.getenv("BLUEPREMIUM_KEYSTORE")
+val signingStorePassword = System.getenv("BLUEPREMIUM_STORE_PASSWORD")
+val signingKeyAlias = System.getenv("BLUEPREMIUM_KEY_ALIAS") ?: "bluepremium"
+val signingKeyPassword = System.getenv("BLUEPREMIUM_KEY_PASSWORD")
+
 android {
     namespace = "app.bluepremium"
     compileSdk = 35
@@ -11,14 +16,38 @@ android {
         applicationId = "app.bluepremium"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = System.getenv("BLUEPREMIUM_VERSION_CODE")?.toIntOrNull() ?: 2
+        versionName = System.getenv("BLUEPREMIUM_VERSION_NAME") ?: "1.1.0"
+    }
+
+    signingConfigs {
+        if (!signingStorePath.isNullOrBlank() && !signingStorePassword.isNullOrBlank() && !signingKeyPassword.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(signingStorePath)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
