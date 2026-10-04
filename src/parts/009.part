@@ -1,6 +1,6 @@
 
 function storeHtmlV2() {
-  return \`<!doctype html>
+  return `<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -8,7 +8,7 @@ function storeHtmlV2() {
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg">
-<title>\${BRAND_FA} | \${BRAND}</title>
+<title>${BRAND_FA} | ${BRAND}</title>
 <style>
 :root{color-scheme:dark;--bg:#050912;--panel:#0b1422;--panel2:#101c2d;--line:rgba(150,185,230,.13);--text:#f8fbff;--muted:#8da2bb;--blue:#2f86ff;--cyan:#58c8ff;--gold:#f5c86b;--green:#42d99a;--red:#ff6d7a;--shadow:0 24px 70px rgba(0,35,90,.35)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -40,7 +40,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.16;ba
 <body>
 <main class="shell">
 <header class="topbar">
-  <div class="brand"><div class="brandmark">B</div><div class="brandname">\${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
+  <div class="brand"><div class="brandmark">B</div><div class="brandname">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
   <div class="top-action"><a id="supportLink" class="iconbtn" href="#" style="display:none">💬 <span class="support-text">پشتیبانی</span></a><button class="iconbtn" onclick="scrollToOrder()">🧾 سفارش من</button></div>
 </header>
 
@@ -120,5 +120,5 @@ function errorText(e){return ({invalid_username:'یوزرنیم معتبر نی�
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 load();
 </script>
-</body></html>\`;
+</body></html>`;
 }
