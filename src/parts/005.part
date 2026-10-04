@@ -18,7 +18,7 @@ async function requireAdmin(request, env) {
 
 async function signAdminToken(env, payload) {
   const body = base64Url(enc.encode(JSON.stringify(payload)));
-  const key = await crypto.subtle.importKey('raw', enc.encode(env.SESSION_SECRET || ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey('raw', enc.encode(await ensureSessionSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(body)));
   return `${body}.${base64Url(sig)}`;
 }
@@ -28,7 +28,7 @@ async function verifyAdminToken(env, token) {
   if (parts.length !== 2) return false;
   const [body, sig] = parts;
   try {
-    const key = await crypto.subtle.importKey('raw', enc.encode(env.SESSION_SECRET || ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const key = await crypto.subtle.importKey('raw', enc.encode(await ensureSessionSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
     const ok = await crypto.subtle.verify('HMAC', key, base64UrlToBytes(sig), enc.encode(body));
     if (!ok) return false;
     const payload = JSON.parse(dec.decode(base64UrlToBytes(body)));
@@ -42,7 +42,7 @@ async function publicSettings(db) {
 }
 
 async function adminSettings(db) {
-  const result = await db.prepare(`SELECT key,value FROM settings`).all();
+  const result = await db.prepare(`SELECT key,value FROM settings WHERE key NOT LIKE 'internal_%' AND key != 'admin_password_hash'`).all();
   return Object.fromEntries((result.results || []).map(r => [r.key, r.value]));
 }
 
