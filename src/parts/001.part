@@ -28,8 +28,8 @@ async function route(request, env, ctx) {
 
   if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
 
-  if (path === '/' && request.method === 'GET') return html(storeHtml());
-  if (path === '/admin' && request.method === 'GET') return html(adminHtml());
+  if (path === '/' && request.method === 'GET') return html(storeHtmlV2());
+  if (path === '/admin' && request.method === 'GET') return html(adminHtmlV2());
   if (path === '/manifest.webmanifest' && request.method === 'GET') {
     return new Response(JSON.stringify({
       name: `${BRAND_FA} | ${BRAND}`,
