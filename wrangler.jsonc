@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bluepremium",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-10-04",
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blue-premium-db",
+      "database_id": "782d4f62-9204-455b-a340-7d65ba844e7b",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
