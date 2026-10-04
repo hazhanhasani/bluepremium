@@ -32,13 +32,9 @@ npx wrangler d1 migrations apply blue-premium-db --remote
 npm run deploy
 ```
 
-Required Worker secrets:
+The production deployment can run without repository secrets. The admin password hash is initialized directly in D1, while session and encryption keys are generated inside the Worker on first use and kept out of the public API. You can optionally migrate those internal keys to Cloudflare Secrets later.
 
-- `ADMIN_PASSWORD_HASH` — SHA-256 hex of the admin password.
-- `SESSION_SECRET` — random high-entropy session signing secret.
-- `CONFIG_ENCRYPTION_KEY` — Base64-encoded 32-byte AES key.
-
-TG Tools and BluePal API keys are entered from `/admin` after deployment and are stored encrypted in D1.
+TG Tools and BluePal API keys are entered from `/admin` after deployment and are stored encrypted in D1. The admin password can also be rotated from the dashboard.
 
 ## API flow
 
@@ -52,3 +48,11 @@ TG Tools and BluePal API keys are entered from `/admin` after deployment and are
 ## Android
 
 The Android project lives under `android/`. GitHub Actions produces `app-debug.apk` as the `bluepremium-apk` artifact. This debug-signed APK is directly installable for testing; production Play/Bazaar signing should use a persistent private release keystore stored outside the repository.
+
+
+## Live deployment
+
+- Store: `https://bluepremium.hazhanhasani4268-0f9.workers.dev/`
+- Admin: `https://bluepremium.hazhanhasani4268-0f9.workers.dev/admin`
+- Health: `/health`
+- Cloudflare cron: every 5 minutes for price sync and order reconciliation.
