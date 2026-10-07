@@ -53,6 +53,7 @@ INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES
   ('profit_percent','15',datetime('now')),
   ('rounding','1000',datetime('now')),
   ('support','@bluepanelsapp',datetime('now')),
+  ('tgtools_fulfillment_mode','auto',datetime('now')),
   ('last_ton_toman','0',datetime('now')),
   ('last_price_sync','',datetime('now'));
 
