@@ -83,10 +83,11 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = false
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = true
-            setSupportZoom(false)\n            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+            setSupportZoom(false)
+            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
             val appVersion = runCatching {
-                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.1"
-            }.getOrDefault("1.1")
+                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.3"
+            }.getOrDefault("1.3")
             userAgentString = userAgentString + " BluePremiumAndroid/" + appVersion
         }
 
@@ -123,7 +124,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.clearCache(true)\n        webView.loadUrl(APP_URL)
+        webView.clearCache(true)
+        webView.loadUrl(APP_URL)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
