@@ -106,6 +106,7 @@ function customerStatusMessage(status) {
     creating_payment: 'در حال ساخت لینک پرداخت',
     awaiting_payment: 'در انتظار پرداخت',
     paid: 'پرداخت تایید شد',
+    awaiting_approval: 'پرداخت تایید شد؛ منتظر تایید مدیریت',
     processing: 'در حال فعال‌سازی پرمیوم',
     provider_pending: 'در حال پردازش توسط سرویس فعال‌سازی',
     delivered: 'پرمیوم با موفقیت فعال شد',
