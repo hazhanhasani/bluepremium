@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loading: View
 
     companion object {
-        private const val APP_URL = "https://bluepremium.hazhanhasani4268-0f9.workers.dev/"
+        private const val APP_URL = "https://bluepremium.hazhanhasani4268-0f9.workers.dev/?ui=4&app=1.3.0"
         private const val APP_HOST = "bluepremium.hazhanhasani4268-0f9.workers.dev"
         private const val BG = "#050912"
     }
@@ -83,7 +83,7 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = false
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = true
-            setSupportZoom(false)
+            setSupportZoom(false)\n            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
             val appVersion = runCatching {
                 packageManager.getPackageInfo(packageName, 0).versionName ?: "1.1"
             }.getOrDefault("1.1")
@@ -123,7 +123,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl(APP_URL)
+        webView.clearCache(true)\n        webView.loadUrl(APP_URL)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
