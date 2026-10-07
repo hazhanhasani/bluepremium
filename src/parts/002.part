@@ -24,14 +24,58 @@
     return api({ ok: true, order: publicOrder(fresh || order) });
   }
 
+  if (path === '/payment/blupal/callback' && (request.method === 'GET' || request.method === 'POST')) {
+    const body = await readLoosePayload(request, 65536);
+    const invoiceId = sanitizeToken(
+      url.searchParams.get('invoice_id') ||
+      url.searchParams.get('invoiceId') ||
+      url.searchParams.get('invoice') ||
+      url.searchParams.get('id') ||
+      callbackField(body, ['invoice_id','invoiceId','invoice','id']),
+      128
+    );
+    const orderCode = sanitizeToken(
+      url.searchParams.get('order_id') ||
+      url.searchParams.get('order') ||
+      callbackField(body, ['order_id','order']),
+      40
+    );
+
+    let order = invoiceId
+      ? await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first()
+      : null;
+    if (!order && orderCode) {
+      order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
+    }
+    if (!order) return blupalCallbackResponse(null, 'error', 404);
+
+    await reconcileOrder(env, order, ctx);
+    const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first() || order;
+    if (fresh.status === 'payment_mismatch' || fresh.status === 'payment_error' || fresh.status === 'failed') {
+      return blupalCallbackResponse(fresh, 'error', 409);
+    }
+    if (fresh.status === 'awaiting_payment' || fresh.status === 'creating_payment') {
+      return blupalCallbackResponse(fresh, 'pending', 200);
+    }
+    return blupalCallbackResponse(fresh, 'success', 200);
+  }
+
   if (path === '/api/webhooks/blupal' && request.method === 'POST') {
     const body = await readJson(request, 65536);
-    const invoiceId = sanitizeToken(body.invoice_id || body.invoiceId || body.invoice, 128);
+    const event = String(body.event || '').trim();
+    const remoteStatus = String(body.status || '').trim().toUpperCase();
+    if (event && event !== 'payment.completed') return api({ ok: true, ignored: 'event' });
+    if (remoteStatus && remoteStatus !== 'PAID') return api({ ok: true, ignored: 'status' });
+
+    const invoiceId = sanitizeToken(body.invoice_id || body.invoiceId || body.invoice || body.id, 128);
     if (!invoiceId) return api({ ok: false, error: 'invalid_invoice' }, 400);
     const order = await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first();
     if (!order) return api({ ok: false, error: 'not_found' }, 404);
+
+    // Webhook data is only a trigger. Status and amount are always re-fetched from BluePal.
     await reconcileOrder(env, order, ctx);
-    return api({ ok: true });
+    const fresh = await env.DB.prepare(`SELECT status FROM orders WHERE id=?`).bind(order.id).first();
+    return api({ ok: true, status: fresh?.status || order.status });
   }
 
   if (path === '/api/admin/login' && request.method === 'POST') {
