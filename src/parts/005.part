@@ -159,7 +159,9 @@ function cors(response) {
 function html(value) {
   return new Response(value, { headers: {
     'content-type': 'text/html; charset=utf-8',
-    'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',\n    'pragma': 'no-cache',\n    'expires': '0',
+    'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
+    'pragma': 'no-cache',
+    'expires': '0',
     'content-security-policy': "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     'x-frame-options': 'DENY',
     'x-content-type-options': 'nosniff',
