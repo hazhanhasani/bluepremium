@@ -42,10 +42,11 @@ async function route(request, env, ctx) {
       lang: 'fa',
       dir: 'rtl',
       icons: [
-        { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        { src: '/brandmark.webp?v=1', sizes: '512x512', type: 'image/webp', purpose: 'any maskable' },
       ],
     }), { headers: { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'public,max-age=3600' } });
   }
+  if (path === '/brandmark.webp' && request.method === 'GET') return brandmarkWebpResponse();
   if (path === '/icon.svg' && request.method === 'GET') return svgIcon();
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
