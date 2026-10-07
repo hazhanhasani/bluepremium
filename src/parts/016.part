@@ -1,0 +1,145 @@
+
+function bazaarSkuSettingKey(months) {
+  const n = Number(months);
+  return n === 3 ? 'bazaar_sku_3' : n === 6 ? 'bazaar_sku_6' : n === 12 ? 'bazaar_sku_12' : '';
+}
+
+async function bazaarSkuForMonths(db, months) {
+  const key = bazaarSkuSettingKey(months);
+  return key ? String(await getSetting(db, key, '')).trim() : '';
+}
+
+function cleanBase64(value) {
+  return String(value || '')
+    .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+    .replace(/-----END PUBLIC KEY-----/g, '')
+    .replace(/\s+/g, '');
+}
+
+async function verifyBazaarReceiptSignature(rsaPublicKey, originalJson, dataSignature) {
+  try {
+    const keyBytes = base64ToBytes(cleanBase64(rsaPublicKey));
+    const signatureBytes = base64ToBytes(cleanBase64(dataSignature));
+    if (!keyBytes.length || !signatureBytes.length || !originalJson) return false;
+    const key = await crypto.subtle.importKey(
+      'spki',
+      keyBytes,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-1' },
+      false,
+      ['verify']
+    );
+    return await crypto.subtle.verify(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      key,
+      signatureBytes,
+      enc.encode(String(originalJson))
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+async function confirmBazaarPurchase(env, order, receipt, ctx) {
+  if (!order) return { ok: false, error: 'order_not_found', status: 404 };
+
+  const enabled = String(await getSetting(env.DB, 'cafebazaar_enabled', '0')) === '1';
+  const provider = String(await getSetting(env.DB, 'payment_provider', 'cafebazaar'));
+  if (!enabled || provider !== 'cafebazaar') {
+    return { ok: false, error: 'cafebazaar_disabled', status: 409 };
+  }
+
+  const rsaKey = String(await getSetting(env.DB, 'bazaar_rsa_public_key', '')).trim();
+  const expectedProductId = await bazaarSkuForMonths(env.DB, order.months);
+  if (!rsaKey || !expectedProductId) {
+    return { ok: false, error: 'cafebazaar_not_configured', status: 503 };
+  }
+
+  const purchaseToken = sanitizeToken(receipt.purchase_token || receipt.purchaseToken, 512);
+  const orderId = sanitizeToken(receipt.order_id || receipt.orderId, 256);
+  const productId = sanitizeToken(receipt.product_id || receipt.productId, 160);
+  const payload = String(receipt.payload || '').trim();
+  const packageName = String(receipt.package_name || receipt.packageName || '').trim();
+  const originalJson = String(receipt.original_json || receipt.originalJson || '');
+  const dataSignature = String(receipt.data_signature || receipt.dataSignature || '');
+  const purchaseState = Number(receipt.purchase_state ?? receipt.purchaseState ?? -1);
+
+  if (!purchaseToken || !productId || !originalJson || !dataSignature) {
+    return { ok: false, error: 'invalid_bazaar_receipt', status: 400 };
+  }
+
+  if (order.bazaar_purchase_token && String(order.bazaar_purchase_token) === purchaseToken && order.status !== 'awaiting_bazaar_payment') {
+    return { ok: true, idempotent: true, order };
+  }
+
+  if (order.status !== 'awaiting_bazaar_payment') {
+    return { ok: false, error: 'order_not_waiting_bazaar_payment', status: 409 };
+  }
+
+  let signed;
+  try { signed = JSON.parse(originalJson); } catch (_) {
+    return { ok: false, error: 'invalid_bazaar_receipt_json', status: 400 };
+  }
+
+  const signedProductId = String(signed.productId || '');
+  const signedToken = String(signed.purchaseToken || '');
+  const signedPayload = String(signed.developerPayload || '');
+  const signedPackage = String(signed.packageName || '');
+  const signedState = Number(signed.purchaseState ?? -1);
+
+  if (
+    productId !== expectedProductId ||
+    signedProductId !== expectedProductId ||
+    purchaseToken !== signedToken ||
+    payload !== order.order_code ||
+    signedPayload !== order.order_code ||
+    packageName !== 'app.bluepremium' ||
+    signedPackage !== 'app.bluepremium' ||
+    purchaseState !== 0 ||
+    signedState !== 0
+  ) {
+    return { ok: false, error: 'bazaar_receipt_mismatch', status: 409 };
+  }
+
+  const signatureOk = await verifyBazaarReceiptSignature(rsaKey, originalJson, dataSignature);
+  if (!signatureOk) {
+    return { ok: false, error: 'invalid_bazaar_signature', status: 401 };
+  }
+
+  const duplicate = await env.DB.prepare(
+    `SELECT order_code FROM orders WHERE bazaar_purchase_token=? AND id<>? LIMIT 1`
+  ).bind(purchaseToken, order.id).first();
+  if (duplicate) {
+    return { ok: false, error: 'bazaar_purchase_already_used', status: 409 };
+  }
+
+  const fulfillmentMode = await getSetting(env.DB, 'tgtools_fulfillment_mode', 'auto');
+  const paidStatus = fulfillmentMode === 'manual' ? 'awaiting_approval' : 'paid';
+  const now = new Date().toISOString();
+
+  const update = await env.DB.prepare(`
+    UPDATE orders
+    SET status=?, payment_provider='cafebazaar', bazaar_purchase_token=?, bazaar_order_id=?,
+        bazaar_product_id=?, paid_at=?, provider_error=NULL, updated_at=?
+    WHERE id=? AND status='awaiting_bazaar_payment'
+  `).bind(
+    paidStatus,
+    purchaseToken,
+    orderId || String(signed.orderId || ''),
+    expectedProductId,
+    now,
+    now,
+    order.id
+  ).run();
+
+  if (!update.meta?.changes) {
+    return { ok: false, error: 'purchase_claim_failed', status: 409 };
+  }
+
+  let fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+  if (fresh?.status === 'paid') {
+    await reconcileOrder(env, fresh, ctx);
+    fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+  }
+
+  return { ok: true, order: fresh };
+}
