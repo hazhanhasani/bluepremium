@@ -32,7 +32,7 @@
     const code = sanitizeToken(path.slice('/api/orders/'.length, -'/bazaar/consumed'.length), 40);
     const body = await readJson(request);
     const token = sanitizeToken(body.token, 128);
-    const purchaseToken = sanitizeToken(body.purchase_token || body.purchaseToken, 512);
+    const purchaseToken = normalizeBazaarReceiptToken(body.purchase_token || body.purchaseToken);
     if (!code || !token || !purchaseToken) return api({ ok: false, error: 'invalid_request' }, 400);
     const order = await getAuthorizedOrder(env.DB, code, token);
     if (!order || String(order.bazaar_purchase_token || '') !== purchaseToken) return api({ ok: false, error: 'not_found' }, 404);
