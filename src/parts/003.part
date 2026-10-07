@@ -76,7 +76,7 @@ async function deliverPremium(env, order) {
     return;
   }
 
-  const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+  const lookup = await tgRequest(key, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`);
   if (!lookup.ok || lookup.data?.found === false || lookup.data?.premiumEligible === false) {
     await markOrderError(env.DB, order.id, 'telegram_account_not_eligible');
     return;
@@ -86,6 +86,7 @@ async function deliverPremium(env, order) {
     recipientUsername: username,
     months,
     paymentMethod: 'ton',
+    payFromBalance: true,
     trackingCode: order.order_code,
   });
   if (!purchase.ok) {
@@ -118,7 +119,10 @@ async function deliverPremium(env, order) {
 }
 
 async function syncPricing(env) {
-  const prices = await tgRequest(null, 'GET', '/api/purchase/prices', null, false);
+  const tgKey = await getProviderSecret(env, 'tgtools_api_key');
+  const prices = tgKey
+    ? await tgRequest(tgKey, 'GET', '/api/purchase/prices')
+    : await tgRequest(null, 'GET', '/api/purchase/prices', null, false);
   if (!prices.ok) return { ok: false, error: 'tgtools_prices_failed', message: prices.message };
   const pd = prices.data || {};
 
