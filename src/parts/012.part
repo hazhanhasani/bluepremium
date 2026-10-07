@@ -1,0 +1,178 @@
+
+function storeHtmlV3() {
+  return `<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#07101d">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<title>${BRAND_FA} | ${BRAND}</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#050912;--surface:#0b1422;--surface2:#0f1b2c;--surface3:#122238;
+  --line:rgba(154,190,235,.12);--line2:rgba(87,161,255,.28);
+  --text:#f7fbff;--muted:#879bb2;--blue:#2f86ff;--cyan:#56c6ff;
+  --gold:#f1c96a;--green:#45d99d;--danger:#ff7582;
+  --shadow:0 24px 60px rgba(0,24,70,.34)
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;font-family:Tahoma,"Segoe UI",system-ui,sans-serif;color:var(--text);background:
+radial-gradient(900px 440px at 95% -10%,rgba(45,132,255,.27),transparent 62%),
+radial-gradient(600px 500px at -10% 36%,rgba(42,177,255,.09),transparent 68%),
+linear-gradient(180deg,#08111e 0%,#050912 55%,#050912 100%);overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:
+linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:30px 30px;
+mask-image:linear-gradient(#000,transparent 80%)}
+.app{width:min(1040px,100%);margin:auto;padding:16px 18px 122px;position:relative}
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:max(2px,env(safe-area-inset-top))}
+.brand{display:flex;align-items:center;gap:10px}.mark{width:43px;height:43px;border-radius:15px;display:grid;place-items:center;
+background:linear-gradient(145deg,#3995ff,#0a4ac7);box-shadow:0 12px 28px rgba(20,103,238,.32),inset 0 1px rgba(255,255,255,.3);font-weight:1000;font-size:22px;position:relative;overflow:hidden}
+.mark:after{content:"";position:absolute;width:54px;height:9px;background:linear-gradient(90deg,transparent,rgba(247,210,117,.82),transparent);transform:rotate(-35deg);top:8px;left:-20px}
+.brand-title{font-size:15px;font-weight:900;letter-spacing:-.3px}.brand-title small{display:block;color:#7188a3;font-size:8px;letter-spacing:1.5px;direction:ltr;text-align:right;margin-top:3px}
+.head-actions{display:flex;gap:7px}.headbtn{height:41px;min-width:41px;padding:0 11px;border-radius:14px;border:1px solid var(--line);
+background:rgba(10,20,34,.7);backdrop-filter:blur(14px);color:#cfe0f5;font:700 10px Tahoma;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;cursor:pointer}
+.hero{display:grid;grid-template-columns:1.12fr .88fr;align-items:center;gap:24px;padding:42px 0 22px}
+.hero-copy{position:relative}.live{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(69,217,157,.16);background:rgba(69,217,157,.06);border-radius:999px;color:#a9d7c7;font-size:9px;font-weight:800}
+.live i{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 0 5px rgba(69,217,157,.09)}
+.hero h1{margin:15px 0 10px;font-size:clamp(34px,6vw,59px);line-height:1.18;letter-spacing:-2.1px}
+.hero h1 em{font-style:normal;background:linear-gradient(95deg,#f8fbff,#6dccff 58%,#6a8cff);-webkit-background-clip:text;color:transparent}
+.hero p{margin:0;max-width:620px;color:#91a5bc;font-size:12px;line-height:2.15}
+.trust{display:flex;flex-wrap:wrap;gap:7px;margin-top:17px}.trust span{padding:7px 9px;border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:11px;color:#95a9c0;font-size:9px}
+.premium-art{min-height:255px;display:grid;place-items:center;position:relative;perspective:800px}
+.premium-card{width:260px;height:180px;border-radius:28px;background:
+linear-gradient(135deg,rgba(77,160,255,.96),rgba(20,80,190,.96) 50%,rgba(8,41,115,.98));box-shadow:0 42px 80px rgba(8,63,160,.44),inset 0 1px rgba(255,255,255,.42);
+transform:rotateY(-12deg) rotateX(7deg) rotateZ(3deg);position:relative;overflow:hidden;animation:cardFloat 5.5s ease-in-out infinite}
+.premium-card:before{content:"";position:absolute;inset:-70px;background:conic-gradient(from 80deg,transparent,rgba(255,255,255,.2),transparent 22%);animation:shine 5s linear infinite}
+.premium-card:after{content:"";position:absolute;inset:auto -30px -60px auto;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(85,202,255,.44),transparent 66%)}
+.pc-logo{position:absolute;top:22px;right:22px;width:45px;height:45px;border-radius:15px;background:rgba(4,35,91,.35);border:1px solid rgba(255,255,255,.15);display:grid;place-items:center;font-size:23px}
+.pc-title{position:absolute;right:22px;bottom:24px}.pc-title b{font-size:21px;display:block;letter-spacing:-.8px}.pc-title small{font-size:9px;color:#d8e9ff;letter-spacing:1.2px}
+.pc-crown{position:absolute;left:25px;top:25px;color:var(--gold);font-size:34px;filter:drop-shadow(0 8px 12px rgba(86,57,0,.25))}
+.float-tag{position:absolute;padding:9px 11px;border-radius:14px;background:rgba(6,14,25,.79);border:1px solid var(--line);backdrop-filter:blur(14px);box-shadow:0 14px 35px rgba(0,0,0,.24);font-size:9px;color:#aebed2}
+.ft1{right:4px;bottom:12px}.ft2{left:5px;top:28px}.float-tag b{color:white}
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:22px 0 11px}.section-head h2{margin:0;font-size:16px}.section-head p{margin:4px 0 0;color:var(--muted);font-size:9px}.section-head .mini{color:#6f87a2;font-size:8px}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}.plan{position:relative;min-height:182px;border-radius:24px;padding:17px;border:1px solid var(--line);
+background:linear-gradient(155deg,rgba(17,30,49,.94),rgba(7,14,25,.97));overflow:hidden;cursor:pointer;transition:.22s transform,.22s border-color,.22s box-shadow}
+.plan:before{content:"";position:absolute;inset:auto -40px -60px auto;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(49,138,255,.18),transparent 68%)}
+.plan:hover{transform:translateY(-3px)}.plan.active{border-color:rgba(69,150,255,.66);box-shadow:0 17px 45px rgba(18,92,208,.18),inset 0 0 0 1px rgba(72,158,255,.12)}
+.pick{position:absolute;top:15px;left:15px;width:21px;height:21px;border-radius:50%;display:grid;place-items:center;border:1px solid #3a526f;color:transparent;font-size:10px}
+.plan.active .pick{background:var(--blue);border-color:var(--blue);color:white}.badge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:rgba(241,201,106,.1);border:1px solid rgba(241,201,106,.18);color:#f6d98d;font-size:8px;font-weight:800}
+.duration{font-size:27px;font-weight:900;margin-top:13px;letter-spacing:-1px}.duration small{font-size:10px;color:#8297af;font-weight:500}.ptype{color:#71869e;font-size:9px;margin-top:3px}
+.plan-price{font-size:20px;font-weight:900;margin-top:20px}.plan-price small{font-size:9px;color:#71869d;font-weight:500}.plan-note{font-size:8px;color:#68b9ff;margin-top:5px}
+.flow{margin-top:13px;display:grid;grid-template-columns:1.16fr .84fr;gap:11px}.panel{border:1px solid var(--line);background:linear-gradient(155deg,rgba(12,23,39,.96),rgba(6,13,23,.97));border-radius:24px;padding:18px;box-shadow:var(--shadow)}
+.panel h3{margin:0;font-size:14px}.hint{font-size:9px;line-height:1.9;color:#8095ad;margin-top:4px}
+.stepbar{display:flex;align-items:center;gap:5px;margin:15px 0}.step{display:flex;align-items:center;gap:5px;color:#60758f;font-size:8px}.step i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:#0c1828}
+.step.on{color:#b7d9ff}.step.on i{background:#166fe9;border-color:#2d8cff;color:white}.stepbar .bar{height:1px;flex:1;background:var(--line)}
+.field{margin-top:10px}.field label{display:block;margin:0 3px 6px;color:#98abc1;font-size:9px}.input-shell{height:53px;border-radius:17px;border:1px solid #203652;background:#07101c;display:flex;align-items:center;padding:0 13px;transition:.2s}
+.input-shell:focus-within{border-color:#3b91ff;box-shadow:0 0 0 4px rgba(59,145,255,.08)}.at{color:#6f8dad;font-weight:900;direction:ltr}.input{height:100%;flex:1;border:0;background:transparent;color:white;outline:0;direction:ltr;text-align:left;font:700 14px "Segoe UI",Tahoma;padding:0 7px}
+.user-card{display:none;align-items:center;gap:10px;margin-top:10px;padding:11px;border-radius:16px;border:1px solid rgba(61,152,255,.16);background:rgba(52,139,255,.07)}
+.user-card.show{display:flex}.avatar{width:41px;height:41px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#3595ff,#174cb2);font-weight:900}.user-info b{font-size:10px}.user-info small{display:block;margin-top:4px;color:#7f96af;font-size:8px;direction:ltr;text-align:right}.check{margin-right:auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(69,217,157,.1);color:var(--green);font-weight:900}
+.actions{display:grid;grid-template-columns:.85fr 1.15fr;gap:8px;margin-top:10px}.btn{height:51px;border:0;border-radius:16px;padding:0 15px;font:800 10px Tahoma;cursor:pointer;transition:.16s;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.btn:active{transform:scale(.985)}.btn.primary{background:linear-gradient(100deg,#1169f7,#28a7ff);color:white;box-shadow:0 14px 28px rgba(28,112,255,.24)}.btn.secondary{background:#0e1b2d;color:#c6d7ea;border:1px solid var(--line)}.btn:disabled{opacity:.44;box-shadow:none}
+.summary{display:flex;flex-direction:column;justify-content:space-between}.sumtop{display:flex;justify-content:space-between;align-items:center}.sumicon{width:43px;height:43px;border-radius:14px;display:grid;place-items:center;background:rgba(241,201,106,.09);border:1px solid rgba(241,201,106,.13);color:var(--gold);font-size:22px}
+.rows{border-top:1px solid var(--line);margin-top:14px}.row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line);font-size:9px;color:#758ba4}.row b{font-size:10px;color:#eaf3ff;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.secure{margin-top:12px;padding:10px;border-radius:14px;border:1px solid rgba(69,217,157,.12);background:rgba(69,217,157,.055);font-size:8px;line-height:1.8;color:#9cbeb2}
+.order{display:none;margin-top:11px;padding-top:12px;border-top:1px solid var(--line)}.order.show{display:block}.state{display:flex;gap:9px;align-items:center}.state-icon{width:39px;height:39px;border-radius:13px;display:grid;place-items:center;background:rgba(47,134,255,.1);color:#8bc8ff;font-weight:900}.state b{font-size:10px}.state small{display:block;margin-top:4px;color:#7389a2;font-size:8px;direction:ltr;text-align:right}.progress{height:5px;border-radius:999px;background:#122037;overflow:hidden;margin:12px 0}.progress i{display:block;height:100%;background:linear-gradient(90deg,#2f86ff,#55c7ff);border-radius:999px;transition:.35s;width:20%}.ordergrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.meta{padding:9px;border-radius:12px;background:#081321;border:1px solid var(--line)}.meta small{display:block;font-size:7px;color:#637b96}.meta b{display:block;margin-top:4px;font-size:9px;direction:ltr;text-align:right}
+.mobile-cta{display:none;position:fixed;z-index:20;right:11px;left:11px;bottom:max(10px,env(safe-area-inset-bottom));border:1px solid rgba(131,174,226,.17);background:rgba(7,15,26,.9);backdrop-filter:blur(22px);border-radius:21px;padding:8px;box-shadow:0 20px 55px rgba(0,0,0,.42)}
+.cta-info{padding:4px 7px;min-width:0}.cta-info small{display:block;color:#6f859f;font-size:7px}.cta-info b{display:block;font-size:10px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mobile-cta .btn{height:49px;min-width:145px}
+.toast{position:fixed;z-index:50;left:50%;bottom:88px;transform:translate(-50%,18px);opacity:0;pointer-events:none;transition:.2s;background:#e6f2ff;color:#07111f;padding:10px 13px;border-radius:13px;font:700 9px Tahoma;box-shadow:0 14px 34px rgba(0,0,0,.3);max-width:88%;text-align:center}.toast.show{opacity:1;transform:translate(-50%,0)}
+.skeleton{animation:sk 1.2s ease-in-out infinite;background:linear-gradient(90deg,#0b1626,#122239,#0b1626);background-size:220% 100%}
+@keyframes sk{to{background-position:-220% 0}}@keyframes cardFloat{0%,100%{transform:rotateY(-12deg) rotateX(7deg) rotateZ(3deg) translateY(0)}50%{transform:rotateY(-8deg) rotateX(4deg) rotateZ(1deg) translateY(-8px)}}@keyframes shine{to{transform:rotate(360deg)}}
+@media(max-width:820px){.app{padding:14px 14px 105px}.hero{grid-template-columns:1fr;padding:32px 0 19px}.premium-art{display:none}.hero h1{font-size:37px}.hero p{font-size:11px}.plans{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -14px;padding:2px 14px 8px}.plans::-webkit-scrollbar{display:none}.plan{min-width:78vw;scroll-snap-align:center}.flow{grid-template-columns:1fr}.summary{order:-1}.mobile-cta{display:flex;align-items:center;justify-content:space-between;gap:8px}.headbtn .label{display:none}}
+@media(max-width:430px){.hero h1{font-size:34px}.plan{min-width:84vw}.actions{grid-template-columns:1fr}.step span{display:none}.ordergrid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main class="app">
+<header class="header">
+  <div class="brand"><div class="mark">B</div><div class="brand-title">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
+  <div class="head-actions">
+    <a id="supportLink" class="headbtn" href="#" style="display:none"><span>?</span><span class="label">پشتیبانی</span></a>
+    <button class="headbtn" onclick="goOrder()"><span>◎</span><span class="label">سفارش من</span></button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-copy">
+    <span class="live"><i></i> فعال‌سازی خودکار آنلاین</span>
+    <h1>پرمیوم تلگرام،<br><em>سریع‌تر از همیشه.</em></h1>
+    <p>پلن را انتخاب کن، حساب تلگرام مقصد را تأیید کن و پرداخت را انجام بده. وضعیت سفارش از لحظه پرداخت تا فعال‌سازی، همین‌جا زنده نمایش داده می‌شود.</p>
+    <div class="trust"><span>پرداخت امن</span><span>قیمت به‌روز</span><span>فعال‌سازی خودکار</span><span>پیگیری لحظه‌ای</span></div>
+  </div>
+  <div class="premium-art">
+    <div class="premium-card"><div class="pc-logo">B</div><div class="pc-crown">♛</div><div class="pc-title"><b>Telegram Premium</b><small>BLUE PREMIUM</small></div></div>
+    <div class="float-tag ft1"><b>فعال‌سازی خودکار</b> بعد از پرداخت</div>
+    <div class="float-tag ft2"><b>امن</b> و بدون ذخیره API روی دستگاه</div>
+  </div>
+</section>
+
+<div class="section-head"><div><h2>پلن موردنظرت را انتخاب کن</h2><p>قیمت نهایی، بدون هزینه پنهان</p></div><span class="mini">۳ / ۶ / ۱۲ ماه</span></div>
+<section id="plans" class="plans">
+  <article class="plan skeleton"><div class="duration">•••</div><div class="ptype">در حال دریافت قیمت</div></article>
+  <article class="plan skeleton"><div class="duration">•••</div><div class="ptype">در حال دریافت قیمت</div></article>
+  <article class="plan skeleton"><div class="duration">•••</div><div class="ptype">در حال دریافت قیمت</div></article>
+</section>
+
+<section class="flow" id="checkout">
+  <article class="panel">
+    <h3>اطلاعات دریافت‌کننده</h3>
+    <div class="hint">یوزرنیم مقصد را وارد کن؛ قبل از پرداخت، صحت حساب بررسی می‌شود.</div>
+    <div class="stepbar"><div id="s1" class="step on"><i>1</i><span>پلن</span></div><div class="bar"></div><div id="s2" class="step"><i>2</i><span>حساب</span></div><div class="bar"></div><div id="s3" class="step"><i>3</i><span>پرداخت</span></div></div>
+    <div class="field"><label>یوزرنیم تلگرام</label><div class="input-shell"><span class="at">@</span><input id="username" class="input" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="telegram_username"></div></div>
+    <div id="userCard" class="user-card"><div id="avatar" class="avatar">T</div><div class="user-info"><b id="displayName">حساب تلگرام</b><small id="verifiedUser">@username</small></div><div class="check">✓</div></div>
+    <div class="actions"><button id="verify" class="btn secondary">بررسی حساب</button><button id="buy" class="btn primary" disabled>ساخت فاکتور</button></div>
+    <div id="order" class="order"></div>
+  </article>
+
+  <aside class="panel summary">
+    <div>
+      <div class="sumtop"><div><h3>خلاصه خرید</h3><div class="hint">قبل از پرداخت قابل تغییر است</div></div><div class="sumicon">♛</div></div>
+      <div class="rows">
+        <div class="row"><span>محصول</span><b>Telegram Premium</b></div>
+        <div class="row"><span>مدت</span><b id="sumMonths">—</b></div>
+        <div class="row"><span>مقصد</span><b id="sumUser">—</b></div>
+        <div class="row"><span>مبلغ نهایی</span><b id="sumPrice">—</b></div>
+      </div>
+    </div>
+    <div class="secure">✓ لینک پرداخت فقط پس از تأیید حساب ساخته می‌شود و کلیدهای سرویس روی گوشی ذخیره نمی‌شوند.</div>
+  </aside>
+</section>
+</main>
+
+<div class="mobile-cta">
+  <div class="cta-info"><small>پلن انتخاب‌شده</small><b id="ctaText">در حال دریافت قیمت…</b></div>
+  <button id="ctaBtn" class="btn primary" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth',block:'start'})">ادامه خرید</button>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+let plans=[],selected=null,current=null,verifiedUsername='',busy=false;
+const el=id=>document.getElementById(id);
+const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0))+' تومان';
+const escapeHtml=v=>String(v||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function toast(t){const x=el('toast');x.textContent=t;x.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>x.classList.remove('show'),2300)}
+function plan(){return plans.find(p=>Number(p.id)===Number(selected))}
+function step(n){[1,2,3].forEach(i=>el('s'+i).classList.toggle('on',i<=n))}
+function summary(){const p=plan();el('sumMonths').textContent=p?p.months+' ماه':'—';el('sumPrice').textContent=p?money(p.price_toman):'—';el('sumUser').textContent=verifiedUsername?'@'+verifiedUsername:'—';el('ctaText').textContent=p?(p.months+' ماهه · '+money(p.price_toman)):'فعلاً پلنی موجود نیست'}
+function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="duration">—</div><div class="ptype">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">تنظیمات قیمت باید توسط مدیر تکمیل شود.</div></article>';summary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="pick">✓</span><span class="badge">'+(Number(p.months)===6?'محبوب‌ترین':'Premium')+'</span><div class="duration">'+p.months+' <small>ماه</small></div><div class="ptype">Telegram Premium</div><div class="plan-price">'+money(p.price_toman)+'</div><div class="plan-note">فعال‌سازی خودکار پس از پرداخت</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();summary();step(verifiedUsername?2:1)});summary()}
+async function loadConfig(){try{const d=await fetch('/api/config').then(r=>r.json());const s=String(d.support||'').trim();if(s){const a=el('supportLink');a.href=s.startsWith('http')?s:'https://t.me/'+encodeURIComponent(s.replace(/^@/,''));a.style.display='inline-flex'}}catch(e){}}
+async function load(){loadConfig();try{const d=await fetch('/api/plans').then(r=>r.json());plans=d.plans||[];renderPlans()}catch(e){el('plans').innerHTML='<article class="plan"><div class="duration">!</div><div class="ptype">ارتباط با سرور برقرار نشد</div></article>'}try{const saved=localStorage.getItem('bp_order');if(saved){current=JSON.parse(saved);check()}}catch(e){}}
+el('username').addEventListener('input',()=>{verifiedUsername='';el('userCard').classList.remove('show');el('buy').disabled=true;summary();step(1)});
+el('verify').onclick=async()=>{if(busy)return;const u=el('username').value.trim().replace(/^@+/,'');if(!/^[A-Za-z0-9_]{5,32}$/.test(u)){toast('یوزرنیم معتبر وارد کن');return}busy=true;el('verify').disabled=true;el('verify').textContent='در حال بررسی…';try{const d=await fetch('/api/telegram/lookup?username='+encodeURIComponent(u)).then(r=>r.json());if(!d.ok||d.found===false){toast('این حساب تلگرام پیدا نشد');return}if(d.premium_eligible===false){toast('این حساب فعلاً امکان دریافت Premium ندارد');return}verifiedUsername=u;el('displayName').textContent=d.display_name||u;el('verifiedUser').textContent='@'+u;el('avatar').textContent=String(d.display_name||u).trim().slice(0,1).toUpperCase();el('userCard').classList.add('show');el('buy').disabled=false;summary();step(2);toast('حساب تأیید شد ✓')}catch(e){toast('بررسی حساب ناموفق بود؛ دوباره تلاش کن')}finally{busy=false;el('verify').disabled=false;el('verify').textContent='بررسی دوباره'}}
+el('buy').onclick=async()=>{const p=plan();if(!p){toast('اول یک پلن انتخاب کن');return}if(!verifiedUsername){toast('اول حساب تلگرام را بررسی کن');return}el('buy').disabled=true;el('buy').textContent='در حال ساخت فاکتور…';step(3);try{let did=localStorage.getItem('bp_device');if(!did){did=crypto.randomUUID();localStorage.setItem('bp_device',did)}const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan_id:selected,username:verifiedUsername,device_id:did})});const d=await r.json();if(!d.ok){toast(errorText(d.error));step(2);return}current={code:d.order.code,token:d.order.token};localStorage.setItem('bp_order',JSON.stringify(current));showOrder(d.order,d.payment_url);setTimeout(()=>location.href=d.payment_url,450)}catch(e){toast('ارتباط با سرور قطع شد');step(2)}finally{el('buy').textContent='ساخت فاکتور';el('buy').disabled=!verifiedUsername}}
+async function check(){if(!current)return;try{const d=await fetch('/api/orders/'+encodeURIComponent(current.code)+'/check?token='+encodeURIComponent(current.token)).then(r=>r.json());if(d.ok){showOrder(d.order,d.order.payment_url);if(!['delivered','failed','payment_mismatch'].includes(d.order.status))setTimeout(check,5000)}}catch(e){}}
+function progress(s){return ({creating_payment:15,awaiting_payment:30,paid:55,processing:70,provider_pending:84,delivered:100,payment_error:25,payment_mismatch:45,failed:80})[s]||20}
+function stateIcon(s){return s==='delivered'?'✓':(['failed','payment_error','payment_mismatch'].includes(s)?'!':'↻')}
+function showOrder(o,pay){const x=el('order');x.className='order show';const payBtn=pay?'<a class="btn primary" style="margin-top:9px" href="'+pay+'">ادامه پرداخت</a>':'';x.innerHTML='<div class="state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+escapeHtml(o.message)+'</b><small>'+escapeHtml(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="ordergrid"><div class="meta"><small>مقصد</small><b>@'+escapeHtml(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>وضعیت</small><b>'+escapeHtml(o.message)+'</b></div></div>'+payBtn}
+function goOrder(){if(current){el('checkout').scrollIntoView({behavior:'smooth',block:'start'});check()}else{el('checkout').scrollIntoView({behavior:'smooth'});toast('هنوز سفارشی روی این دستگاه ثبت نشده')}}
+function errorText(e){return ({invalid_username:'یوزرنیم معتبر نیست.',telegram_user_not_found:'حساب تلگرام پیدا نشد.',not_premium_eligible:'این حساب امکان دریافت پرمیوم ندارد.',payment_not_configured:'درگاه پرداخت هنوز فعال نشده است.',plan_unavailable:'این پلن فعلاً قابل خرید نیست.',payment_create_failed:'ساخت لینک پرداخت انجام نشد.'})[e]||'ثبت سفارش انجام نشد؛ دوباره تلاش کن.'}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+load();
+</script>
+</body>
+</html>`;
+}
