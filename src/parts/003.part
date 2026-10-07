@@ -12,6 +12,8 @@
 async function reconcileOrder(env, order, ctx) {
   let current = order;
   if (current.status === 'awaiting_payment') {
+    const blupalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '0')) === '1';
+    if (!blupalEnabled || String(current.payment_provider || 'blupal') !== 'blupal') return;
     const key = await getProviderSecret(env, 'blupal_api_key');
     if (!key || !current.blupal_invoice_id) return;
     const remote = await blupalRequest(key, 'GET', `/v1/invoices/${encodeURIComponent(current.blupal_invoice_id)}`);
