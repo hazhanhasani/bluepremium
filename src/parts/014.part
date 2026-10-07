@@ -2,14 +2,14 @@
 async function brandmarkWebpResponse() {
   try {
     const response = await fetch(
-      'https://raw.githubusercontent.com/hazhanhasani/bluepremium/main/android/app/src/main/res/drawable/bluepremium_logo.webp',
+      'https://raw.githubusercontent.com/hazhanhasani/bluepremium/main/android/app/src/main/res/drawable/bluepremium_brandmark.webp',
       { cf: { cacheTtl: 86400, cacheEverything: true } }
     );
     if (!response.ok) return svgIcon();
     return new Response(response.body, {
       headers: {
         'content-type': 'image/webp',
-        'cache-control': 'public, max-age=86400, immutable',
+        'cache-control': 'public, max-age=3600',
         'x-content-type-options': 'nosniff',
       },
     });
