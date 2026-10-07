@@ -156,6 +156,23 @@
       return api({ ok: true });
     }
 
+    if (path.startsWith('/api/admin/orders/') && path.endsWith('/approve') && request.method === 'POST') {
+      const code = sanitizeToken(path.slice('/api/admin/orders/'.length, -'/approve'.length), 40);
+      if (!code) return api({ ok: false, error: 'invalid_order' }, 400);
+      const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(code).first();
+      if (!order) return api({ ok: false, error: 'not_found' }, 404);
+      if (order.status !== 'awaiting_approval') {
+        return api({ ok: false, error: 'order_not_waiting_approval', status: order.status }, 409);
+      }
+      const claim = await env.DB.prepare(`UPDATE orders SET status='processing', provider_error=NULL, updated_at=? WHERE id=? AND status='awaiting_approval'`)
+        .bind(new Date().toISOString(), order.id).run();
+      if (!claim.meta?.changes) return api({ ok: false, error: 'already_claimed' }, 409);
+      const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+      ctx?.waitUntil?.(deliverPremium(env, fresh));
+      if (!ctx?.waitUntil) await deliverPremium(env, fresh);
+      return api({ ok: true, order_code: code });
+    }
+
     if (path === '/api/admin/sync' && request.method === 'POST') {
       const result = await syncPricing(env);
       return api({ ok: result.ok, result }, result.ok ? 200 : 502);
