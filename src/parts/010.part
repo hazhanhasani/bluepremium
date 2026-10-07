@@ -17,7 +17,7 @@ function adminHtmlV2() {
 <body>
 <section id="loginWrap" class="loginwrap">
   <div class="login">
-    <div class="logo"><img src="/brandmark.webp?v=1" alt=""></div><h2>مدیریت ${BRAND_FA}</h2><p>ورود امن به مرکز کنترل فروش پرمیوم</p>
+    <div class="logo"><img src="/icon.svg?v=5" alt=""></div><h2>مدیریت ${BRAND_FA}</h2><p>ورود امن به مرکز کنترل فروش پرمیوم</p>
     <div class="field"><label>رمز عبور مدیر</label><input id="pass" type="password" class="input" placeholder="••••••••••"></div>
     <button class="btn" style="width:100%;margin-top:10px" onclick="login()">ورود به پنل</button>
     <div id="loginmsg" class="loginmsg"></div>
@@ -26,7 +26,7 @@ function adminHtmlV2() {
 
 <div id="app" class="app" style="display:none">
 <aside class="side">
-  <div class="brand"><div class="logo"><img src="/brandmark.webp?v=1" alt=""></div><div><b>${BRAND_FA}</b><small>ADMIN CENTER</small></div></div>
+  <div class="brand"><div class="logo"><img src="/icon.svg?v=5" alt=""></div><div><b>${BRAND_FA}</b><small>ADMIN CENTER</small></div></div>
   <nav class="nav">
     <button class="on" data-tab="dashboard" onclick="tab('dashboard',this)" >${iconV4('home')}<span>داشبورد</span></button>
     <button data-tab="providers" onclick="tab('providers',this)" >${iconV4('plug')}<span>اتصال‌ها</span></button>
@@ -86,7 +86,16 @@ let token=sessionStorage.getItem('bp_admin')||'',summary=null;
 const H=()=>({'content-type':'application/json','authorization':'Bearer '+token});
 const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
 const titles={dashboard:['داشبورد','وضعیت لحظه‌ای فروش و اتصال سرویس‌ها'],providers:['اتصال‌ها','مدیریت TG Tools و BluePal'],plans:['پلن و قیمت','کنترل قیمت‌گذاری خودکار و دستی'],orders:['سفارش‌ها','پیگیری وضعیت فعال‌سازی‌ها'],settings:['تنظیمات','پیکربندی فروشگاه و امنیت']};
-async function login(){const r=await fetch('/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('pass').value})});const d=await r.json();if(!d.ok){document.getElementById('loginmsg').textContent='رمز عبور صحیح نیست.';return}token=d.token;sessionStorage.setItem('bp_admin',token);load()}
+async function login(){
+  const msg=document.getElementById('loginmsg');msg.textContent='در حال ورود...';
+  try{
+    const r=await fetch('/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:document.getElementById('pass').value}),cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok){msg.textContent=d.error==='invalid_credentials'?'رمز عبور صحیح نیست.':'ورود انجام نشد.';return}
+    token=d.token;sessionStorage.setItem('bp_admin',token);msg.textContent='';await load();
+  }catch(e){msg.textContent='ارتباط با سرور برقرار نشد.'}
+}
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 function tab(name,button){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('on',x.id===name));document.querySelectorAll('.nav button,.mobilebar button').forEach(x=>x.classList.toggle('on',x.dataset.tab===name||(button&&x===button)));document.getElementById('pageTitle').textContent=titles[name][0];document.getElementById('pageSub').textContent=titles[name][1];if(name==='orders')loadOrders()}
 async function load(){if(!token)return;const r=await fetch('/api/admin/summary',{headers:H()});if(r.status===401){sessionStorage.removeItem('bp_admin');token='';return}const d=await r.json();summary=d;document.getElementById('loginWrap').style.display='none';document.getElementById('app').style.display='grid';renderSummary();loadOrders()}
 function statusCount(name){const x=(summary.orders||[]).find(o=>o.status===name);return Number(x?.count||0)}
@@ -132,7 +141,7 @@ async function saveProviders(which){
     const tg=d.providers?.tgtools||{};
     if(tg.ok) alert('اتصال TG Tools با موفقیت تایید شد.');
     else if(Number(tg.http_status)===401||Number(tg.http_status)===403) alert('کلید TG Tools معتبر نیست یا غیرفعال شده است.');
-    else alert('کلید ذخیره شد اما تست اتصال ناموفق بود. کد HTTP: '+Number(tg.http_status||0)+(tg.error?'\n'+tg.error:''));
+    else alert('کلید ذخیره شد اما تست اتصال ناموفق بود. کد HTTP: '+Number(tg.http_status||0)+(tg.error?'\\n'+tg.error:''));
   }
 }
 async function saveSettings(passwordOnly=false){const body={};if(!passwordOnly){body.profit_percent=Number(document.getElementById('profit').value);body.rounding=Number(document.getElementById('rounding').value);body.support=document.getElementById('support').value}const np=document.getElementById('newpass').value;if(np)body.new_password=np;const r=await fetch('/api/admin/settings',{method:'PATCH',headers:H(),body:JSON.stringify(body)});const d=await r.json();if(!d.ok){alert(d.error==='weak_password'?'رمز باید حداقل ۱۰ کاراکتر باشد.':'ذخیره انجام نشد.');return}document.getElementById('newpass').value='';await load();alert(passwordOnly?'رمز مدیریت تغییر کرد.':'تنظیمات ذخیره شد.')}
