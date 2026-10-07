@@ -28,7 +28,7 @@ async function route(request, env, ctx) {
 
   if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
 
-  if (path === '/' && request.method === 'GET') return html(storeHtmlV2());
+  if (path === '/' && request.method === 'GET') return html(storeHtmlV3());
   if (path === '/admin' && request.method === 'GET') return html(adminHtmlV2());
   if (path === '/manifest.webmanifest' && request.method === 'GET') {
     return new Response(JSON.stringify({
@@ -50,7 +50,7 @@ async function route(request, env, ctx) {
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
   }
-  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.1.0' });
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.2.0' });
 
   if (path === '/api/build/android-signing' && request.method === 'GET') {
     const claims = await verifyGitHubOidc(request);
