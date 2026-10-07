@@ -61,7 +61,7 @@ h1{text-align:center;font-size:20px;margin:18px 0 7px}.desc{text-align:center;co
 .actions{display:grid;gap:8px;margin-top:18px}.btn{min-height:48px;border-radius:15px;display:flex;align-items:center;justify-content:center;text-decoration:none;font:800 10px Tahoma}.primary{background:linear-gradient(100deg,#176ff5,#2aa9ff);color:#fff}.secondary{border:1px solid var(--line);background:#0d1a2c;color:#cfe0f4}
 .note{text-align:center;color:#60758f;font-size:8px;margin-top:13px;line-height:1.8}
 </style></head><body><main class="wrap">
-<div class="brand"><img src="/brandmark.webp?v=1" alt=""><b>${BRAND_FA}</b></div>
+<div class="brand"><img src="/brandmark.webp?v=6" alt=""><b>${BRAND_FA}</b></div>
 <section class="card"><div class="icon">${icon}</div><h1>${safe(title)}</h1><p class="desc">${safe(detail)}</p>
 <div class="rows">
 ${code?'<div class="row"><span>کد سفارش</span><b>'+safe(code)+'</b></div>':''}
