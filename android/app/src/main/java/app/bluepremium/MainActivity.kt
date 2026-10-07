@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loading: View
 
     companion object {
-        private const val APP_URL = "https://bluepremium.hazhanhasani4268-0f9.workers.dev/?ui=6&app=1.4.0"
+        private const val APP_URL = "https://bluepremium.hazhanhasani4268-0f9.workers.dev/?ui=7&app=1.5.0"
         private const val APP_HOST = "bluepremium.hazhanhasani4268-0f9.workers.dev"
         private const val BG = "#050912"
     }
@@ -87,8 +87,8 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(false)
             cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
             val appVersion = runCatching {
-                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.4"
-            }.getOrDefault("1.4")
+                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.5"
+            }.getOrDefault("1.5")
             userAgentString = userAgentString + " BluePremiumAndroid/" + appVersion
         }
 
