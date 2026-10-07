@@ -46,7 +46,7 @@ function storeHtmlV4() {
 <meta name="theme-color" content="#07111f">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <link rel="manifest" href="/manifest.webmanifest?v=4">
-<link rel="icon" href="/icon.svg?v=4">
+<link rel="icon" type="image/webp" href="/brandmark.webp?v=1">
 <title>${BRAND_FA} | ${BRAND}</title>
 <style>
 :root{color-scheme:dark;--bg:#050a12;--surface:#0c1524;--surface2:#111e31;--surface3:#14243b;--line:rgba(154,190,235,.13);--text:#f7fbff;--muted:#879bb4;--blue:#338cff;--blue2:#59c8ff;--gold:#f2cb73;--green:#4bdda3;--danger:#ff7886;--shadow:0 24px 65px rgba(0,30,90,.35)}
@@ -60,14 +60,14 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 .ico{width:20px;height:20px;display:block;flex:0 0 auto}
 .shell{width:min(1020px,100%);margin:auto;padding:14px 16px 124px;position:relative}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:max(3px,env(safe-area-inset-top))}
-.brand{display:flex;align-items:center;gap:10px}.brand-logo{width:45px;height:45px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(145deg,#3a97ff,#0d4ac5);box-shadow:0 13px 30px rgba(22,106,245,.32),inset 0 1px rgba(255,255,255,.32);position:relative;overflow:hidden}.brand-logo b{font:900 22px Arial,sans-serif;z-index:2}.brand-logo:after{content:"";position:absolute;width:56px;height:10px;top:8px;left:-18px;transform:rotate(-35deg);background:linear-gradient(90deg,transparent,rgba(244,208,118,.88),transparent)}
+.brand{display:flex;align-items:center;gap:10px}.brand-logo{width:45px;height:45px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(145deg,#3a97ff,#0d4ac5);box-shadow:0 13px 30px rgba(22,106,245,.32),inset 0 1px rgba(255,255,255,.32);position:relative;overflow:hidden}.brand-logo{background:#fff;overflow:hidden}.brand-logo img{width:100%;height:100%;object-fit:cover;display:block}.brand-logo:after{display:none}
 .brand-name{font-size:15px;font-weight:900}.brand-name small{display:block;direction:ltr;text-align:right;margin-top:3px;color:#71869f;font-size:8px;letter-spacing:1.4px}
 .top-actions{display:flex;gap:7px}.icon-button{height:42px;min-width:42px;padding:0 11px;border-radius:14px;border:1px solid var(--line);background:rgba(10,20,34,.72);backdrop-filter:blur(16px);color:#c9def6;font:700 9px Tahoma;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;cursor:pointer}.icon-button .ico{width:18px;height:18px}
 .product{margin-top:26px;display:grid;grid-template-columns:1.08fr .92fr;gap:22px;align-items:center}
 .product-copy .online{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:rgba(75,221,163,.055);border:1px solid rgba(75,221,163,.14);font-size:8px;font-weight:800;color:#a6d5c3}.online-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(75,221,163,.08)}
 .product h1{margin:14px 0 9px;font-size:clamp(34px,6vw,58px);line-height:1.16;letter-spacing:-2px}.product h1 span{background:linear-gradient(100deg,#fff,#72d0ff 56%,#6c93ff);-webkit-background-clip:text;color:transparent}.product p{margin:0;max-width:610px;color:#8ea3ba;line-height:2.1;font-size:11px}
 .features{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px}.feature{display:inline-flex;align-items:center;gap:6px;padding:8px 9px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.025);color:#91a7bf;font-size:8px}.feature .ico{width:15px;height:15px;color:#78bfff}
-.visual{min-height:250px;display:grid;place-items:center;position:relative;perspective:900px}.premium-card{width:278px;height:182px;border-radius:29px;position:relative;overflow:hidden;background:linear-gradient(135deg,#459bff,#195ac4 54%,#082e7c);box-shadow:0 44px 80px rgba(6,60,158,.46),inset 0 1px rgba(255,255,255,.45);transform:rotateY(-12deg) rotateX(6deg) rotateZ(2deg);animation:floatCard 5.2s ease-in-out infinite}.premium-card:before{content:"";position:absolute;inset:-80px;background:conic-gradient(from 80deg,transparent,rgba(255,255,255,.17),transparent 22%);animation:rotateShine 6s linear infinite}.card-brand{position:absolute;right:22px;top:21px;width:46px;height:46px;border-radius:15px;background:rgba(5,38,100,.32);border:1px solid rgba(255,255,255,.15);display:grid;place-items:center;font:900 21px Arial}.card-crown{position:absolute;left:23px;top:22px;color:var(--gold)}.card-crown .ico{width:36px;height:36px;stroke-width:1.6}.card-copy{position:absolute;right:22px;bottom:23px}.card-copy b{font-size:20px;display:block;letter-spacing:-.8px}.card-copy small{display:block;color:#d9eaff;font-size:8px;margin-top:5px;letter-spacing:1.4px}
+.visual{min-height:250px;display:grid;place-items:center;position:relative;perspective:900px}.premium-card{width:278px;height:182px;border-radius:29px;position:relative;overflow:hidden;background:linear-gradient(135deg,#459bff,#195ac4 54%,#082e7c);box-shadow:0 44px 80px rgba(6,60,158,.46),inset 0 1px rgba(255,255,255,.45);transform:rotateY(-12deg) rotateX(6deg) rotateZ(2deg);animation:floatCard 5.2s ease-in-out infinite}.premium-card:before{content:"";position:absolute;inset:-80px;background:conic-gradient(from 80deg,transparent,rgba(255,255,255,.17),transparent 22%);animation:rotateShine 6s linear infinite}.card-brand{position:absolute;right:22px;top:21px;width:46px;height:46px;border-radius:15px;background:#fff;border:1px solid rgba(255,255,255,.2);overflow:hidden}.card-brand img{width:100%;height:100%;object-fit:cover;display:block}.card-crown{position:absolute;left:23px;top:22px;color:var(--gold)}.card-crown .ico{width:36px;height:36px;stroke-width:1.6}.card-copy{position:absolute;right:22px;bottom:23px}.card-copy b{font-size:20px;display:block;letter-spacing:-.8px}.card-copy small{display:block;color:#d9eaff;font-size:8px;margin-top:5px;letter-spacing:1.4px}
 .floating{position:absolute;border-radius:14px;padding:9px 11px;border:1px solid var(--line);background:rgba(7,15,27,.82);backdrop-filter:blur(15px);box-shadow:0 15px 34px rgba(0,0,0,.26);display:flex;align-items:center;gap:7px;color:#9fb1c8;font-size:8px}.floating .ico{width:15px;height:15px;color:#77bfff}.floating b{color:white}.f1{right:0;bottom:16px}.f2{left:2px;top:27px}
 .section-title{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:20px 0 10px}.section-title h2{margin:0;font-size:15px}.section-title p{margin:4px 0 0;color:var(--muted);font-size:8px}.section-title span{font-size:8px;color:#6e849d}
 .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.plan{position:relative;min-height:177px;padding:16px;border-radius:23px;border:1px solid var(--line);background:linear-gradient(155deg,rgba(18,31,51,.94),rgba(7,14,25,.98));overflow:hidden;cursor:pointer;transition:.2s transform,.2s border-color,.2s box-shadow}.plan:after{content:"";position:absolute;width:140px;height:140px;left:-46px;bottom:-68px;border-radius:50%;background:radial-gradient(circle,rgba(55,148,255,.18),transparent 67%)}.plan:hover{transform:translateY(-3px)}.plan.active{border-color:rgba(72,157,255,.66);box-shadow:0 16px 44px rgba(17,93,210,.19),inset 0 0 0 1px rgba(72,157,255,.1)}
@@ -91,7 +91,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <body>
 <main class="shell">
 <header class="topbar">
-  <div class="brand"><div class="brand-logo"><b>B</b></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
+  <div class="brand"><div class="brand-logo"><img src="/brandmark.webp?v=1" alt=""></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
   <div class="top-actions">
     <a id="supportLink" class="icon-button" href="#" style="display:none">${ICON.headset}<span class="label">پشتیبانی</span></a>
     <button class="icon-button" onclick="goOrder()">${ICON.receipt}<span class="label">سفارش من</span></button>
@@ -111,7 +111,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
   </div>
   <div class="visual">
     <div class="premium-card">
-      <div class="card-brand">B</div>
+      <div class="card-brand"><img src="/brandmark.webp?v=1" alt=""></div>
       <div class="card-crown">${ICON.crown}</div>
       <div class="card-copy"><b>Telegram Premium</b><small>BLUE PREMIUM</small></div>
     </div>
