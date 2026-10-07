@@ -2,7 +2,7 @@
 async function brandmarkWebpResponse() {
   try {
     const response = await fetch(
-      'https://raw.githubusercontent.com/hazhanhasani/bluepremium/main/android/app/src/main/res/drawable/bluepremium_brandmark.webp',
+      'https://raw.githubusercontent.com/hazhanhasani/bluepremium/main/android/app/src/main/res/drawable/bluepremium_brandmark.webp?v=final-v6',
       { cf: { cacheTtl: 86400, cacheEverything: true } }
     );
     if (!response.ok) return svgIcon();
