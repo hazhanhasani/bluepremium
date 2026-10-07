@@ -195,10 +195,23 @@ class MainActivity : AppCompatActivity() {
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.data?.scheme == "bluepremium" && intent.data?.host == "payment-return") {
+            if (::webView.isInitialized) {
+                webView.loadUrl(APP_URL)
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        if (::webView.isInitialized && webView.url?.startsWith(APP_URL) == true) {
-            webView.evaluateJavascript("if(typeof check==='function'){check()}", null)
+        if (::webView.isInitialized) {
+            val currentHost = runCatching { Uri.parse(webView.url ?: "").host }.getOrNull()
+            if (currentHost == APP_HOST) {
+                webView.evaluateJavascript("if(typeof check==='function'){check()}", null)
+            }
         }
     }
 }
