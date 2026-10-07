@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -141,15 +142,12 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor(BG))
         }
 
-        val logo = TextView(this).apply {
-            text = "B"
-            gravity = Gravity.CENTER
-            textSize = 30f
-            setTextColor(Color.WHITE)
-            setTypeface(typeface, Typeface.BOLD)
-            setBackgroundResource(R.drawable.ic_launcher)
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.bluepremium_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Blue Premium"
         }
-        wrap.addView(logo, LinearLayout.LayoutParams(dp(76), dp(76)))
+        wrap.addView(logo, LinearLayout.LayoutParams(dp(96), dp(96)))
 
         val title = TextView(this).apply {
             text = "بلوپرمیوم"
