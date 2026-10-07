@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BLUEPREMIUM_VERSION_CODE: ${{ github.run_number }}
-      BLUEPREMIUM_VERSION_NAME: "1.5.${{ github.run_number }}"
+      BLUEPREMIUM_VERSION_NAME: "1.6.${{ github.run_number }}"
 
     steps:
       - uses: actions/checkout@v5
