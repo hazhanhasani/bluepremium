@@ -50,7 +50,7 @@ function storeHtmlV4() {
 <meta name="theme-color" content="#07111f">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <link rel="manifest" href="/manifest.webmanifest?v=4">
-<link rel="icon" type="image/svg+xml" href="/icon.svg?v=5">
+<link rel="icon" type="image/svg+xml" href="/brandmark.webp?v=6">
 <title>${BRAND_FA} | ${BRAND}</title>
 <style>
 :root{color-scheme:dark;--bg:#050a12;--surface:#0c1524;--surface2:#111e31;--surface3:#14243b;--line:rgba(154,190,235,.13);--text:#f7fbff;--muted:#879bb4;--blue:#338cff;--blue2:#59c8ff;--gold:#f2cb73;--green:#4bdda3;--danger:#ff7886;--shadow:0 24px 65px rgba(0,30,90,.35)}
@@ -95,7 +95,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <body>
 <main class="shell">
 <header class="topbar">
-  <div class="brand"><div class="brand-logo"><img src="/icon.svg?v=5" alt=""></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
+  <div class="brand"><div class="brand-logo"><img src="/brandmark.webp?v=6" alt=""></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
   <div class="top-actions">
     <a id="supportLink" class="icon-button" href="#" style="display:none">${ICON.headset}<span class="label">پشتیبانی</span></a>
     <button class="icon-button" onclick="goOrder()">${ICON.receipt}<span class="label">سفارش من</span></button>
@@ -109,17 +109,17 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
     <p>پلن را انتخاب کن، حساب مقصد را بررسی کن و پرداخت را انجام بده. وضعیت فعال‌سازی از لحظه پرداخت تا تحویل، همین‌جا به‌صورت زنده نمایش داده می‌شود.</p>
     <div class="features">
       <span class="feature">${ICON.shield} پرداخت امن</span>
-      <span class="feature">${ICON.bolt} فعال‌سازی خودکار</span>
+      <span class="feature">${ICON.bolt} پردازش سریع</span>
       <span class="feature">${ICON.refresh} قیمت به‌روز</span>
     </div>
   </div>
   <div class="visual">
     <div class="premium-card">
-      <div class="card-brand"><img src="/icon.svg?v=5" alt=""></div>
+      <div class="card-brand"><img src="/brandmark.webp?v=6" alt=""></div>
       <div class="card-crown">${ICON.crown}</div>
       <div class="card-copy"><b>Telegram Premium</b><small>BLUE PREMIUM</small></div>
     </div>
-    <div class="floating f1">${ICON.bolt}<span><b>فعال‌سازی خودکار</b> پس از پرداخت</span></div>
+    <div class="floating f1">${ICON.bolt}<span><b>پردازش سریع</b> پس از پرداخت</span></div>
     <div class="floating f2">${ICON.lock}<span><b>پرداخت امن</b> و محافظت‌شده</span></div>
   </div>
 </section>
@@ -181,14 +181,14 @@ function toast(t){const x=el('toast');x.textContent=t;x.classList.add('show');cl
 function currentPlan(){return plans.find(p=>Number(p.id)===Number(selected))}
 function setStep(n){[1,2,3].forEach(i=>el('step'+i).classList.toggle('on',i<=n))}
 function updateSummary(){const p=currentPlan();el('sumMonths').textContent=p?p.months+' ماه':'---';el('sumPrice').textContent=p?money(p.price_toman):'---';el('sumUser').textContent=verifiedUsername?'@'+verifiedUsername:'---';el('ctaText').textContent=p?p.months+' ماهه · '+money(p.price_toman):'فعلاً پلنی موجود نیست'}
-function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">فعال‌سازی خودکار پس از پرداخت</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
+function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">پردازش سریع پس از پرداخت</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
 async function loadConfig(){try{const d=await fetch('/api/config?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());const s=String(d.support||'').trim();if(s){const a=el('supportLink');a.href=s.startsWith('http')?s:'https://t.me/'+encodeURIComponent(s.replace(/^@/,''));a.style.display='inline-flex'}}catch(e){}}
 async function load(){loadConfig();try{const d=await fetch('/api/plans?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());plans=d.plans||[];renderPlans()}catch(e){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">ارتباط با سرور برقرار نشد</div></article>'}try{const saved=localStorage.getItem('bp_order');if(saved){current=JSON.parse(saved);check()}}catch(e){}}
 el('username').addEventListener('input',()=>{verifiedUsername='';el('account').classList.remove('show');el('buy').disabled=true;updateSummary();setStep(1)});
 el('verify').onclick=async()=>{if(busy)return;const u=el('username').value.trim().replace(/^@+/,'');if(!/^[A-Za-z0-9_]{5,32}$/.test(u)){toast('یوزرنیم معتبر وارد کن');return}busy=true;el('verify').disabled=true;el('verify').querySelector('span').textContent='در حال بررسی';try{const d=await fetch('/api/telegram/lookup?username='+encodeURIComponent(u)+'&v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());if(!d.ok||d.found===false){toast('این حساب تلگرام پیدا نشد');return}if(d.premium_eligible===false){toast('این حساب فعلاً امکان دریافت Premium ندارد');return}verifiedUsername=u;el('displayName').textContent=d.display_name||u;el('verifiedUser').textContent='@'+u;el('avatar').textContent=String(d.display_name||u).trim().slice(0,1).toUpperCase();el('account').classList.add('show');el('buy').disabled=false;updateSummary();setStep(2);toast('حساب با موفقیت تأیید شد')}catch(e){toast('بررسی حساب ناموفق بود؛ دوباره تلاش کن')}finally{busy=false;el('verify').disabled=false;el('verify').querySelector('span').textContent='بررسی دوباره'}}
 el('buy').onclick=async()=>{const p=currentPlan();if(!p){toast('اول یک پلن انتخاب کن');return}if(!verifiedUsername){toast('اول حساب تلگرام را بررسی کن');return}el('buy').disabled=true;el('buy').querySelector('span').textContent='در حال ساخت فاکتور';setStep(3);try{let did=localStorage.getItem('bp_device');if(!did){did=crypto.randomUUID();localStorage.setItem('bp_device',did)}const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan_id:selected,username:verifiedUsername,device_id:did})});const d=await r.json();if(!d.ok){toast(errorText(d.error));setStep(2);return}current={code:d.order.code,token:d.order.token};localStorage.setItem('bp_order',JSON.stringify(current));showOrder(d.order,d.payment_url);setTimeout(()=>location.href=d.payment_url,450)}catch(e){toast('ارتباط با سرور قطع شد');setStep(2)}finally{el('buy').querySelector('span').textContent='ساخت فاکتور';el('buy').disabled=!verifiedUsername}}
 async function check(){if(!current)return;try{const d=await fetch('/api/orders/'+encodeURIComponent(current.code)+'/check?token='+encodeURIComponent(current.token)+'&v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());if(d.ok){showOrder(d.order,d.order.payment_url);if(!['delivered','failed','payment_mismatch'].includes(d.order.status))setTimeout(check,5000)}}catch(e){}}
-function progress(s){return ({creating_payment:15,awaiting_payment:30,paid:55,processing:70,provider_pending:84,delivered:100,payment_error:25,payment_mismatch:45,failed:80})[s]||20}
+function progress(s){return ({creating_payment:15,awaiting_payment:30,paid:55,awaiting_approval:62,processing:70,provider_pending:84,delivered:100,payment_error:25,payment_mismatch:45,failed:80})[s]||20}
 function stateIcon(s){if(s==='delivered')return ICONS.check;if(['failed','payment_error','payment_mismatch'].includes(s))return ICONS.alert;if(['processing','provider_pending','paid'].includes(s))return ICONS.refresh;return ICONS.clock}
 function showOrder(o,pay){const x=el('order');x.className='order show';const payBtn=pay?'<a class="btn primary" style="margin-top:9px" href="'+pay+'">'+ICONS.card+'<span>ادامه پرداخت</span></a>':'';x.innerHTML='<div class="order-state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+esc(o.message)+'</b><small>'+esc(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="order-grid"><div class="meta"><small>مقصد</small><b>@'+esc(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>وضعیت</small><b>'+esc(o.message)+'</b></div></div>'+payBtn}
 function goOrder(){el('checkout').scrollIntoView({behavior:'smooth',block:'start'});if(current)check();else toast('هنوز سفارشی روی این دستگاه ثبت نشده')}
