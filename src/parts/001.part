@@ -77,7 +77,21 @@ async function route(request, env, ctx) {
 
   if (path === '/api/config' && request.method === 'GET') {
     const settings = await publicSettings(env.DB);
-    return api({ ok: true, brand: BRAND, brand_fa: BRAND_FA, support: settings.support || '', currency: 'TOMAN' });
+    const paymentMethod = settings.payment_provider || 'cafebazaar';
+    const bazaarConfigured = settings.cafebazaar_enabled === '1' &&
+      !!settings.bazaar_rsa_public_key &&
+      !!settings.bazaar_sku_3 && !!settings.bazaar_sku_6 && !!settings.bazaar_sku_12;
+    return api({
+      ok: true,
+      brand: BRAND,
+      brand_fa: BRAND_FA,
+      support: settings.support || '',
+      currency: 'TOMAN',
+      payment_method: paymentMethod,
+      cafebazaar_enabled: settings.cafebazaar_enabled === '1',
+      cafebazaar_configured: bazaarConfigured,
+      blupal_enabled: settings.blupal_enabled === '1',
+    });
   }
 
   if (path === '/api/plans' && request.method === 'GET') {
@@ -132,8 +146,16 @@ async function route(request, env, ctx) {
     if (profile.found === false) return api({ ok: false, error: 'telegram_user_not_found' }, 422);
     if (profile.premiumEligible === false) return api({ ok: false, error: 'not_premium_eligible' }, 422);
 
-    const blupalKey = await getProviderSecret(env, 'blupal_api_key');
-    if (!blupalKey) return api({ ok: false, error: 'payment_not_configured' }, 503);
+    const paymentProvider = String(await getSetting(env.DB, 'payment_provider', 'cafebazaar'));
+    const bazaarEnabled = String(await getSetting(env.DB, 'cafebazaar_enabled', '0')) === '1';
+    const rsaPublicKey = String(await getSetting(env.DB, 'bazaar_rsa_public_key', '')).trim();
+    const bazaarProductId = await bazaarSkuForMonths(env.DB, months);
+    if (paymentProvider !== 'cafebazaar' || !bazaarEnabled) {
+      return api({ ok: false, error: 'payment_not_configured' }, 503);
+    }
+    if (!rsaPublicKey || !bazaarProductId) {
+      return api({ ok: false, error: 'cafebazaar_not_configured' }, 503);
+    }
 
     const orderCode = `BP-${crypto.randomUUID().replaceAll('-', '').slice(0, 14).toUpperCase()}`;
     const publicToken = randomToken(24);
@@ -141,13 +163,42 @@ async function route(request, env, ctx) {
     const now = new Date().toISOString();
 
     await env.DB.prepare(`
-      INSERT INTO orders(order_code, public_token_hash, plan_id, months, username, price_toman, status, device_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'creating_payment', ?, ?, ?)
-    `).bind(orderCode, publicTokenHash, planId, months, username, Math.round(priceToman), deviceId, now, now).run();
+      INSERT INTO orders(
+        order_code, public_token_hash, plan_id, months, username, price_toman, status,
+        device_id, payment_provider, bazaar_product_id, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 'awaiting_bazaar_payment', ?, 'cafebazaar', ?, ?, ?)
+    `).bind(
+      orderCode,
+      publicTokenHash,
+      planId,
+      months,
+      username,
+      Math.round(priceToman),
+      deviceId,
+      bazaarProductId,
+      now,
+      now
+    ).run();
 
-    const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', { amount: Math.round(priceToman) * 10 });
-    const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
-    const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
-    if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
-      await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error=?, updated_at=? WHERE order_code=?`)
-        .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(),
+    return api({
+      ok: true,
+      payment_method: 'cafebazaar',
+      order: {
+        code: orderCode,
+        token: publicToken,
+        username,
+        months,
+        price_toman: Math.round(priceToman),
+        status: 'awaiting_bazaar_payment',
+        payment_method: 'cafebazaar',
+        bazaar_product_id: bazaarProductId,
+      },
+      bazaar: {
+        product_id: bazaarProductId,
+        rsa_public_key: rsaPublicKey,
+      },
+      payment_url: null,
+    }, 201);
+  }
+
