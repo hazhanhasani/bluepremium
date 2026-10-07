@@ -143,7 +143,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.bluepremium_logo)
+            setImageResource(R.drawable.ic_launcher)
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "Blue Premium"
         }
