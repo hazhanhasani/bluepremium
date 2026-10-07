@@ -164,7 +164,7 @@
       if (order.status !== 'awaiting_approval') {
         return api({ ok: false, error: 'order_not_waiting_approval', status: order.status }, 409);
       }
-      const claim = await env.DB.prepare(`UPDATE orders SET status='processing', provider_error=NULL, updated_at=? WHERE id=? AND status='awaiting_approval'`)
+      const claim = await env.DB.prepare(`UPDATE orders SET status='provider_submitting', provider_error=NULL, updated_at=? WHERE id=? AND status='awaiting_approval'`)
         .bind(new Date().toISOString(), order.id).run();
       if (!claim.meta?.changes) return api({ ok: false, error: 'already_claimed' }, 409);
       const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
