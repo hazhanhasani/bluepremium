@@ -32,7 +32,7 @@ function adminHtmlV2() {
 <body>
 <section id="loginWrap" class="loginwrap">
   <div class="login">
-    <div class="logo"><img src="/brandmark.webp?v=7" alt=""></div><h2>مدیریت ${BRAND_FA}</h2><p>ورود امن به مرکز کنترل فروش پرمیوم</p>
+    <div class="logo"><img src="/brandmark.webp?v=8" alt=""></div><h2>مدیریت ${BRAND_FA}</h2><p>ورود امن به مرکز کنترل فروش پرمیوم</p>
     <div class="field"><label>رمز عبور مدیر</label><input id="pass" type="password" class="input" placeholder="••••••••••"></div>
     <button class="btn" style="width:100%;margin-top:10px" onclick="login()">ورود به پنل</button>
     <div id="loginmsg" class="loginmsg"></div>
@@ -41,7 +41,7 @@ function adminHtmlV2() {
 
 <div id="app" class="app" style="display:none">
 <aside class="side">
-  <div class="brand"><div class="logo"><img src="/brandmark.webp?v=7" alt=""></div><div><b>${BRAND_FA}</b><small>ADMIN CENTER</small></div></div>
+  <div class="brand"><div class="logo"><img src="/brandmark.webp?v=8" alt=""></div><div><b>${BRAND_FA}</b><small>ADMIN CENTER</small></div></div>
   <nav class="nav">
     <button class="on" data-tab="dashboard" onclick="tab('dashboard',this)" >${iconV4('home')}<span>داشبورد</span></button>
     <button data-tab="providers" onclick="tab('providers',this)" >${iconV4('plug')}<span>اتصال‌ها</span></button>
