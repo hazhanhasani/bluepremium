@@ -37,7 +37,7 @@ async function verifyAdminToken(env, token) {
 }
 
 async function publicSettings(db) {
-  const result = await db.prepare(`SELECT key,value FROM settings WHERE key IN ('support')`).all();
+  const result = await db.prepare(`SELECT key,value FROM settings WHERE key IN ('support','payment_provider','cafebazaar_enabled','blupal_enabled','bazaar_rsa_public_key','bazaar_sku_3','bazaar_sku_6','bazaar_sku_12')`).all();
   return Object.fromEntries((result.results || []).map(r => [r.key, r.value]));
 }
 
