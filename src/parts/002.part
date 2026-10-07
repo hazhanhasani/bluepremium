@@ -1,17 +1,3 @@
- orderCode).run();
-      return api({ ok: false, error: 'payment_create_failed' }, 502);
-    }
-
-    await env.DB.prepare(`UPDATE orders SET status='awaiting_payment', blupal_invoice_id=?, payment_url=?, updated_at=? WHERE order_code=?`)
-      .bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
-
-    return api({
-      ok: true,
-      order: { code: orderCode, token: publicToken, username, months, price_toman: Math.round(priceToman), status: 'awaiting_payment' },
-      payment_url: paymentLink,
-    }, 201);
-  }
-
   const orderMatch = path.match(/^\/api\/orders\/([A-Za-z0-9-]{6,40})(?:\/(check))?$/);
   if (orderMatch && request.method === 'GET') {
     const code = orderMatch[1];
@@ -24,7 +10,39 @@
     return api({ ok: true, order: publicOrder(fresh || order) });
   }
 
+  if (path.startsWith('/api/orders/') && path.endsWith('/bazaar/confirm') && request.method === 'POST') {
+    const code = sanitizeToken(path.slice('/api/orders/'.length, -'/bazaar/confirm'.length), 40);
+    const body = await readJson(request, 131072);
+    const token = sanitizeToken(body.token, 128);
+    if (!code || !token) return api({ ok: false, error: 'unauthorized' }, 401);
+    const order = await getAuthorizedOrder(env.DB, code, token);
+    if (!order) return api({ ok: false, error: 'not_found' }, 404);
+
+    const result = await confirmBazaarPurchase(env, order, body, ctx);
+    if (!result.ok) return api({ ok: false, error: result.error }, result.status || 400);
+    const fresh = result.order || await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+    return api({
+      ok: true,
+      order: publicOrder(fresh || order),
+      consume_purchase_token: String((fresh || order).bazaar_purchase_token || body.purchase_token || body.purchaseToken || ''),
+    });
+  }
+
+  if (path.startsWith('/api/orders/') && path.endsWith('/bazaar/consumed') && request.method === 'POST') {
+    const code = sanitizeToken(path.slice('/api/orders/'.length, -'/bazaar/consumed'.length), 40);
+    const body = await readJson(request);
+    const token = sanitizeToken(body.token, 128);
+    const purchaseToken = sanitizeToken(body.purchase_token || body.purchaseToken, 512);
+    if (!code || !token || !purchaseToken) return api({ ok: false, error: 'invalid_request' }, 400);
+    const order = await getAuthorizedOrder(env.DB, code, token);
+    if (!order || String(order.bazaar_purchase_token || '') !== purchaseToken) return api({ ok: false, error: 'not_found' }, 404);
+    await env.DB.prepare(`UPDATE orders SET bazaar_consumed=1, updated_at=? WHERE id=?`)
+      .bind(new Date().toISOString(), order.id).run();
+    return api({ ok: true });
+  }
+
   if (path === '/payment/blupal/callback' && (request.method === 'GET' || request.method === 'POST')) {
+    if (String(await getSetting(env.DB, 'blupal_enabled', '0')) !== '1') return api({ ok: false, error: 'blupal_disabled' }, 410);
     const body = await readLoosePayload(request, 65536);
     const invoiceId = sanitizeToken(
       url.searchParams.get('invoice_id') ||
@@ -61,6 +79,7 @@
   }
 
   if (path === '/api/webhooks/blupal' && request.method === 'POST') {
+    if (String(await getSetting(env.DB, 'blupal_enabled', '0')) !== '1') return api({ ok: false, error: 'blupal_disabled' }, 410);
     const body = await readJson(request, 65536);
     const event = String(body.event || '').trim();
     const remoteStatus = String(body.status || '').trim().toUpperCase();
@@ -103,7 +122,7 @@
     }
 
     if (path === '/api/admin/orders' && request.method === 'GET') {
-      const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, blupal_invoice_id, tg_transaction_id, provider_error, paid_at, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
+      const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, payment_provider, bazaar_product_id, bazaar_order_id, bazaar_consumed, blupal_invoice_id, tg_transaction_id, provider_error, paid_at, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
       return api({ ok: true, orders: result.results || [] });
     }
 
@@ -130,6 +149,20 @@
         if (!['auto','manual'].includes(mode)) return api({ ok: false, error: 'invalid_fulfillment_mode' }, 400);
         await setSetting(env.DB, 'tgtools_fulfillment_mode', mode);
       }
+      if (body.bazaar_rsa_public_key != null) {
+        const value = String(body.bazaar_rsa_public_key || '').trim().slice(0, 8192);
+        await setSetting(env.DB, 'bazaar_rsa_public_key', value);
+      }
+      for (const key of ['bazaar_sku_3','bazaar_sku_6','bazaar_sku_12']) {
+        if (body[key] != null) {
+          const value = String(body[key] || '').trim();
+          if (value && !/^[A-Za-z0-9_.-]{1,160}$/.test(value)) return api({ ok: false, error: 'invalid_bazaar_sku' }, 400);
+          await setSetting(env.DB, key, value);
+        }
+      }
+      await setSetting(env.DB, 'payment_provider', 'cafebazaar');
+      await setSetting(env.DB, 'cafebazaar_enabled', '1');
+      await setSetting(env.DB, 'blupal_enabled', '0');
       if (body.new_password != null) {
         const newPassword = String(body.new_password || '');
         if (newPassword.length < 10 || newPassword.length > 128) return api({ ok: false, error: 'weak_password' }, 400);
