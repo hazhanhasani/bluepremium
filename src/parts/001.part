@@ -96,7 +96,9 @@ async function route(request, env, ctx) {
   if (path === '/api/telegram/lookup' && request.method === 'GET') {
     const username = normalizeUsername(url.searchParams.get('username'));
     if (!username) return api({ ok: false, error: 'invalid_username' }, 400);
-    const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+    const tgKey = await getProviderSecret(env, 'tgtools_api_key');
+    if (!tgKey) return api({ ok: false, error: 'provider_not_configured' }, 503);
+    const lookup = await tgRequest(tgKey, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`);
     if (!lookup.ok) return api({ ok: false, error: 'lookup_failed', message: safeProviderMessage(lookup.message) }, 502);
     const profile = lookup.data || {};
     return api({
@@ -122,7 +124,9 @@ async function route(request, env, ctx) {
     const priceToman = Number(plan.manual_price_toman || plan.price_toman || plan.auto_price_toman || 0);
     if (!Number.isFinite(priceToman) || priceToman < 10000) return api({ ok: false, error: 'plan_unavailable' }, 409);
 
-    const lookup = await tgRequest(null, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`, null, false);
+    const tgKey = await getProviderSecret(env, 'tgtools_api_key');
+    if (!tgKey) return api({ ok: false, error: 'provider_not_configured' }, 503);
+    const lookup = await tgRequest(tgKey, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`);
     if (!lookup.ok) return api({ ok: false, error: 'telegram_lookup_failed', message: safeProviderMessage(lookup.message) }, 502);
     const profile = lookup.data || {};
     if (profile.found === false) return api({ ok: false, error: 'telegram_user_not_found' }, 422);
