@@ -26,12 +26,20 @@ async function reconcileOrder(env, order, ctx) {
         .bind(new Date().toISOString(), current.id).run();
       return;
     }
-    await env.DB.prepare(`UPDATE orders SET status='paid', paid_at=?, updated_at=? WHERE id=? AND status='awaiting_payment'`)
-      .bind(new Date().toISOString(), new Date().toISOString(), current.id).run();
+    const fulfillmentMode = await getSetting(env.DB, 'tgtools_fulfillment_mode', 'auto');
+    const paidStatus = fulfillmentMode === 'manual' ? 'awaiting_approval' : 'paid';
+    await env.DB.prepare(`UPDATE orders SET status=?, paid_at=?, updated_at=? WHERE id=? AND status='awaiting_payment'`)
+      .bind(paidStatus, new Date().toISOString(), new Date().toISOString(), current.id).run();
     current = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
   }
 
   if (current.status === 'paid') {
+    const fulfillmentMode = await getSetting(env.DB, 'tgtools_fulfillment_mode', 'auto');
+    if (fulfillmentMode === 'manual') {
+      await env.DB.prepare(`UPDATE orders SET status='awaiting_approval', updated_at=? WHERE id=? AND status='paid'`)
+        .bind(new Date().toISOString(), current.id).run();
+      return;
+    }
     const claim = await env.DB.prepare(`UPDATE orders SET status='processing', updated_at=? WHERE id=? AND status='paid'`)
       .bind(new Date().toISOString(), current.id).run();
     if (!claim.meta?.changes) return;
