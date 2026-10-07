@@ -50,7 +50,7 @@ function storeHtmlV4() {
 <meta name="theme-color" content="#07111f">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <link rel="manifest" href="/manifest.webmanifest?v=4">
-<link rel="icon" type="image/webp" href="/brandmark.webp?v=1">
+<link rel="icon" type="image/svg+xml" href="/icon.svg?v=5">
 <title>${BRAND_FA} | ${BRAND}</title>
 <style>
 :root{color-scheme:dark;--bg:#050a12;--surface:#0c1524;--surface2:#111e31;--surface3:#14243b;--line:rgba(154,190,235,.13);--text:#f7fbff;--muted:#879bb4;--blue:#338cff;--blue2:#59c8ff;--gold:#f2cb73;--green:#4bdda3;--danger:#ff7886;--shadow:0 24px 65px rgba(0,30,90,.35)}
@@ -95,7 +95,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <body>
 <main class="shell">
 <header class="topbar">
-  <div class="brand"><div class="brand-logo"><img src="/brandmark.webp?v=1" alt=""></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
+  <div class="brand"><div class="brand-logo"><img src="/icon.svg?v=5" alt=""></div><div class="brand-name">${BRAND_FA}<small>BLUE PREMIUM</small></div></div>
   <div class="top-actions">
     <a id="supportLink" class="icon-button" href="#" style="display:none">${ICON.headset}<span class="label">پشتیبانی</span></a>
     <button class="icon-button" onclick="goOrder()">${ICON.receipt}<span class="label">سفارش من</span></button>
@@ -115,7 +115,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
   </div>
   <div class="visual">
     <div class="premium-card">
-      <div class="card-brand"><img src="/brandmark.webp?v=1" alt=""></div>
+      <div class="card-brand"><img src="/icon.svg?v=5" alt=""></div>
       <div class="card-crown">${ICON.crown}</div>
       <div class="card-copy"><b>Telegram Premium</b><small>BLUE PREMIUM</small></div>
     </div>
