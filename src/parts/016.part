@@ -9,6 +9,12 @@ async function bazaarSkuForMonths(db, months) {
   return key ? String(await getSetting(db, key, '')).trim() : '';
 }
 
+function normalizeBazaarReceiptToken(value) {
+  const s = String(value || '').trim();
+  if (!s || s.length > 512 || /[\u0000-\u001f\u007f]/.test(s)) return '';
+  return s;
+}
+
 function cleanBase64(value) {
   return String(value || '')
     .replace(/-----BEGIN PUBLIC KEY-----/g, '')
@@ -54,7 +60,7 @@ async function confirmBazaarPurchase(env, order, receipt, ctx) {
     return { ok: false, error: 'cafebazaar_not_configured', status: 503 };
   }
 
-  const purchaseToken = sanitizeToken(receipt.purchase_token || receipt.purchaseToken, 512);
+  const purchaseToken = normalizeBazaarReceiptToken(receipt.purchase_token || receipt.purchaseToken);
   const orderId = sanitizeToken(receipt.order_id || receipt.orderId, 256);
   const productId = sanitizeToken(receipt.product_id || receipt.productId, 160);
   const payload = String(receipt.payload || '').trim();
