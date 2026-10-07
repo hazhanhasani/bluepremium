@@ -107,6 +107,8 @@ function customerStatusMessage(status) {
     awaiting_payment: 'در انتظار پرداخت',
     paid: 'پرداخت تایید شد',
     awaiting_approval: 'پرداخت تایید شد؛ منتظر تایید مدیریت',
+    provider_submitting: 'در حال ارسال سفارش به TG Tools',
+    provider_uncertain: 'ارسال سفارش نیاز به بررسی مدیریت دارد',
     processing: 'در حال فعال‌سازی پرمیوم',
     provider_pending: 'در حال پردازش توسط سرویس فعال‌سازی',
     delivered: 'پرمیوم با موفقیت فعال شد',
