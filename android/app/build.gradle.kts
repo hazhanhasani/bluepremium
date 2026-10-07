@@ -17,7 +17,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = System.getenv("BLUEPREMIUM_VERSION_CODE")?.toIntOrNull() ?: 2
-        versionName = System.getenv("BLUEPREMIUM_VERSION_NAME") ?: "1.3.0"
+        versionName = System.getenv("BLUEPREMIUM_VERSION_NAME") ?: "1.4.0"
     }
 
     signingConfigs {
