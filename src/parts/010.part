@@ -97,18 +97,44 @@ function renderSummary(){
   const tg=summary.providers.tgtools||{},bp=summary.providers.blupal||{};
   document.getElementById('dashTg').innerHTML=providerCard('TG Tools','فعال‌سازی Premium',tg.ok,tg.configured,(tg.balance_ton!=null?'موجودی: '+tg.balance_ton+' TON':''));
   document.getElementById('dashBp').innerHTML=providerCard('BluePal','درگاه پرداخت',bp.configured,bp.configured,'');
-  document.getElementById('tgState').innerHTML=stateHtml(tg.ok,tg.configured);document.getElementById('bpState').innerHTML=stateHtml(bp.configured,bp.configured);
-  document.getElementById('tgMeta').innerHTML=(tg.balance_ton!=null?'<span class="chip">موجودی '+tg.balance_ton+' TON</span>':'')+(tg.wallet_address?'<span class="chip">آدرس کیف پول ثبت شده</span>':'');
+  document.getElementById('tgState').innerHTML=stateHtml(tg.ok,tg.configured,Number(tg.http_status||0),tg.error||'');document.getElementById('bpState').innerHTML=stateHtml(bp.configured,bp.configured);
+  document.getElementById('tgMeta').innerHTML=(tg.balance_ton!=null?'<span class="chip">موجودی '+tg.balance_ton+' TON</span>':'')+(tg.wallet_address?'<span class="chip">آدرس کیف پول ثبت شده</span>':'')+(!tg.ok&&tg.configured?'<span class="chip">HTTP '+Number(tg.http_status||0)+'</span>':'')+(!tg.ok&&tg.error?'<span class="chip">'+String(tg.error).replace(/[<>&]/g,'')+'</span>':'');
   document.getElementById('bpCallback').value=location.origin+'/payment/blupal/callback';document.getElementById('bpWebhook').value=location.origin+'/api/webhooks/blupal';
   document.getElementById('profit').value=summary.settings.profit_percent||15;document.getElementById('rounding').value=summary.settings.rounding||1000;document.getElementById('support').value=summary.settings.support||'';
   document.getElementById('planGrid').innerHTML=(summary.plans||[]).map(p=>'<div class="plan"><h4>'+p.months+' ماهه</h4><div class="price">'+money(p.price_toman)+' تومان</div><div class="auto">قیمت خودکار: '+money(p.auto_price_toman||0)+' تومان</div><div class="controls"><input id="price-'+p.id+'" class="input" type="number" value="'+(p.manual_price_toman||'')+'" placeholder="قیمت دستی"><button class="btn" onclick="savePlan('+p.id+')">ذخیره</button></div></div>').join('');
 }
 function providerCard(name,desc,ok,configured,meta){return '<div class="provider-head"><div><h3>'+name+'</h3><div class="sub">'+desc+'</div></div><div class="provider-state"><i class="dot '+(ok?'ok':'bad')+'"></i>'+(configured?(ok?'متصل':'نیاز به بررسی'):'تنظیم نشده')+'</div></div>'+(meta?'<div class="provider-meta"><span class="chip">'+meta+'</span></div>':'')}
-function stateHtml(ok,configured){return '<i class="dot '+(ok?'ok':'bad')+'"></i>'+(configured?(ok?'اتصال سالم':'خطا در اتصال'):'تنظیم نشده')}
+function stateHtml(ok,configured,httpStatus=0,error=''){
+  if(!configured)return '<i class="dot bad"></i>تنظیم نشده';
+  if(ok)return '<i class="dot ok"></i>اتصال سالم';
+  if(httpStatus===401||httpStatus===403)return '<i class="dot bad"></i>کلید API نامعتبر یا غیرفعال';
+  if(httpStatus===429)return '<i class="dot bad"></i>محدودیت تعداد درخواست';
+  if(httpStatus>=500||httpStatus===0)return '<i class="dot bad"></i>اختلال ارتباط با TG Tools';
+  return '<i class="dot bad"></i>خطای اتصال ('+httpStatus+')';
+}
 function statusLabel(s){return ({awaiting_payment:'در انتظار پرداخت',paid:'پرداخت‌شده',processing:'در حال فعال‌سازی',provider_pending:'در حال پردازش',delivered:'تحویل‌شده',payment_error:'خطای پرداخت',payment_mismatch:'مغایرت پرداخت',failed:'نیاز به بررسی'})[s]||s}
 async function loadOrders(){if(!token)return;const d=await fetch('/api/admin/orders',{headers:H()}).then(r=>r.json());const rows=(d.orders||[]);const html=rows.map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td><td>'+String(o.created_at||'').replace('T',' ').slice(0,16)+'</td></tr>').join('');document.getElementById('ordersBody').innerHTML=html||'<tr><td colspan="6">سفارشی ثبت نشده است.</td></tr>';document.getElementById('dashOrders').innerHTML=rows.slice(0,10).map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td></tr>').join('')}
 async function copyEndpoint(id){const input=document.getElementById(id);const value=input.value;try{await navigator.clipboard.writeText(value);alert('آدرس کپی شد.')}catch(e){input.select();document.execCommand('copy');alert('آدرس کپی شد.')}}
-async function saveProviders(which){const body={};if(which==='tg')body.tgtools_api_key=document.getElementById('tgkey').value;if(which==='bp')body.blupal_api_key=document.getElementById('bpkey').value;await fetch('/api/admin/providers',{method:'POST',headers:H(),body:JSON.stringify(body)});document.getElementById('tgkey').value='';document.getElementById('bpkey').value='';await load()}
+async function saveProviders(which){
+  const body={};
+  if(which==='tg'){
+    const value=document.getElementById('tgkey').value.trim();
+    if(!value){alert('کلید TG Tools را وارد کن.');return}
+    body.tgtools_api_key=value;
+  }
+  if(which==='bp')body.blupal_api_key=document.getElementById('bpkey').value.trim();
+  const r=await fetch('/api/admin/providers',{method:'POST',headers:H(),body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!d.ok){alert('ذخیره اتصال انجام نشد.');return}
+  document.getElementById('tgkey').value='';document.getElementById('bpkey').value='';
+  await load();
+  if(which==='tg'){
+    const tg=d.providers?.tgtools||{};
+    if(tg.ok) alert('اتصال TG Tools با موفقیت تایید شد.');
+    else if(Number(tg.http_status)===401||Number(tg.http_status)===403) alert('کلید TG Tools معتبر نیست یا غیرفعال شده است.');
+    else alert('کلید ذخیره شد اما تست اتصال ناموفق بود. کد HTTP: '+Number(tg.http_status||0)+(tg.error?'\n'+tg.error:''));
+  }
+}
 async function saveSettings(passwordOnly=false){const body={};if(!passwordOnly){body.profit_percent=Number(document.getElementById('profit').value);body.rounding=Number(document.getElementById('rounding').value);body.support=document.getElementById('support').value}const np=document.getElementById('newpass').value;if(np)body.new_password=np;const r=await fetch('/api/admin/settings',{method:'PATCH',headers:H(),body:JSON.stringify(body)});const d=await r.json();if(!d.ok){alert(d.error==='weak_password'?'رمز باید حداقل ۱۰ کاراکتر باشد.':'ذخیره انجام نشد.');return}document.getElementById('newpass').value='';await load();alert(passwordOnly?'رمز مدیریت تغییر کرد.':'تنظیمات ذخیره شد.')}
 async function savePlan(id){const v=document.getElementById('price-'+id).value;await fetch('/api/admin/plans/'+id,{method:'PATCH',headers:H(),body:JSON.stringify({manual_price_toman:v?Number(v):0})});await load()}
 async function sync(){const b=event?.target;if(b)b.disabled=true;await fetch('/api/admin/sync',{method:'POST',headers:H()});await load();if(b)b.disabled=false}
