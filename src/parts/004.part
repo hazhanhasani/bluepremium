@@ -21,12 +21,14 @@ async function providerHealth(env) {
     getProviderSecret(env, 'blupal_api_key'),
   ]);
   const out = {
-    tgtools: { configured: !!tgKey, ok: false, balance_ton: null, wallet_address: '' },
+    tgtools: { configured: !!tgKey, ok: false, balance_ton: null, wallet_address: '', http_status: 0, error: '' },
     blupal: { configured: !!blupalKey, ok: !!blupalKey },
   };
   if (tgKey) {
     const wallet = await tgRequest(tgKey, 'GET', '/api/wallet');
     out.tgtools.ok = wallet.ok;
+    out.tgtools.http_status = Number(wallet.http_status || 0);
+    out.tgtools.error = wallet.ok ? '' : safeProviderMessage(wallet.message || 'wallet_check_failed');
     const d = wallet.data || {};
     out.tgtools.balance_ton = firstNumber(d, ['balanceTon','tonBalance','availableTon','availableBalance','walletBalance','balance']);
     out.tgtools.wallet_address = firstString(d, ['depositAddress','walletAddress','tonAddress','address']);
@@ -38,7 +40,10 @@ async function tgRequest(apiKey, method, path, payload = null, auth = true) {
   const headers = { accept: 'application/json', 'content-type': 'application/json' };
   if (auth) {
     if (!apiKey) return { ok: false, http_status: 0, data: {}, message: 'not_configured' };
+    // TGTools documents both authentication forms. Send both for compatibility
+    // with proxies that may strip custom headers.
     headers['X-Api-Key'] = apiKey;
+    headers['Authorization'] = 'Bearer ' + apiKey;
   }
   try {
     const response = await fetch(`${TG_BASE}${path}`, {
