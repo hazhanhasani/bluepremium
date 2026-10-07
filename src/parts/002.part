@@ -103,7 +103,7 @@
     }
 
     if (path === '/api/admin/orders' && request.method === 'GET') {
-      const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, blupal_invoice_id, tg_transaction_id, provider_error, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
+      const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, blupal_invoice_id, tg_transaction_id, provider_error, paid_at, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
       return api({ ok: true, orders: result.results || [] });
     }
 
@@ -125,6 +125,11 @@
       if (body.profit_percent != null) await setSetting(env.DB, 'profit_percent', clampNumber(body.profit_percent, 0, 500).toString());
       if (body.support != null) await setSetting(env.DB, 'support', String(body.support).slice(0, 120));
       if (body.rounding != null) await setSetting(env.DB, 'rounding', String(Math.max(100, Math.min(100000, Math.round(Number(body.rounding) || 1000)))));
+      if (body.tgtools_fulfillment_mode != null) {
+        const mode = String(body.tgtools_fulfillment_mode || '').toLowerCase();
+        if (!['auto','manual'].includes(mode)) return api({ ok: false, error: 'invalid_fulfillment_mode' }, 400);
+        await setSetting(env.DB, 'tgtools_fulfillment_mode', mode);
+      }
       if (body.new_password != null) {
         const newPassword = String(body.new_password || '');
         if (newPassword.length < 10 || newPassword.length > 128) return api({ ok: false, error: 'weak_password' }, 400);
