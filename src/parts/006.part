@@ -4,8 +4,8 @@ n svgIcon() {
 }
 
 function serviceWorkerJs() {
-  return `const C='bp-v6-static';
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['/brandmark.webp?v=6','/manifest.webmanifest?v=6'])).catch(()=>{}))});
+  return `const C='bp-v7-static';
+self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['/brandmark.webp?v=7','/manifest.webmanifest?v=7'])).catch(()=>{}))});
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==C).map(k=>caches.delete(k)))),self.clients.claim()])));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.pathname==='/brandmark.webp'||u.pathname==='/manifest.webmanifest'){e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(x=>{const y=x.clone();caches.open(C).then(c=>c.put(e.request,y));return x})));}});
 `;
