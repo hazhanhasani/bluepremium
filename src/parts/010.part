@@ -73,7 +73,8 @@ function adminHtmlV2() {
 <section id="providers" class="section">
 <div class="grid">
   <article class="card provider"><div class="provider-head"><div><h3>TG Tools</h3><div class="sub">فعال‌سازی Telegram Premium</div></div><div id="tgState" class="provider-state"></div></div><div id="tgMeta" class="provider-meta"></div><div class="provider-actions"><div class="field"><label>API Key جدید</label><input id="tgkey" type="password" class="input" placeholder="TG Tools API Key"></div><button class="btn" onclick="saveProviders('tg')">ذخیره</button></div><div class="mode-box"><div class="mode-row"><div class="field" style="margin-top:0"><label>شیوه ارسال سفارش به TG Tools</label><select id="fulfillmentMode" class="input"><option value="auto">خودکار بعد از تایید پرداخت</option><option value="manual">تایید دستی مدیر</option></select></div><button class="btn secondary" onclick="saveFulfillmentMode()">ذخیره حالت</button></div><div id="modeHelp" class="provider-note">در حالت دستی، سفارش بعد از پرداخت تا تایید شما به TG Tools ارسال نمی‌شود.</div></div></article>
-  <article class="card provider"><div class="provider-head"><div><h3>BluePal</h3><div class="sub">ساخت و تأیید فاکتور + Callback / Webhook</div></div><div id="bpState" class="provider-state"></div></div><div class="provider-actions"><div class="field"><label>API Key جدید</label><input id="bpkey" type="password" class="input" placeholder="BluePal API Key"></div><button class="btn" onclick="saveProviders('bp')">ذخیره</button></div><div class="endpoint-box"><div class="endpoint-label">Callback URL</div><div class="endpoint-row"><input id="bpCallback" class="endpoint-url" readonly><button class="copybtn" onclick="copyEndpoint('bpCallback')">کپی</button></div><div class="endpoint-label" style="margin-top:10px">Webhook URL</div><div class="endpoint-row"><input id="bpWebhook" class="endpoint-url" readonly><button class="copybtn" onclick="copyEndpoint('bpWebhook')">کپی</button></div><div class="provider-note">این دو آدرس را در تنظیمات BluePal ثبت کن. Webhook فقط نقش اعلان دارد و وضعیت و مبلغ دوباره از API بلوپال تأیید می‌شوند.</div></div></article>
+  <article class="card provider"><div class="provider-head"><div><h3>کافه‌بازار</h3><div class="sub">پرداخت درون‌برنامه‌ای با Poolakey</div></div><div id="bazaarState" class="provider-state"></div></div><div class="field"><label>RSA Public Key برنامه در کافه‌بازار</label><textarea id="bazaarRsa" class="input" style="height:92px;padding:10px;resize:vertical" placeholder="RSA Public Key"></textarea></div><div class="row" style="margin-top:8px"><div class="field"><label>Product ID پلن ۳ ماهه</label><input id="bazaarSku3" class="input" placeholder="premium_3m"></div><div class="field"><label>Product ID پلن ۶ ماهه</label><input id="bazaarSku6" class="input" placeholder="premium_6m"></div></div><div class="field"><label>Product ID پلن ۱۲ ماهه</label><input id="bazaarSku12" class="input" placeholder="premium_12m"></div><button class="btn" style="margin-top:10px;width:100%" onclick="saveBazaar()">ذخیره تنظیمات کافه‌بازار</button><div class="provider-note">هر پلن باید یک محصول In-App جدا در پیشخان بازار داشته باشد. قیمت هر Product ID را با قیمت همان پلن در بلوپرمیوم یکسان تنظیم کن.</div></article>
+  <article class="card provider" style="opacity:.58"><div class="provider-head"><div><h3>BluePal</h3><div class="sub">درگاه قبلی؛ اطلاعات آن حذف نشده است</div></div><div class="provider-state"><i class="dot bad"></i>غیرفعال</div></div><div class="provider-note">پرداخت جدید از BluePal ساخته نمی‌شود و Callback/Webhook آن در حالت غیرفعال پاسخ 410 می‌دهند.</div></article>
 </div>
 </section>
 
@@ -100,7 +101,7 @@ function adminHtmlV2() {
 let token=sessionStorage.getItem('bp_admin')||'',summary=null;
 const H=()=>({'content-type':'application/json','authorization':'Bearer '+token});
 const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
-const titles={dashboard:['داشبورد','وضعیت لحظه‌ای فروش و اتصال سرویس‌ها'],providers:['اتصال‌ها','مدیریت TG Tools و BluePal'],plans:['پلن و قیمت','کنترل قیمت‌گذاری خودکار و دستی'],orders:['سفارش‌ها','پیگیری وضعیت فعال‌سازی‌ها'],settings:['تنظیمات','پیکربندی فروشگاه و امنیت']};
+const titles={dashboard:['داشبورد','وضعیت لحظه‌ای فروش و اتصال سرویس‌ها'],providers:['اتصال‌ها','مدیریت TG Tools و پرداخت کافه‌بازار'],plans:['پلن و قیمت','کنترل قیمت‌گذاری خودکار و دستی'],orders:['سفارش‌ها','پیگیری وضعیت فعال‌سازی‌ها'],settings:['تنظیمات','پیکربندی فروشگاه و امنیت']};
 async function login(){
   const msg=document.getElementById('loginmsg');msg.textContent='در حال ورود...';
   try{
@@ -116,14 +117,18 @@ async function load(){if(!token)return;const r=await fetch('/api/admin/summary',
 function statusCount(name){const x=(summary.orders||[]).find(o=>o.status===name);return Number(x?.count||0)}
 function statusTotal(name){const x=(summary.orders||[]).find(o=>o.status===name);return Number(x?.total||0)}
 function renderSummary(){
-  const total=(summary.orders||[]).reduce((a,b)=>a+Number(b.count||0),0);const pending=['awaiting_payment','paid','awaiting_approval','provider_submitting','provider_pending','provider_uncertain'].reduce((a,s)=>a+statusCount(s),0);
+  const total=(summary.orders||[]).reduce((a,b)=>a+Number(b.count||0),0);const pending=['awaiting_payment','awaiting_bazaar_payment','paid','awaiting_approval','provider_submitting','provider_pending','provider_uncertain'].reduce((a,s)=>a+statusCount(s),0);
   document.getElementById('kOrders').textContent=money(total);document.getElementById('kDelivered').textContent=money(statusCount('delivered'));document.getElementById('kPending').textContent=money(pending);document.getElementById('kRevenue').textContent=money(statusTotal('delivered'));
-  const tg=summary.providers.tgtools||{},bp=summary.providers.blupal||{};
+  const tg=summary.providers.tgtools||{},bazaar=summary.providers.cafebazaar||{},bp=summary.providers.blupal||{};
   document.getElementById('dashTg').innerHTML=providerCard('TG Tools','فعال‌سازی Premium',tg.ok,tg.configured,(tg.balance_ton!=null?'موجودی: '+tg.balance_ton+' TON':''));
-  document.getElementById('dashBp').innerHTML=providerCard('BluePal','درگاه پرداخت',bp.configured,bp.configured,'');
-  document.getElementById('tgState').innerHTML=stateHtml(tg.ok,tg.configured,Number(tg.http_status||0),tg.error||'');document.getElementById('bpState').innerHTML=stateHtml(bp.configured,bp.configured);
+  document.getElementById('dashBp').innerHTML=providerCard('کافه‌بازار','پرداخت درون‌برنامه‌ای',bazaar.ok,bazaar.configured,bazaar.active?'درگاه فعال':'نیاز به تنظیم');
+  document.getElementById('tgState').innerHTML=stateHtml(tg.ok,tg.configured,Number(tg.http_status||0),tg.error||'');
+  document.getElementById('bazaarState').innerHTML=bazaar.ok?'<i class="dot ok"></i>فعال و آماده':'<i class="dot bad"></i>'+(bazaar.configured?'نیاز به بررسی':'تنظیم نشده');
   document.getElementById('tgMeta').innerHTML=(tg.balance_ton!=null?'<span class="chip">موجودی '+tg.balance_ton+' TON</span>':'')+(tg.wallet_address?'<span class="chip">آدرس کیف پول ثبت شده</span>':'')+(!tg.ok&&tg.configured?'<span class="chip">HTTP '+Number(tg.http_status||0)+'</span>':'')+(!tg.ok&&tg.error?'<span class="chip">'+String(tg.error).replace(/[<>&]/g,'')+'</span>':'');
-  document.getElementById('bpCallback').value=location.origin+'/payment/blupal/callback';document.getElementById('bpWebhook').value=location.origin+'/api/webhooks/blupal';
+  document.getElementById('bazaarRsa').value=summary.settings.bazaar_rsa_public_key||'';
+  document.getElementById('bazaarSku3').value=summary.settings.bazaar_sku_3||'';
+  document.getElementById('bazaarSku6').value=summary.settings.bazaar_sku_6||'';
+  document.getElementById('bazaarSku12').value=summary.settings.bazaar_sku_12||'';
   document.getElementById('profit').value=summary.settings.profit_percent||15;document.getElementById('rounding').value=summary.settings.rounding||1000;document.getElementById('support').value=summary.settings.support||'';document.getElementById('fulfillmentMode').value=summary.settings.tgtools_fulfillment_mode||'auto';
   document.getElementById('planGrid').innerHTML=(summary.plans||[]).map(p=>'<div class="plan"><h4>'+p.months+' ماهه</h4><div class="price">'+money(p.price_toman)+' تومان</div><div class="auto">قیمت خودکار: '+money(p.auto_price_toman||0)+' تومان</div><div class="controls"><input id="price-'+p.id+'" class="input" type="number" value="'+(p.manual_price_toman||'')+'" placeholder="قیمت دستی"><button class="btn" onclick="savePlan('+p.id+')">ذخیره</button></div></div>').join('');
 }
@@ -136,7 +141,7 @@ function stateHtml(ok,configured,httpStatus=0,error=''){
   if(httpStatus>=500||httpStatus===0)return '<i class="dot bad"></i>اختلال ارتباط با TG Tools';
   return '<i class="dot bad"></i>خطای اتصال ('+httpStatus+')';
 }
-function statusLabel(s){return ({awaiting_payment:'در انتظار پرداخت',paid:'پرداخت‌شده',awaiting_approval:'منتظر تایید مدیر',provider_submitting:'در حال ارسال به TG Tools',provider_uncertain:'نیازمند بررسی ارسال',processing:'در حال فعال‌سازی',provider_pending:'در حال پردازش',delivered:'تحویل‌شده',payment_error:'خطای پرداخت',payment_mismatch:'مغایرت پرداخت',failed:'نیاز به بررسی'})[s]||s}
+function statusLabel(s){return ({awaiting_payment:'در انتظار پرداخت',awaiting_bazaar_payment:'در انتظار پرداخت بازار',paid:'پرداخت‌شده',awaiting_approval:'منتظر تایید مدیر',provider_submitting:'در حال ارسال به TG Tools',provider_uncertain:'نیازمند بررسی ارسال',processing:'در حال فعال‌سازی',provider_pending:'در حال پردازش',delivered:'تحویل‌شده',payment_error:'خطای پرداخت',payment_mismatch:'مغایرت پرداخت',failed:'نیاز به بررسی'})[s]||s}
 async function loadOrders(){
   if(!token)return;
   const d=await fetch('/api/admin/orders',{headers:H(),cache:'no-store'}).then(r=>r.json());
@@ -163,6 +168,19 @@ async function saveFulfillmentMode(){
   document.getElementById('fulfillmentMode').value=summary.settings.tgtools_fulfillment_mode||mode;
   alert(mode==='auto'?'ارسال خودکار فعال شد.':'تایید دستی فعال شد. سفارش‌های پرداخت‌شده منتظر تایید شما می‌مانند.');
 }
+async function saveBazaar(){
+  const body={
+    bazaar_rsa_public_key:document.getElementById('bazaarRsa').value.trim(),
+    bazaar_sku_3:document.getElementById('bazaarSku3').value.trim(),
+    bazaar_sku_6:document.getElementById('bazaarSku6').value.trim(),
+    bazaar_sku_12:document.getElementById('bazaarSku12').value.trim()
+  };
+  if(!body.bazaar_rsa_public_key||!body.bazaar_sku_3||!body.bazaar_sku_6||!body.bazaar_sku_12){alert('RSA Public Key و Product ID هر سه پلن را کامل وارد کن.');return}
+  const r=await fetch('/api/admin/settings',{method:'PATCH',headers:H(),body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!d.ok){alert(d.error==='invalid_bazaar_sku'?'Product ID کافه‌بازار معتبر نیست.':'ذخیره تنظیمات کافه‌بازار انجام نشد.');return}
+  await load();alert('درگاه کافه‌بازار فعال و تنظیمات ذخیره شد.');
+}
 async function copyEndpoint(id){const input=document.getElementById(id);const value=input.value;try{await navigator.clipboard.writeText(value);alert('آدرس کپی شد.')}catch(e){input.select();document.execCommand('copy');alert('آدرس کپی شد.')}}
 async function saveProviders(which){
   const body={};
@@ -171,11 +189,11 @@ async function saveProviders(which){
     if(!value){alert('کلید TG Tools را وارد کن.');return}
     body.tgtools_api_key=value;
   }
-  if(which==='bp')body.blupal_api_key=document.getElementById('bpkey').value.trim();
+
   const r=await fetch('/api/admin/providers',{method:'POST',headers:H(),body:JSON.stringify(body)});
   const d=await r.json();
   if(!d.ok){alert('ذخیره اتصال انجام نشد.');return}
-  document.getElementById('tgkey').value='';document.getElementById('bpkey').value='';
+  document.getElementById('tgkey').value='';
   await load();
   if(which==='tg'){
     const tg=d.providers?.tgtools||{};
