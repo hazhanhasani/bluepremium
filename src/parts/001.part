@@ -90,6 +90,14 @@ async function route(request, env, ctx) {
       payment_method: paymentMethod,
       cafebazaar_enabled: settings.cafebazaar_enabled === '1',
       cafebazaar_configured: bazaarConfigured,
+      cafebazaar: bazaarConfigured ? {
+        rsa_public_key: settings.bazaar_rsa_public_key,
+        products: {
+          3: settings.bazaar_sku_3,
+          6: settings.bazaar_sku_6,
+          12: settings.bazaar_sku_12,
+        },
+      } : null,
       blupal_enabled: settings.blupal_enabled === '1',
     });
   }
