@@ -28,11 +28,11 @@ function adminHtmlV2() {
 <aside class="side">
   <div class="brand"><div class="logo"><img src="/brandmark.webp?v=1" alt=""></div><div><b>${BRAND_FA}</b><small>ADMIN CENTER</small></div></div>
   <nav class="nav">
-    <button class="on" data-tab="dashboard" onclick="tab('dashboard',this)">⌂ &nbsp;داشبورد</button>
-    <button data-tab="providers" onclick="tab('providers',this)">◈ &nbsp;اتصال‌ها</button>
-    <button data-tab="plans" onclick="tab('plans',this)">♛ &nbsp;پلن و قیمت</button>
-    <button data-tab="orders" onclick="tab('orders',this)">◎ &nbsp;سفارش‌ها</button>
-    <button data-tab="settings" onclick="tab('settings',this)">⚙ &nbsp;تنظیمات</button>
+    <button class="on" data-tab="dashboard" onclick="tab('dashboard',this)" >${iconV4('home')}<span>داشبورد</span></button>
+    <button data-tab="providers" onclick="tab('providers',this)" >${iconV4('plug')}<span>اتصال‌ها</span></button>
+    <button data-tab="plans" onclick="tab('plans',this)" >${iconV4('crown')}<span>پلن و قیمت</span></button>
+    <button data-tab="orders" onclick="tab('orders',this)" >${iconV4('list')}<span>سفارش‌ها</span></button>
+    <button data-tab="settings" onclick="tab('settings',this)" >${iconV4('sliders')}<span>تنظیمات</span></button>
   </nav>
   <div class="sidefoot">Blue Premium<br>Cloudflare Worker + D1</div>
 </aside>
@@ -78,7 +78,7 @@ function adminHtmlV2() {
 </section>
 </main>
 
-<nav class="mobilebar"><button class="on" onclick="tab('dashboard',this)">⌂<br>خانه</button><button onclick="tab('providers',this)">◈<br>اتصال‌ها</button><button onclick="tab('plans',this)">♛<br>پلن‌ها</button><button onclick="tab('orders',this)">◎<br>سفارش‌ها</button><button onclick="tab('settings',this)">⚙<br>تنظیمات</button></nav>
+<nav class="mobilebar"><button class="on" data-tab="dashboard" onclick="tab('dashboard',this)">${iconV4('home')}<span>خانه</span></button><button data-tab="providers" onclick="tab('providers',this)">${iconV4('plug')}<span>اتصال‌ها</span></button><button data-tab="plans" onclick="tab('plans',this)">${iconV4('crown')}<span>پلن‌ها</span></button><button data-tab="orders" onclick="tab('orders',this)">${iconV4('list')}<span>سفارش‌ها</span></button><button data-tab="settings" onclick="tab('settings',this)">${iconV4('sliders')}<span>تنظیمات</span></button></nav>
 </div>
 
 <script>
