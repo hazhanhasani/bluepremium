@@ -16,13 +16,33 @@ B, 'profit_percent', '15'), 0, 500);
 }
 
 async function providerHealth(env) {
-  const [tgKey, blupalKey] = await Promise.all([
+  const [tgKey, blupalKey, paymentProvider, bazaarEnabled, blupalEnabled, rsaKey, sku3, sku6, sku12] = await Promise.all([
     getProviderSecret(env, 'tgtools_api_key'),
     getProviderSecret(env, 'blupal_api_key'),
+    getSetting(env.DB, 'payment_provider', 'cafebazaar'),
+    getSetting(env.DB, 'cafebazaar_enabled', '1'),
+    getSetting(env.DB, 'blupal_enabled', '0'),
+    getSetting(env.DB, 'bazaar_rsa_public_key', ''),
+    getSetting(env.DB, 'bazaar_sku_3', ''),
+    getSetting(env.DB, 'bazaar_sku_6', ''),
+    getSetting(env.DB, 'bazaar_sku_12', ''),
   ]);
+  const bazaarConfigured = !!String(rsaKey).trim() && !!String(sku3).trim() && !!String(sku6).trim() && !!String(sku12).trim();
   const out = {
     tgtools: { configured: !!tgKey, ok: false, balance_ton: null, wallet_address: '', http_status: 0, error: '' },
-    blupal: { configured: !!blupalKey, ok: !!blupalKey },
+    cafebazaar: {
+      configured: bazaarConfigured,
+      ok: String(paymentProvider) === 'cafebazaar' && String(bazaarEnabled) === '1' && bazaarConfigured,
+      active: String(paymentProvider) === 'cafebazaar' && String(bazaarEnabled) === '1',
+      sku_3: String(sku3 || ''),
+      sku_6: String(sku6 || ''),
+      sku_12: String(sku12 || ''),
+    },
+    blupal: {
+      configured: !!blupalKey,
+      ok: false,
+      active: String(blupalEnabled) === '1' && String(paymentProvider) === 'blupal',
+    },
   };
   if (tgKey) {
     const wallet = await tgRequest(tgKey, 'GET', '/api/wallet');
@@ -96,7 +116,10 @@ function publicOrder(order) {
     created_at: order.created_at,
     updated_at: order.updated_at,
     delivered_at: order.delivered_at || null,
+    payment_method: order.payment_provider || (order.blupal_invoice_id ? 'blupal' : 'cafebazaar'),
     payment_url: order.status === 'awaiting_payment' ? order.payment_url : null,
+    bazaar_product_id: order.status === 'awaiting_bazaar_payment' ? String(order.bazaar_product_id || '') : null,
+    bazaar_consumed: Number(order.bazaar_consumed || 0) === 1,
     message: customerStatusMessage(order.status),
   };
 }
@@ -105,6 +128,7 @@ function customerStatusMessage(status) {
   return ({
     creating_payment: 'در حال ساخت لینک پرداخت',
     awaiting_payment: 'در انتظار پرداخت',
+    awaiting_bazaar_payment: 'در انتظار پرداخت با کافه‌بازار',
     paid: 'پرداخت تایید شد',
     awaiting_approval: 'پرداخت تایید شد؛ منتظر تایید مدیریت',
     provider_submitting: 'در حال ارسال سفارش به TG Tools',
@@ -126,7 +150,7 @@ function tgState(data) {
 }
 
 async function markOrderError(db, id, message) {
-  await db.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='processing'`)
+  await db.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='provider_submitting'`)
     .bind(safeProviderMessage(message), new Date().toISOString(), id).run();
 }
 
