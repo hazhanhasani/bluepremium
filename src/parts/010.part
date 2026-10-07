@@ -126,7 +126,7 @@ async function loadOrders(){
   if(!token)return;
   const d=await fetch('/api/admin/orders',{headers:H(),cache:'no-store'}).then(r=>r.json());
   const rows=(d.orders||[]);
-  const action=o=>o.status==='awaiting_approval'?'<button class="approve-btn" onclick="approveOrder(\''+o.order_code+'\',this)">ارسال به TG Tools</button>':'—';
+  const action=o=>o.status==='awaiting_approval'?'<button class="approve-btn" data-code="'+o.order_code+'" onclick="approveOrder(this.dataset.code,this)">ارسال به TG Tools</button>':'—';
   const html=rows.map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td><td>'+String(o.created_at||'').replace('T',' ').slice(0,16)+'</td><td>'+action(o)+'</td></tr>').join('');
   document.getElementById('ordersBody').innerHTML=html||'<tr><td colspan="7">سفارشی ثبت نشده است.</td></tr>';
   document.getElementById('dashOrders').innerHTML=rows.slice(0,10).map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td></tr>').join('');
