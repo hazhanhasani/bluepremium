@@ -189,7 +189,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <section class="checkout" id="checkout">
   <article class="box">
     <h3>اطلاعات حساب مقصد</h3>
-    <div class="hint">یوزرنیم تلگرام را وارد کن. قبل از ساخت فاکتور، حساب بررسی می‌شود.</div>
+    <div class="hint">یوزرنیم تلگرام را وارد کن. قبل از شروع پرداخت، حساب تلگرام بررسی می‌شود.</div>
     <div class="steps">
       <div id="step1" class="step on"><i>1</i><span>پلن</span></div><div class="line"></div>
       <div id="step2" class="step"><i>2</i><span>حساب</span></div><div class="line"></div>
@@ -200,7 +200,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
       <div class="input-wrap"><span class="input-icon">${ICON.user}</span><input id="username" class="input" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="telegram_username"></div>
     </div>
     <div id="account" class="account"><div id="avatar" class="avatar">T</div><div class="account-info"><b id="displayName">حساب تلگرام</b><small id="verifiedUser">@username</small></div><div class="account-check">${ICON.check}</div></div>
-    <div class="actions"><button id="verify" class="btn secondary">${ICON.user}<span>بررسی حساب</span></button><button id="buy" class="btn primary" disabled>${ICON.card}<span>ساخت فاکتور</span></button></div>
+    <div class="actions"><button id="verify" class="btn secondary">${ICON.user}<span>بررسی حساب</span></button><button id="buy" class="btn primary" disabled>${ICON.card}<span>پرداخت با کافه‌بازار</span></button></div>
     <div id="order" class="order"></div>
   </article>
 
@@ -214,7 +214,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
         <div class="summary-row"><span>مبلغ نهایی</span><b id="sumPrice">---</b></div>
       </div>
     </div>
-    <div class="secure">${ICON.shield}<span>فاکتور فقط بعد از تأیید حساب ساخته می‌شود و اطلاعات سرویس روی گوشی ذخیره نمی‌شود.</span></div>
+    <div class="secure">${ICON.shield}<span>پرداخت از داخل اپ رسمی کافه‌بازار انجام می‌شود و رسید خرید قبل از فعال‌سازی بررسی می‌شود.</span></div>
   </aside>
 </section>
 </main>
@@ -232,35 +232,73 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <div id="toast" class="toast"></div>
 
 <script>
-const UI_VERSION='7.1.0';
+const UI_VERSION='8.0.0';
 const ICONS=${JSON.stringify(ICON)};
-let plans=[],selected=null,current=null,verifiedUsername='',busy=false;
+let plans=[],selected=null,current=null,verifiedUsername='',busy=false,appConfig={},restoreRequested=false;
 const el=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0))+' تومان';
 const esc=v=>String(v||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-function toast(t){const x=el('toast');x.textContent=t;x.classList.add('show');clearTimeout(window.__t);window.__t=setTimeout(()=>x.classList.remove('show'),2200)}
+function toast(t){const x=el('toast');x.textContent=t;x.classList.add('show');clearTimeout(window.__t);window.__t=setTimeout(()=>x.classList.remove('show'),2600)}
 function currentPlan(){return plans.find(p=>Number(p.id)===Number(selected))}
 function setStep(n){[1,2,3].forEach(i=>el('step'+i).classList.toggle('on',i<=n))}
+function hasBazaarBridge(){try{return !!window.BluePremiumNative&&typeof window.BluePremiumNative.purchaseCafeBazaar==='function'}catch(e){return false}}
 function updateSummary(){const p=currentPlan();el('sumMonths').textContent=p?p.months+' ماه':'---';el('sumPrice').textContent=p?money(p.price_toman):'---';el('sumUser').textContent=verifiedUsername?'@'+verifiedUsername:'---';el('ctaText').textContent=p?p.months+' ماهه · '+money(p.price_toman):'فعلاً پلنی موجود نیست'}
-function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">پردازش سریع پس از پرداخت</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
-async function loadConfig(){try{const d=await fetch('/api/config?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());const s=String(d.support||'').trim();if(s){const href=s.startsWith('http')?s:(s.startsWith('t.me/')?'https://'+s:'https://t.me/'+s.replace(/^@/,''));const a=el('supportLink');a.href=href;a.style.display='inline-flex'}}catch(e){}}
-async function load(){loadConfig();try{const d=await fetch('/api/plans?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());plans=d.plans||[];renderPlans()}catch(e){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">ارتباط با سرور برقرار نشد</div></article>'}try{const saved=localStorage.getItem('bp_order');if(saved){current=JSON.parse(saved);document.body.classList.add('order-active');setActiveNav('order');check()}else{document.body.classList.remove('order-active')}}catch(e){document.body.classList.remove('order-active')}}
+function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">پرداخت امن با کافه‌بازار</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
+async function loadConfig(){try{const d=await fetch('/api/config?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());appConfig=d||{};const s=String(d.support||'').trim();if(s){const href=s.startsWith('http')?s:(s.startsWith('t.me/')?'https://'+s:'https://t.me/'+s.replace(/^@/,''));const a=el('supportLink');a.href=href;a.style.display='inline-flex'}}catch(e){appConfig={}}}
+async function load(){await loadConfig();try{const d=await fetch('/api/plans?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());plans=d.plans||[];renderPlans()}catch(e){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">ارتباط با سرور برقرار نشد</div></article>'}try{const saved=localStorage.getItem('bp_order');if(saved){current=JSON.parse(saved);document.body.classList.add('order-active');setActiveNav('order');check()}else{document.body.classList.remove('order-active')}}catch(e){document.body.classList.remove('order-active')}}
 el('username').addEventListener('input',()=>{verifiedUsername='';el('account').classList.remove('show');el('buy').disabled=true;updateSummary();setStep(1)});
 el('verify').onclick=async()=>{if(busy)return;const u=el('username').value.trim().replace(/^@+/,'');if(!/^[A-Za-z0-9_]{5,32}$/.test(u)){toast('یوزرنیم معتبر وارد کن');return}busy=true;el('verify').disabled=true;el('verify').querySelector('span').textContent='در حال بررسی';try{const d=await fetch('/api/telegram/lookup?username='+encodeURIComponent(u)+'&v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());if(!d.ok||d.found===false){toast('این حساب تلگرام پیدا نشد');return}if(d.premium_eligible===false){toast('این حساب فعلاً امکان دریافت Premium ندارد');return}verifiedUsername=u;el('displayName').textContent=d.display_name||u;el('verifiedUser').textContent='@'+u;el('avatar').textContent=String(d.display_name||u).trim().slice(0,1).toUpperCase();el('account').classList.add('show');el('buy').disabled=false;updateSummary();setStep(2);toast('حساب با موفقیت تأیید شد')}catch(e){toast('بررسی حساب ناموفق بود؛ دوباره تلاش کن')}finally{busy=false;el('verify').disabled=false;el('verify').querySelector('span').textContent='بررسی دوباره'}}
-el('buy').onclick=async()=>{const p=currentPlan();if(!p){toast('اول یک پلن انتخاب کن');return}if(!verifiedUsername){toast('اول حساب تلگرام را بررسی کن');return}el('buy').disabled=true;el('buy').querySelector('span').textContent='در حال ساخت فاکتور';setStep(3);try{let did=localStorage.getItem('bp_device');if(!did){did=crypto.randomUUID();localStorage.setItem('bp_device',did)}const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan_id:selected,username:verifiedUsername,device_id:did})});const d=await r.json();if(!d.ok){toast(errorText(d.error));setStep(2);return}current={code:d.order.code,token:d.order.token};localStorage.setItem('bp_order',JSON.stringify(current));showOrder(d.order,d.payment_url);setTimeout(()=>location.href=d.payment_url,450)}catch(e){toast('ارتباط با سرور قطع شد');setStep(2)}finally{el('buy').querySelector('span').textContent='ساخت فاکتور';el('buy').disabled=!verifiedUsername}}
-async function check(){if(!current)return;try{const d=await fetch('/api/orders/'+encodeURIComponent(current.code)+'/check?token='+encodeURIComponent(current.token)+'&v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());if(d.ok){showOrder(d.order,d.order.payment_url);if(!['delivered','failed','payment_mismatch','provider_uncertain'].includes(d.order.status))setTimeout(check,5000)}}catch(e){}}
-function progress(s){return ({creating_payment:15,awaiting_payment:30,paid:55,awaiting_approval:62,processing:70,provider_submitting:72,provider_pending:84,provider_uncertain:76,delivered:100,payment_error:25,payment_mismatch:45,failed:80})[s]||20}
-function stateIcon(s){if(s==='delivered')return ICONS.check;if(['failed','payment_error','payment_mismatch'].includes(s))return ICONS.alert;if(['processing','provider_submitting','provider_pending','paid'].includes(s))return ICONS.refresh;if(s==='provider_uncertain')return ICONS.alert;return ICONS.clock}
+el('buy').onclick=async()=>{
+  const p=currentPlan();if(!p){toast('اول یک پلن انتخاب کن');return}
+  if(!verifiedUsername){toast('اول حساب تلگرام را بررسی کن');return}
+  if(appConfig.payment_method==='cafebazaar'&&!hasBazaarBridge()){toast('پرداخت کافه‌بازار فقط از داخل اپ بلوپرمیوم انجام می‌شود.');return}
+  if(appConfig.payment_method==='cafebazaar'&&!appConfig.cafebazaar_configured){toast('درگاه کافه‌بازار هنوز توسط مدیر تکمیل نشده است.');return}
+  el('buy').disabled=true;el('buy').querySelector('span').textContent='آماده‌سازی پرداخت';setStep(3);
+  try{
+    let did=localStorage.getItem('bp_device');if(!did){did=crypto.randomUUID();localStorage.setItem('bp_device',did)}
+    const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan_id:selected,username:verifiedUsername,device_id:did})});
+    const d=await r.json();
+    if(!d.ok){toast(errorText(d.error));setStep(2);return}
+    current={code:d.order.code,token:d.order.token,bazaar:d.bazaar||null};
+    localStorage.setItem('bp_order',JSON.stringify(current));
+    showOrder(d.order,null);
+    if(d.payment_method==='cafebazaar')startBazaarPayment(d.order,d.bazaar);
+  }catch(e){toast('ارتباط با سرور قطع شد');setStep(2)}
+  finally{el('buy').querySelector('span').textContent='پرداخت با کافه‌بازار';el('buy').disabled=!verifiedUsername}
+};
+function bazaarConfigForOrder(o,bazaar){const months=Number(o?.months||currentPlan()?.months||0);return {productId:String(bazaar?.product_id||o?.bazaar_product_id||appConfig.cafebazaar?.products?.[months]||''),rsa:String(bazaar?.rsa_public_key||appConfig.cafebazaar?.rsa_public_key||'')}}
+function startBazaarPayment(o,bazaar){if(!current)return;if(!hasBazaarBridge()){toast('اپ کافه‌بازار یا نسخه مناسب بلوپرمیوم در دسترس نیست.');return}const cfg=bazaarConfigForOrder(o,bazaar);if(!cfg.productId||!cfg.rsa){toast('تنظیمات کافه‌بازار کامل نیست.');return}try{window.BluePremiumNative.purchaseCafeBazaar(cfg.productId,current.code,current.token,cfg.rsa);toast('در حال باز کردن پرداخت کافه‌بازار...')}catch(e){toast('شروع پرداخت کافه‌بازار ناموفق بود.')}}
+function retryBazaarPayment(){if(!current)return;check(true)}
+async function confirmBazaarReceipt(receipt){if(!current)return;try{const body=Object.assign({},receipt,{token:current.token});const r=await fetch('/api/orders/'+encodeURIComponent(current.code)+'/bazaar/confirm',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!d.ok){toast(errorText(d.error));return}showOrder(d.order,null);const purchaseToken=String(d.consume_purchase_token||receipt.purchase_token||'');if(purchaseToken&&window.BluePremiumNative&&typeof window.BluePremiumNative.consumeCafeBazaar==='function'){window.BluePremiumNative.consumeCafeBazaar(purchaseToken,current.code,current.token)}check()}catch(e){toast('تأیید پرداخت کافه‌بازار انجام نشد؛ دوباره بررسی می‌شود.')}}
+window.BluePremiumBazaar={
+  onPurchaseFlowBegan:function(){toast('صفحه پرداخت کافه‌بازار باز شد.')},
+  onPurchaseSuccess:function(receipt){confirmBazaarReceipt(receipt||{})},
+  onPurchaseCanceled:function(){toast('پرداخت کافه‌بازار لغو شد.')},
+  onPurchaseFailed:function(data){toast(String(data?.message||'پرداخت کافه‌بازار ناموفق بود.'))},
+  onConsumeSuccess:async function(data){try{await fetch('/api/orders/'+encodeURIComponent(data.orderCode)+'/bazaar/consumed',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:data.token,purchase_token:data.purchaseToken})})}catch(e){}},
+  onConsumeFailed:function(){toast('پرداخت تأیید شد؛ نهایی‌سازی خرید بازار بعداً دوباره انجام می‌شود.')},
+  onRestorePurchases:function(data){if(!current)return;const list=Array.isArray(data?.purchases)?data.purchases:[];const receipt=list.find(x=>String(x.payload||'')===String(current.code));if(receipt)confirmBazaarReceipt(receipt)},
+  onRestoreFailed:function(){},
+  onConnectionState:function(){}
+};
+function maybeRestoreBazaar(o){if(restoreRequested||!current||o?.status!=='awaiting_bazaar_payment'||!hasBazaarBridge())return;const rsa=String(appConfig.cafebazaar?.rsa_public_key||'');if(!rsa)return;restoreRequested=true;try{window.BluePremiumNative.restoreCafeBazaarPurchases(rsa)}catch(e){}}
+async function check(forcePay=false){if(!current)return;try{const d=await fetch('/api/orders/'+encodeURIComponent(current.code)+'/check?token='+encodeURIComponent(current.token)+'&v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());if(d.ok){showOrder(d.order,d.order.payment_url);maybeRestoreBazaar(d.order);if(forcePay&&d.order.status==='awaiting_bazaar_payment')startBazaarPayment(d.order,current.bazaar);if(!['delivered','failed','payment_mismatch','payment_error','provider_uncertain'].includes(d.order.status))setTimeout(check,7000)}}catch(e){}}
+function progress(s){return ({creating_payment:15,awaiting_payment:30,awaiting_bazaar_payment:30,paid:55,awaiting_approval:62,processing:70,provider_submitting:72,provider_pending:84,provider_uncertain:76,delivered:100,payment_error:25,payment_mismatch:45,failed:80})[s]||20}
+function stateIcon(s){if(s==='delivered')return ICONS.check;if(['failed','payment_error','payment_mismatch','provider_uncertain'].includes(s))return ICONS.alert;if(['processing','provider_submitting','provider_pending','paid'].includes(s))return ICONS.refresh;return ICONS.clock}
 function setActiveNav(name){document.querySelectorAll('.app-nav button').forEach(x=>x.classList.toggle('active',x.dataset.nav===name))}
+function resetOrder(){localStorage.removeItem('bp_order');current=null;restoreRequested=false;document.body.classList.remove('order-active');el('order').className='order';el('order').innerHTML='';setActiveNav('buy');setStep(verifiedUsername?2:1);toast('می‌توانی سفارش جدید ثبت کنی.')}
 function showOrder(o,pay){
   document.body.classList.add('order-active');setActiveNav('order');
   const x=el('order');x.className='order show';
-  const payBtn=pay&&o.status==='awaiting_payment'?'<a class="btn primary" style="margin-top:9px" href="'+pay+'">'+ICONS.card+'<span>ادامه پرداخت</span></a>':'';
-  x.innerHTML='<div class="order-state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+esc(o.message)+'</b><small>'+esc(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="order-grid"><div class="meta"><small>مقصد</small><b>@'+esc(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>وضعیت</small><b>'+esc(o.message)+'</b></div></div>'+payBtn
+  let action='';
+  if(o.status==='awaiting_bazaar_payment')action='<button class="btn primary" style="margin-top:9px;width:100%" onclick="retryBazaarPayment()">'+ICONS.card+'<span>پرداخت با کافه‌بازار</span></button>';
+  else if(pay&&o.status==='awaiting_payment')action='<a class="btn primary" style="margin-top:9px" href="'+pay+'">'+ICONS.card+'<span>ادامه پرداخت</span></a>';
+  else if(['delivered','failed','payment_mismatch','payment_error','provider_uncertain'].includes(o.status))action='<button class="btn secondary" style="margin-top:9px;width:100%" onclick="resetOrder()">'+ICONS.refresh+'<span>سفارش جدید</span></button>';
+  x.innerHTML='<div class="order-state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+esc(o.message)+'</b><small>'+esc(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="order-grid"><div class="meta"><small>مقصد</small><b>@'+esc(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>پرداخت</small><b>'+(o.payment_method==='cafebazaar'?'کافه‌بازار':esc(o.message))+'</b></div></div>'+action
 }
 function navTo(id,button){setActiveNav(button?.dataset?.nav||id);const target=id==='home'?document.body:el(id);target?.scrollIntoView({behavior:'smooth',block:'start'});if(navigator.vibrate)navigator.vibrate(8)}
 function goOrder(button){setActiveNav('order');el('checkout').scrollIntoView({behavior:'smooth',block:'start'});if(current)check();else{document.body.classList.remove('order-active');toast('هنوز سفارشی روی این دستگاه ثبت نشده')}}
-function errorText(e){return ({invalid_username:'یوزرنیم معتبر نیست.',telegram_user_not_found:'حساب تلگرام پیدا نشد.',not_premium_eligible:'این حساب امکان دریافت پرمیوم ندارد.',payment_not_configured:'درگاه پرداخت هنوز فعال نشده است.',plan_unavailable:'این پلن فعلاً قابل خرید نیست.',payment_create_failed:'ساخت لینک پرداخت انجام نشد.'})[e]||'ثبت سفارش انجام نشد؛ دوباره تلاش کن.'}
+function errorText(e){return ({invalid_username:'یوزرنیم معتبر نیست.',telegram_user_not_found:'حساب تلگرام پیدا نشد.',not_premium_eligible:'این حساب امکان دریافت پرمیوم ندارد.',payment_not_configured:'درگاه پرداخت کافه‌بازار فعال نیست.',cafebazaar_not_configured:'RSA و Product IDهای کافه‌بازار هنوز تنظیم نشده‌اند.',invalid_bazaar_receipt:'رسید خرید کافه‌بازار معتبر نیست.',invalid_bazaar_receipt_json:'اطلاعات رسید کافه‌بازار ناقص است.',bazaar_receipt_mismatch:'رسید خرید با سفارش مطابقت ندارد.',invalid_bazaar_signature:'امضای خرید کافه‌بازار معتبر نیست.',bazaar_purchase_already_used:'این خرید قبلاً برای سفارش دیگری استفاده شده است.',order_not_waiting_bazaar_payment:'این سفارش دیگر در انتظار پرداخت نیست.',plan_unavailable:'این پلن فعلاً قابل خرید نیست.'})[e]||'عملیات انجام نشد؛ دوباره تلاش کن.'}
 load();
 </script>
 </body>
