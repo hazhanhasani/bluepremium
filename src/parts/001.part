@@ -31,8 +31,8 @@ async function route(request, env, ctx) {
   if (bpFeature) return bpFeature;
 
 
-  if (path === '/' && request.method === 'GET') return html(storeHtmlV4());
-  if (path === '/admin' && request.method === 'GET') return html(adminHtmlV2());
+  if (path === '/' && request.method === 'GET') return html(bpDecorateStoreHtml(storeHtmlV4()));
+  if (path === '/admin' && request.method === 'GET') return html(bpDecorateAdminHtml(adminHtmlV2()));
   if (path === '/manifest.webmanifest' && request.method === 'GET') {
     return new Response(JSON.stringify({
       name: `${BRAND_FA} | ${BRAND}`,
