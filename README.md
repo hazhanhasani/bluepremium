@@ -8,7 +8,7 @@ Independent Telegram Premium storefront built on Cloudflare Workers + D1 with an
 - **Cloudflare D1**: plans, orders, encrypted provider credentials and application settings.
 - **TG Tools**: Telegram username lookup, Premium purchase and transaction reconciliation.
 - **BluePal**: invoice creation and server-side payment verification.
-- **Android**: secure WebView client that only keeps the Blue Premium origin in-app; payment pages open externally.
+- **Android**: secure WebView client restricted to the Blue Premium origin. Customers receive the verified destination card and exact payable amount inside the app, without an external checkout redirect.
 - **GitHub Actions**: builds an installable Android APK on every Android change.
 
 ## Security
@@ -40,8 +40,8 @@ TG Tools and BluePal API keys are entered from `/admin` after deployment and are
 
 1. Client loads active 3/6/12-month plans.
 2. Telegram username is verified with TG Tools.
-3. BluePal invoice is created in Rial from the Toman plan price.
-4. Payment is re-verified from BluePal before any provider call.
+3. BluePal invoice is created in Rial from the Toman plan price. The exact payable amount (including provider fee) and destination card are obtained server-side from the invoice API or verified hosted-invoice details.
+4. Customers receive card-transfer instructions in the app or Telegram bot. Payment status and amount are independently re-verified through the BluePal invoice API before any provider call.
 5. Paid order is atomically claimed and sent to TG Tools.
 6. Pending TG Tools transactions are reconciled automatically by the Worker cron.
 
@@ -67,3 +67,9 @@ Production APKs are built as signed `release` artifacts with a persistent signin
 - GitHub Actions obtains signing material from the Blue Premium Worker using GitHub OIDC scoped to this repository and the `main` branch.
 - CI verifies the final APK certificate fingerprint before uploading the artifact.
 - The original debug-signed test APK cannot be upgraded in place to the first stable-signed release; uninstall it once. Stable releases after that can update each other normally.
+
+## Regression tests
+
+Run `npm test` to rebuild and syntax-check the Worker bundle and validate payment-card parsing, fee limits, and storefront JavaScript. GitHub Actions executes this suite on changes to the storefront and payment source.
+
+Note: these contract tests do not submit a real payment. Before accepting orders in production, confirm the current BluePal invoice response still supplies a card number and exact amount on its authorized hosted invoice page. The storefront never trusts hosted HTML as proof of payment; fulfillment still requires a verified invoice status from BluePal.
