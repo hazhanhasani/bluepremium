@@ -17,9 +17,21 @@ async function reconcileOrder(env, order, ctx) {
     if (!key || !current.blupal_invoice_id) return;
     const remote = await blupalRequest(key, 'GET', `/v1/invoices/${encodeURIComponent(current.blupal_invoice_id)}`);
     if (!remote.ok) return;
-    const data = remote.data || remote.raw || {};
+    const data = remote.raw || remote.data || {};
     const expected = Number(current.price_toman) * 10;
-    const details = blupalInvoiceFields(data, expected);
+    let details = blupalInvoiceFields(data, expected);
+    if ((!details.card_number || !details.final_amount_rial) && (details.payment_link || current.payment_url)) {
+      const hosted = await blupalHostedPaymentDetails(
+        details.payment_link || current.payment_url,
+        expected,
+        details.final_amount_rial || Number(current.blupal_final_amount_rial || 0)
+      );
+      if (hosted) details = { ...details, ...hosted };
+    }
+    if (!blupalAmountIsReasonable(expected, details.final_amount_rial)) {
+      details.card_number = '';
+      details.final_amount_rial = 0;
+    }
 
     if (details.card_number || details.final_amount_rial || details.expires_at) {
       await env.DB.prepare(`
