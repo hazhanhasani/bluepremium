@@ -25,7 +25,7 @@ function fakeUpdate(overrides={}){
   const section=bot.slice(bot.indexOf('async function telegramWelcomeAfterJoin('));
   const fn=new Function(
     'getSetting','getProviderSecret','ensureTelegramBotPresentation','telegramBotApi',
-    'telegramSessionClear','bpRegister','bpBotGate','telegramSendMessage','telegramMainKeyboard',
+    'telegramSessionClear','bpRegister','bpBotGate','telegramSendMessage','telegramMainKeyboard','telegramEscapeHtml',
     section+';return handleTelegramBotUpdate;');
   const handler=fn(
     async(_db,k)=>k==='telegram_bot_enabled'?'1':'',
@@ -36,7 +36,8 @@ function fakeUpdate(overrides={}){
     async()=>{events.push({type:'register'})},
     gate,
     send,
-    mainKeyboard
+    mainKeyboard,
+    value=>String(value||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
   );
   const env={DB:{}},origin='https://example.workers.dev';
   return {events,run:update=>handler(env,update,origin,null)};
