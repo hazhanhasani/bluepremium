@@ -1,0 +1,89 @@
+
+// Quote-based TG Tools products. Quotes are never extrapolated from collection floor prices.
+const TG_STEAM_AMOUNTS=[100,200,500,1000];
+const TG_STEAM_CURRENCIES=['RUB','USD','EUR','TRY','KZT','UAH','ARS'];
+function tgTonAddress(v) {
+  const s=String(v||'').trim();
+  return /^(?:[EU]Q[A-Za-z0-9_-]{46}|0:[0-9a-fA-F]{64})$/.test(s)?s:'';
+}
+function tgQuotedTon(d) {
+  const value=d?.totalPriceTon??d?.totalTon??d?.tonAmount??d?.quote?.totalPriceTon??d?.priceTon??d?.costTon;
+  const n=Number(value);
+  return Number.isFinite(n)&&n>0&&n<100000?n:0;
+}
+async function tgLiveQuote(env,kind,sku) {
+  const key=await getProviderSecret(env,'tgtools_api_key');
+  if(!key)return null;
+  let remote,details;
+  if(kind==='nft'){
+    if(!tgTonAddress(sku))return null;
+    remote=await tgRequest(key,'GET','/api/marketplace/quote?address='+encodeURIComponent(sku));
+    details=remote.data;
+    if(details?.canBuy!==true)return null;
+  }else if(kind==='steam'){
+    const match=String(sku).match(/^([A-Z]{3}):(\d{1,5})$/);
+    if(!match||!TG_STEAM_CURRENCIES.includes(match[1]))return null;
+    const amount=Number(match[2]);
+    if(!Number.isSafeInteger(amount)||amount<10||amount>10000)return null;
+    remote=await tgRequest(key,'GET','/api/steam-topup/quote?currency='+match[1]+'&amount='+amount);
+    details=remote.data;
+    if(details?.available===false||details?.canBuy===false)return null;
+  }else return null;
+  if(!remote.ok)return null;
+  const ton=tgQuotedTon(details);
+  const price=await tgPrice(env,kind,ton);
+  if(!ton||!price)return null;
+  return {kind,sku,title:kind==='nft'?'گیفت NFT تلگرام':'شارژ Steam '+sku,
+    quantity:1,ton,price_toman:price,target_type:kind==='nft'?'ton_wallet':'steam_login',
+    quote_time:new Date().toISOString()};
+}
+async function tgQuoteBySku(env,kind,sku) {
+  if(!TG_TYPES.includes(kind))return null;
+  if(String(await getSetting(env.DB,'market_'+kind+'_enabled','0'))!=='1')return null;
+  if(kind==='nft'||kind==='steam')return tgLiveQuote(env,kind,sku);
+  return (await tgProducts(env,kind)).find(p=>p.sku===sku)||null;
+}
+function tgFulfillmentInput(order) {
+  if(order.kind==='nft')return {
+    path:'/api/marketplace/buy/auto',
+    body:{nftAddress:order.sku,recipientTonAddress:order.target,clientOrderId:order.order_code}
+  };
+  if(order.kind==='steam'){
+    const [currency,amount]=order.sku.split(':');
+    return {path:'/api/steam-topup/buy',body:{steamLogin:order.target,currency,amount:Number(amount)}};
+  }
+  if(order.kind==='stars')return {path:'/api/purchase/stars',body:{
+    recipientUsername:order.target,amount:order.quantity,paymentMethod:'ton',trackingCode:order.order_code}};
+  if(order.kind==='gift')return {path:'/api/Purchase/gift',body:{
+    recipientUsername:order.target,giftId:order.sku,trackingCode:order.order_code}};
+  if(order.kind==='smm'){
+    const info=JSON.parse(order.provider_payload||'{}');
+    return {path:'/api/Purchase/smm',body:{serviceId:Number(info.serviceId||order.sku),link:order.target,
+      quantity:order.quantity,bundleKey:info.bundleKey||null}};
+  }
+  if(order.kind==='catalog')return {path:'/api/catalog/buy',body:{
+    productId:Number(order.sku),quantity:order.quantity,...(order.target?{playerId:order.target}:{})}};
+  return null;
+}
+function tgOrderDetailRoute(order) {
+  const id=encodeURIComponent(order.provider_transaction_id||'');
+  if(!/^\d{1,20}$/.test(String(order.provider_transaction_id||'')))return '';
+  if(order.kind==='nft')return '/api/marketplace/orders/'+id;
+  if(order.kind==='catalog'||order.kind==='steam')return '/api/catalog/orders/'+id;
+  return '/api/Purchase/'+id;
+}
+async function tgPreflightDelivery(env,order){
+  if(!['nft','steam'].includes(order.kind))return {ok:true};
+  const updated=await tgLiveQuote(env,order.kind,order.sku);
+  const quoteBase=Number(order.quoted_ton);
+  // A pre-paid order must NOT execute on a stale/higher quote.
+  if(!updated||updated.ton>quoteBase*1.005)return {ok:false,error:'reprice_or_sold_out'};
+  if(order.kind==='nft'&&!tgTonAddress(order.target))return {ok:false,error:'invalid_ton_wallet'};
+  if(order.kind==='steam'){
+    const key=await getProviderSecret(env,'tgtools_api_key');
+    const result=await tgRequest(key,'POST','/api/steam-topup/check-login',{steamLogin:order.target});
+    if(!result.ok||result.data?.valid===false||result.data?.found===false)
+      return {ok:false,error:'invalid_steam_login'};
+  }
+  return {ok:true};
+}
