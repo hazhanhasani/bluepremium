@@ -45,3 +45,13 @@ To enable additional categories, first confirm the provider's real JSON catalog,
 - https://tg-tools.shop/api-docs
 - https://tg-tools.shop/en/telegram-gift-api
 - https://tg-tools.shop/en/gift-card-api
+
+## Financial reconciliation and administrator diagnostics
+
+The market worker executes the TGTools purchase **only once** for a paid order. If its execution is interrupted while `provider_submitting`, the scheduled job marks the order `provider_uncertain` after 15 minutes; it never blindly retries the purchase. Pending provider orders with a transaction ID continue to be polled. The admin **محصولات TG Tools** page shows API health, failed/uncertain orders and provider errors.
+
+The `GET /api/admin/market/health` API is admin-authenticated and returns status counts and sanitized SMM connectivity diagnostics. It never returns the TGTools API key. A zero-product SMM catalog or provider authorization failure is an upstream availability issue, not proof of a sellable product.
+
+An administrator can refund a **wallet-funded**, definitively failed or `refund_required` market order only after independently confirming it was not delivered. Refunds are forbidden for orders with an assigned provider transaction ID, pending or uncertain orders, and card-funded payments. Refunds are ledger-backed and idempotent; the UI requires an explicit non-delivery confirmation and reason.
+
+For a gift card, a completed provider order without a delivery code is not considered delivered if the customer bought a code product (rather than a player-ID top-up). Steam and NFT require fresh item-specific pricing; failed preflight checks automatically release wallet funds before provider submission.
