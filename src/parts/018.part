@@ -97,18 +97,18 @@ function bpPrice(toman) {
 }
 
 async function bpCustomerView(env, telegramId) {
-  const user = await env.DB.prepare("SELECT * FROM bp_users WHERE telegram_id=?").bind(telegramId).first();
+  const user = await env.DB.prepare("SELECT u.*,v.balance_toman AS actual_balance FROM bp_users u JOIN bp_wallet_balances v ON v.telegram_id=u.telegram_id WHERE u.telegram_id=?").bind(telegramId).first();
   if (!user) return null;
   const [ledger, stats, bot] = await Promise.all([
     env.DB.prepare("SELECT id,delta_toman,kind,reason,created_at FROM bp_wallet_ledger WHERE telegram_id=? ORDER BY id DESC LIMIT 20")
       .bind(telegramId).all(),
-    env.DB.prepare("SELECT COUNT(*) AS total,COALESCE(SUM(referral_rewarded),0) AS rewarded FROM bp_users WHERE referred_by=?")
-      .bind(telegramId).first(),
+    env.DB.prepare("SELECT COUNT(*) AS total,(SELECT COUNT(*) FROM bp_wallet_ledger l WHERE l.telegram_id=? AND l.kind='referral') AS rewarded FROM bp_users WHERE referred_by=?")
+      .bind(telegramId,telegramId).first(),
     getSetting(env.DB,"telegram_bot_username","")
   ]);
   return {
     telegram_id:user.telegram_id, username:user.username,display_name:user.display_name,
-    balance_toman:Number(user.balance_toman),blocked:Boolean(user.blocked),
+    balance_toman:Number(user.actual_balance),blocked:Boolean(user.blocked),
     referred_by:user.referred_by,referral_count:Number(stats?.total||0),
     rewarded_count:Number(stats?.rewarded||0),transactions:ledger.results||[],
     referral_link:bot ? "https://t.me/"+bot+"?start=ref_"+telegramId : "",
@@ -121,19 +121,19 @@ async function bpReferralCredit(env, order) {
   const amount = Number(await getSetting(env.DB, "referral_bonus_toman", "0"));
   if (!Number.isSafeInteger(amount) || amount <= 0) return;
   const person = await env.DB.prepare(
-    "SELECT telegram_id,referred_by,referral_rewarded FROM bp_users WHERE telegram_id=?"
+    "SELECT telegram_id,referred_by FROM bp_users WHERE telegram_id=?"
   ).bind(String(order.telegram_user_id)).first();
-  if (!person?.referred_by || person.referral_rewarded) return;
+  if (!person?.referred_by) return;
   await env.DB.prepare(
     "INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,related_user,order_code,idempotency_key) " +
     "SELECT ?,?,'referral','system','First delivered referral',?,?,? " +
-    "WHERE EXISTS(SELECT 1 FROM bp_users WHERE telegram_id=? AND referral_rewarded=0)"
+    "WHERE NOT EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)"
   ).bind(person.referred_by,amount,person.telegram_id,order.order_code,
     "referral:"+person.telegram_id,person.telegram_id).run();
 }
 
 async function bpWalletBuy(env,telegramId,planId,username,ctx) {
-  const user = await env.DB.prepare("SELECT * FROM bp_users WHERE telegram_id=?").bind(telegramId).first();
+  const user = await env.DB.prepare("SELECT u.*,v.balance_toman AS actual_balance FROM bp_users u JOIN bp_wallet_balances v ON v.telegram_id=u.telegram_id WHERE u.telegram_id=?").bind(telegramId).first();
   if (!user || user.blocked) return {ok:false,error:"account_unavailable"};
   const missing = await bpMissingChannels(env,telegramId);
   if (missing.length) return {ok:false,error:"join_required",channels:missing};
@@ -144,7 +144,7 @@ async function bpWalletBuy(env,telegramId,planId,username,ctx) {
     return {ok:false,error:"plan_unavailable"};
   username=normalizeUsername(username);
   if (!username) return {ok:false,error:"invalid_username"};
-  if (Number(user.balance_toman) < price) return {ok:false,error:"insufficient_wallet_balance"};
+  if (Number(user.actual_balance) < price) return {ok:false,error:"insufficient_wallet_balance"};
   const key=await getProviderSecret(env,"tgtools_api_key");
   if (!key) return {ok:false,error:"provider_not_configured"};
   const lookup=await tgRequest(key,"GET","/api/purchase/user/"+encodeURIComponent(username));
@@ -156,16 +156,21 @@ async function bpWalletBuy(env,telegramId,planId,username,ctx) {
   const state=mode==="manual" ? "awaiting_approval":"paid";
   try {
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO orders(order_code,public_token_hash,plan_id,months,username,price_toman,status,device_id,payment_provider,created_at,updated_at,paid_at,telegram_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .bind(code,hash,plan.id,plan.months,username,price,state,"tg:"+telegramId,"wallet",now,now,now,telegramId),
-      env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) VALUES(?,?,'purchase','system','Telegram Premium',?,?)")
-        .bind(telegramId,-price,code,"purchase:"+code)
+      env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+        "SELECT ?,?,'purchase','system','Telegram Premium',?,? "+
+        "WHERE (SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?)>=?")
+        .bind(telegramId,-price,code,"purchase:"+code,telegramId,price),
+      env.DB.prepare("INSERT INTO orders(order_code,public_token_hash,plan_id,months,username,price_toman,status,device_id,payment_provider,created_at,updated_at,paid_at,telegram_user_id) "+
+        "SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? "+
+        "WHERE EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)")
+        .bind(code,hash,plan.id,plan.months,username,price,state,"tg:"+telegramId,"wallet",now,now,now,telegramId,"purchase:"+code)
     ]);
   } catch(error) {
     console.error("wallet_purchase_failed", String(error?.message||""));
     return {ok:false,error:"insufficient_wallet_balance"};
   }
   const order=await env.DB.prepare("SELECT * FROM orders WHERE order_code=?").bind(code).first();
+  if (!order) return {ok:false,error:"insufficient_wallet_balance"};
   if (state==="paid") {
     const job=reconcileOrder(env,order,ctx);
     if (ctx?.waitUntil) ctx.waitUntil(job); else await job;
@@ -201,9 +206,9 @@ async function bpFeatureApi(request,env,url,ctx) {
   if (path==="/api/admin/customers" && method==="GET") {
     const q=String(url.searchParams.get("q")||"").replace(/[%_]/g,"").slice(0,60);
     const rows=await env.DB.prepare(
-      "SELECT u.telegram_id,u.username,u.display_name,u.balance_toman,u.blocked,u.referred_by,u.created_at,"+
+      "SELECT u.telegram_id,u.username,u.display_name,v.balance_toman,u.blocked,u.referred_by,u.created_at,"+
       "(SELECT COUNT(*) FROM bp_users x WHERE x.referred_by=u.telegram_id) AS referrals "+
-      "FROM bp_users u WHERE u.telegram_id LIKE ? OR u.username LIKE ? OR u.display_name LIKE ? "+
+      "FROM bp_users u JOIN bp_wallet_balances v ON v.telegram_id=u.telegram_id WHERE u.telegram_id LIKE ? OR u.username LIKE ? OR u.display_name LIKE ? "+
       "ORDER BY u.created_at DESC LIMIT 100"
     ).bind("%"+q+"%","%"+q+"%","%"+q+"%").all();
     return api({ok:true,users:rows.results||[]});
@@ -223,17 +228,18 @@ async function bpFeatureApi(request,env,url,ctx) {
     const reason=bpName(body.reason,160);
     if (!Number.isSafeInteger(delta)||delta===0||Math.abs(delta)>BP_MONEY_MAX||reason.length<3)
       return api({ok:false,error:"invalid_amount_or_reason"},400);
-    const current=await env.DB.prepare("SELECT balance_toman FROM bp_users WHERE telegram_id=?")
+    const current=await env.DB.prepare("SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?")
       .bind(wallet[1]).first();
     if (!current) return api({ok:false,error:"user_not_found"},404);
     if (Number(current.balance_toman)+delta<0) return api({ok:false,error:"insufficient_wallet_balance"},409);
     try {
-      await env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,idempotency_key) VALUES(?,?,?,?,?,?)")
-        .bind(wallet[1],delta,delta>0?"admin_credit":"admin_debit","admin",reason,crypto.randomUUID()).run();
+      await env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,idempotency_key) "+
+        "SELECT ?,?,?,?,?,? WHERE ? > 0 OR (SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?)>=?")
+        .bind(wallet[1],delta,delta>0?"admin_credit":"admin_debit","admin",reason,crypto.randomUUID(),delta,wallet[1],-delta).run();
     } catch(error) {
       return api({ok:false,error:"wallet_adjustment_rejected"},409);
     }
-    const updated=await env.DB.prepare("SELECT balance_toman FROM bp_users WHERE telegram_id=?")
+    const updated=await env.DB.prepare("SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?")
       .bind(wallet[1]).first();
     return api({ok:true,balance_toman:Number(updated.balance_toman)});
   }
