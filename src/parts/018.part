@@ -1,0 +1,324 @@
+
+const BP_USER_ID = /^\d{4,20}$/;
+const BP_JOIN_IDS = /^(?:-100\d{5,20}|@[A-Za-z0-9_]{5,32})$/;
+const BP_MONEY_MAX = 1000000000;
+
+function bpName(value, max = 90) {
+  return String(value || "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, max);
+}
+
+async function bpRegister(env, telegram, referral = "") {
+  const id = String(telegram?.id || "");
+  if (!BP_USER_ID.test(id)) return null;
+  const inviter = String(referral || "").replace(/^ref_/, "");
+  const validInviter = BP_USER_ID.test(inviter) && inviter !== id
+    ? await env.DB.prepare("SELECT telegram_id FROM bp_users WHERE telegram_id=?").bind(inviter).first() : null;
+  const username = bpName(telegram.username, 32);
+  const name = bpName([telegram.first_name, telegram.last_name].filter(Boolean).join(" "));
+  await env.DB.prepare(
+    "INSERT INTO bp_users(telegram_id,username,display_name,referred_by) VALUES(?,?,?,?) " +
+    "ON CONFLICT(telegram_id) DO UPDATE SET username=excluded.username,display_name=excluded.display_name,updated_at=CURRENT_TIMESTAMP"
+  ).bind(id, username, name, validInviter?.telegram_id || null).run();
+  return env.DB.prepare("SELECT * FROM bp_users WHERE telegram_id=?").bind(id).first();
+}
+
+async function bpValidateTelegramInitData(env, request) {
+  const raw = String(request.headers.get("X-Telegram-Init-Data") || "");
+  if (!raw || raw.length > 6000) return null;
+  const botToken = await getProviderSecret(env, "telegram_bot_token");
+  if (!botToken) return null;
+  const params = new URLSearchParams(raw);
+  const hash = params.get("hash") || "";
+  const authDate = Number(params.get("auth_date") || 0);
+  if (!/^[a-f0-9]{64}$/i.test(hash) || !Number.isSafeInteger(authDate) ||
+      Math.abs(Date.now() / 1000 - authDate) > 86400) return null;
+  const items = [...params.entries()].filter(([k]) => k !== "hash")
+    .sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => k + "=" + v).join("\n");
+  const signKey = await crypto.subtle.importKey("raw", enc.encode("WebAppData"),
+    {name:"HMAC", hash:"SHA-256"}, false, ["sign"]);
+  const secret = await crypto.subtle.sign("HMAC", signKey, enc.encode(botToken));
+  const userKey = await crypto.subtle.importKey("raw", secret,
+    {name:"HMAC", hash:"SHA-256"}, false, ["sign"]);
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", userKey, enc.encode(items)));
+  const expected = Array.from(signature, b => b.toString(16).padStart(2, "0")).join("");
+  if (!timingSafeEqual(expected, hash.toLowerCase())) return null;
+  let user;
+  try { user = JSON.parse(params.get("user") || "null"); } catch (_) { return null; }
+  if (!BP_USER_ID.test(String(user?.id || ""))) return null;
+  return bpRegister(env, user, params.get("start_param") || "");
+}
+
+async function bpMissingChannels(env, userId) {
+  const result = await env.DB.prepare(
+    "SELECT id,chat_id,title,invite_url FROM bp_forced_channels WHERE enabled=1 ORDER BY id ASC LIMIT 20"
+  ).all();
+  const channels = result.results || [];
+  if (!channels.length) return [];
+  const token = await getProviderSecret(env, "telegram_bot_token");
+  if (!token) return channels;
+  const missing = [];
+  for (const channel of channels) {
+    const check = await telegramBotApi(token, "getChatMember", {chat_id:channel.chat_id,user_id:userId});
+    const state = check.result?.status;
+    if (!check.ok || !["member", "administrator", "creator"].includes(state) &&
+        !(state === "restricted" && check.result?.is_member === true)) {
+      missing.push({id:channel.id,title:channel.title,invite_url:channel.invite_url});
+    }
+  }
+  return missing;
+}
+
+function bpJoinKeyboard(channels) {
+  return {inline_keyboard:[
+    ...channels.map(x => [{text:"📢 " + bpName(x.title, 45), url:x.invite_url}]),
+    [{text:"✅ عضو شدم؛ بررسی مجدد",callback_data:"bp_verify_join"}],
+  ]};
+}
+
+async function bpBotGate(env, chatId, telegram) {
+  const user = await bpRegister(env, telegram);
+  if (!user) return false;
+  if (Number(user.blocked)) {
+    await telegramSendMessage(env, chatId, "⛔ حساب شما توسط مدیریت مسدود شده است.");
+    return false;
+  }
+  const missing = await bpMissingChannels(env, user.telegram_id);
+  if (missing.length) {
+    await telegramSendMessage(env, chatId, "🔐 برای استفاده از خدمات بلوپرمیوم ابتدا در کانال‌های زیر عضو شو:", {
+      reply_markup:bpJoinKeyboard(missing)
+    });
+    return false;
+  }
+  return true;
+}
+
+function bpPrice(toman) {
+  return new Intl.NumberFormat("fa-IR").format(Number(toman || 0));
+}
+
+async function bpCustomerView(env, telegramId) {
+  const user = await env.DB.prepare("SELECT * FROM bp_users WHERE telegram_id=?").bind(telegramId).first();
+  if (!user) return null;
+  const [ledger, stats, bot] = await Promise.all([
+    env.DB.prepare("SELECT id,delta_toman,kind,reason,created_at FROM bp_wallet_ledger WHERE telegram_id=? ORDER BY id DESC LIMIT 20")
+      .bind(telegramId).all(),
+    env.DB.prepare("SELECT COUNT(*) AS total,COALESCE(SUM(referral_rewarded),0) AS rewarded FROM bp_users WHERE referred_by=?")
+      .bind(telegramId).first(),
+    getSetting(env.DB,"telegram_bot_username","")
+  ]);
+  return {
+    telegram_id:user.telegram_id, username:user.username,display_name:user.display_name,
+    balance_toman:Number(user.balance_toman),blocked:Boolean(user.blocked),
+    referred_by:user.referred_by,referral_count:Number(stats?.total||0),
+    rewarded_count:Number(stats?.rewarded||0),transactions:ledger.results||[],
+    referral_link:bot ? "https://t.me/"+bot+"?start=ref_"+telegramId : "",
+    referral_reward_toman:Number(await getSetting(env.DB,"referral_bonus_toman","0"))
+  };
+}
+
+async function bpReferralCredit(env, order) {
+  if (!order || order.status !== "delivered" || !BP_USER_ID.test(String(order.telegram_user_id || ""))) return;
+  const amount = Number(await getSetting(env.DB, "referral_bonus_toman", "0"));
+  if (!Number.isSafeInteger(amount) || amount <= 0) return;
+  const person = await env.DB.prepare(
+    "SELECT telegram_id,referred_by,referral_rewarded FROM bp_users WHERE telegram_id=?"
+  ).bind(String(order.telegram_user_id)).first();
+  if (!person?.referred_by || person.referral_rewarded) return;
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,related_user,order_code,idempotency_key) " +
+    "SELECT ?,?,'referral','system','First delivered referral',?,?,? " +
+    "WHERE EXISTS(SELECT 1 FROM bp_users WHERE telegram_id=? AND referral_rewarded=0)"
+  ).bind(person.referred_by,amount,person.telegram_id,order.order_code,
+    "referral:"+person.telegram_id,person.telegram_id).run();
+}
+
+async function bpWalletBuy(env,telegramId,planId,username,ctx) {
+  const user = await env.DB.prepare("SELECT * FROM bp_users WHERE telegram_id=?").bind(telegramId).first();
+  if (!user || user.blocked) return {ok:false,error:"account_unavailable"};
+  const missing = await bpMissingChannels(env,telegramId);
+  if (missing.length) return {ok:false,error:"join_required",channels:missing};
+  const plan = await env.DB.prepare("SELECT * FROM plans WHERE id=? AND active=1")
+    .bind(Number(planId)).first();
+  const price=Number(plan?.manual_price_toman || plan?.price_toman || plan?.auto_price_toman || 0);
+  if (!plan || !ALLOWED_MONTHS.includes(Number(plan.months)) || !Number.isSafeInteger(price) || price < 10000)
+    return {ok:false,error:"plan_unavailable"};
+  username=normalizeUsername(username);
+  if (!username) return {ok:false,error:"invalid_username"};
+  if (Number(user.balance_toman) < price) return {ok:false,error:"insufficient_wallet_balance"};
+  const key=await getProviderSecret(env,"tgtools_api_key");
+  if (!key) return {ok:false,error:"provider_not_configured"};
+  const lookup=await tgRequest(key,"GET","/api/purchase/user/"+encodeURIComponent(username));
+  if (!lookup.ok || lookup.data?.found===false || lookup.data?.premiumEligible===false)
+    return {ok:false,error:"telegram_lookup_failed"};
+  const code="BP-"+crypto.randomUUID().replaceAll("-","").slice(0,14).toUpperCase();
+  const token=randomToken(24),hash=await sha256Hex(token),now=new Date().toISOString();
+  const mode=await getSetting(env.DB,"tgtools_fulfillment_mode","auto");
+  const state=mode==="manual" ? "awaiting_approval":"paid";
+  try {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO orders(order_code,public_token_hash,plan_id,months,username,price_toman,status,device_id,payment_provider,created_at,updated_at,paid_at,telegram_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind(code,hash,plan.id,plan.months,username,price,state,"tg:"+telegramId,"wallet",now,now,now,telegramId),
+      env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) VALUES(?,?,'purchase','system','Telegram Premium',?,?)")
+        .bind(telegramId,-price,code,"purchase:"+code)
+    ]);
+  } catch(error) {
+    console.error("wallet_purchase_failed", String(error?.message||""));
+    return {ok:false,error:"insufficient_wallet_balance"};
+  }
+  const order=await env.DB.prepare("SELECT * FROM orders WHERE order_code=?").bind(code).first();
+  if (state==="paid") {
+    const job=reconcileOrder(env,order,ctx);
+    if (ctx?.waitUntil) ctx.waitUntil(job); else await job;
+  } else {
+    const job=notifyTelegramAdminForOrder(env,order,"awaiting_approval");
+    if (ctx?.waitUntil) ctx.waitUntil(job); else await job;
+  }
+  return {ok:true,code,token,order:publicOrder(order)};
+}
+
+async function bpFeatureApi(request,env,url,ctx) {
+  const path=url.pathname, method=request.method;
+  const isMe=path==="/api/me" || path==="/api/me/wallet/purchase";
+  if (isMe) {
+    const user=await bpValidateTelegramInitData(env,request);
+    if (!user) return api({ok:false,error:"telegram_auth_required"},401);
+    if (user.blocked) return api({ok:false,error:"account_blocked"},403);
+    if (path==="/api/me" && method==="GET") {
+      return api({ok:true,user:await bpCustomerView(env,user.telegram_id),
+        required_channels:await bpMissingChannels(env,user.telegram_id)});
+    }
+    if (path==="/api/me/wallet/purchase" && method==="POST") {
+      const body=await readJson(request);
+      const result=await bpWalletBuy(env,user.telegram_id,body.plan_id,body.username,ctx);
+      return api(result,result.ok?201:result.error==="insufficient_wallet_balance"?409:400);
+    }
+    return api({ok:false,error:"not_found"},404);
+  }
+  if (!path.startsWith("/api/admin/customers") &&
+      !path.startsWith("/api/admin/channels") && path!=="/api/admin/referrals") return null;
+  if (!await requireAdmin(request,env)) return api({ok:false,error:"unauthorized"},401);
+
+  if (path==="/api/admin/customers" && method==="GET") {
+    const q=String(url.searchParams.get("q")||"").replace(/[%_]/g,"").slice(0,60);
+    const rows=await env.DB.prepare(
+      "SELECT u.telegram_id,u.username,u.display_name,u.balance_toman,u.blocked,u.referred_by,u.created_at,"+
+      "(SELECT COUNT(*) FROM bp_users x WHERE x.referred_by=u.telegram_id) AS referrals "+
+      "FROM bp_users u WHERE u.telegram_id LIKE ? OR u.username LIKE ? OR u.display_name LIKE ? "+
+      "ORDER BY u.created_at DESC LIMIT 100"
+    ).bind("%"+q+"%","%"+q+"%","%"+q+"%").all();
+    return api({ok:true,users:rows.results||[]});
+  }
+  const account=path.match(/^\/api\/admin\/customers\/(\d{4,20})$/);
+  if(account && method==="PATCH") {
+    const body=await readJson(request);
+    if (typeof body.blocked!=="boolean") return api({ok:false,error:"invalid_request"},400);
+    const result=await env.DB.prepare("UPDATE bp_users SET blocked=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?")
+      .bind(body.blocked?1:0,account[1]).run();
+    return api({ok:!!result.meta?.changes},result.meta?.changes?200:404);
+  }
+  const wallet=path.match(/^\/api\/admin\/customers\/(\d{4,20})\/wallet$/);
+  if(wallet && method==="POST") {
+    const body=await readJson(request);
+    const delta=Number(body.delta_toman);
+    const reason=bpName(body.reason,160);
+    if (!Number.isSafeInteger(delta)||delta===0||Math.abs(delta)>BP_MONEY_MAX||reason.length<3)
+      return api({ok:false,error:"invalid_amount_or_reason"},400);
+    const current=await env.DB.prepare("SELECT balance_toman FROM bp_users WHERE telegram_id=?")
+      .bind(wallet[1]).first();
+    if (!current) return api({ok:false,error:"user_not_found"},404);
+    if (Number(current.balance_toman)+delta<0) return api({ok:false,error:"insufficient_wallet_balance"},409);
+    try {
+      await env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,idempotency_key) VALUES(?,?,?,?,?,?)")
+        .bind(wallet[1],delta,delta>0?"admin_credit":"admin_debit","admin",reason,crypto.randomUUID()).run();
+    } catch(error) {
+      return api({ok:false,error:"wallet_adjustment_rejected"},409);
+    }
+    const updated=await env.DB.prepare("SELECT balance_toman FROM bp_users WHERE telegram_id=?")
+      .bind(wallet[1]).first();
+    return api({ok:true,balance_toman:Number(updated.balance_toman)});
+  }
+  if (path==="/api/admin/channels" && method==="GET") {
+    const out=await env.DB.prepare("SELECT * FROM bp_forced_channels ORDER BY id DESC").all();
+    return api({ok:true,channels:out.results||[]});
+  }
+  if (path==="/api/admin/channels" && method==="POST") {
+    const body=await readJson(request);
+    const chat=String(body.chat_id||"").trim(),title=bpName(body.title,80);
+    const link=String(body.invite_url||"").trim();
+    if (!BP_JOIN_IDS.test(chat)||!title||!/^https:\/\/t\.me\/(?:\+|joinchat\/|[A-Za-z0-9_])[\w+/-]*$/i.test(link))
+      return api({ok:false,error:"invalid_channel"},400);
+    const token=await getProviderSecret(env,"telegram_bot_token");
+    if (!token) return api({ok:false,error:"telegram_bot_not_configured"},409);
+    const info=await telegramBotApi(token,"getChat",{chat_id:chat});
+    if (!info.ok) return api({ok:false,error:"bot_cannot_access_channel"},409);
+    const bot=await telegramBotApi(token,"getMe");
+    if (bot.ok && bot.result?.id) {
+      const membership=await telegramBotApi(token,"getChatMember",{chat_id:chat,user_id:bot.result.id});
+      if (!membership.ok || !["creator","administrator"].includes(membership.result?.status))
+        return api({ok:false,error:"bot_must_be_channel_admin"},409);
+    }
+    await env.DB.prepare("INSERT INTO bp_forced_channels(chat_id,title,invite_url,enabled) VALUES(?,?,?,1) "+
+      "ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,invite_url=excluded.invite_url,enabled=1")
+      .bind(chat,title,link).run();
+    return api({ok:true});
+  }
+  const channelId=path.match(/^\/api\/admin\/channels\/(\d+)$/);
+  if(channelId && method==="DELETE") {
+    await env.DB.prepare("DELETE FROM bp_forced_channels WHERE id=?").bind(Number(channelId[1])).run();
+    return api({ok:true});
+  }
+  if (path==="/api/admin/referrals" && method==="GET") {
+    return api({ok:true,bonus_toman:Number(await getSetting(env.DB,"referral_bonus_toman","0"))});
+  }
+  if (path==="/api/admin/referrals" && method==="POST") {
+    const body=await readJson(request), value=Number(body.bonus_toman);
+    if (!Number.isSafeInteger(value)||value<0||value>1000000)
+      return api({ok:false,error:"invalid_bonus"},400);
+    await setSetting(env.DB,"referral_bonus_toman",String(value));
+    return api({ok:true,bonus_toman:value});
+  }
+  return api({ok:false,error:"not_found"},404);
+}
+
+async function bpBotProfile(env, chatId, telegram) {
+  const user=await bpRegister(env,telegram);
+  if (!user) return;
+  const view=await bpCustomerView(env,user.telegram_id);
+  await telegramSendMessage(env,chatId,
+    "👤 <b>حساب کاربری بلوپرمیوم</b>\n\n"+
+    "🆔 شناسه: <code>"+view.telegram_id+"</code>\n"+
+    "💰 موجودی کیف پول: <b>"+bpPrice(view.balance_toman)+" تومان</b>\n"+
+    "👥 زیرمجموعه‌ها: <b>"+bpPrice(view.referral_count)+"</b>\n"+
+    "🎁 پاداش هر معرفی موفق: <b>"+bpPrice(view.referral_reward_toman)+" تومان</b>",{
+      reply_markup:{inline_keyboard:[
+        [{text:"💳 کیف پول و تراکنش‌ها",callback_data:"bp_wallet"}],
+        [{text:"🎁 لینک دعوت و زیرمجموعه‌ها",callback_data:"bp_referrals"}],
+        [{text:"🛍 خرید",callback_data:"buy"}]
+      ]}
+    });
+}
+
+async function bpBotWallet(env,chatId,userId) {
+  const view=await bpCustomerView(env,String(userId));
+  if(!view)return;
+  const history=view.transactions.slice(0,6).map(x=>
+    (x.delta_toman>0?"🟢 +":"🔴 ")+bpPrice(x.delta_toman)+" تومان · "+bpName(x.reason,55)
+  ).join("\n");
+  await telegramSendMessage(env,chatId,
+    "💳 <b>کیف پول بلوپرمیوم</b>\n\nموجودی: <b>"+bpPrice(view.balance_toman)+" تومان</b>\n\n"+
+    "📋 تراکنش‌های اخیر:\n"+(history||"هنوز تراکنشی ندارید.")+
+    "\n\nافزایش موجودی فعلاً توسط مدیریت انجام می‌شود.",{
+      reply_markup:{inline_keyboard:[[{text:"🛍 خرید با کیف پول",callback_data:"buy"}]]}
+    });
+}
+
+async function bpBotReferrals(env,chatId,userId) {
+  const view=await bpCustomerView(env,String(userId));
+  if (!view)return;
+  await telegramSendMessage(env,chatId,"🎁 <b>دعوت از دوستان</b>\n\n"+
+    "👥 تعداد زیرمجموعه‌ها: <b>"+bpPrice(view.referral_count)+"</b>\n"+
+    "✅ معرفی‌های پاداش‌گرفته: <b>"+bpPrice(view.rewarded_count)+"</b>\n"+
+    "💰 پاداش معرفی موفق: <b>"+bpPrice(view.referral_reward_toman)+" تومان</b>\n\n"+
+    "🔗 لینک اختصاصی:\n"+telegramEscapeHtml(view.referral_link||"ربات هنوز نام کاربری ندارد.")+
+    "\n\nپاداش پس از نخستین تحویل موفق سفارش زیرمجموعه پرداخت می‌شود.");
+}
