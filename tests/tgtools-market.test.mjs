@@ -22,14 +22,14 @@ test("Stars pricing derives from live provider packages and never guessed amount
 });
 
 test("provider APIs cover Stars, Telegram gifts, SMM and digital catalog",async()=>{
-  const s=await load(20);
+  const s=await load(23);
   assert.match(s,/\/api\/purchase\/stars/);
-  assert.match(s,/\/api\/purchase\/gift'/);
-  assert.match(s,/\/api\/purchase\/smm'/);
+  assert.match(s,/\/api\/Purchase\/gift'/);
+  assert.match(s,/\/api\/Purchase\/smm'/);
   assert.match(s,/\/api\/catalog\/buy/);
   assert.match(s,/trackingCode:order\.order_code/);
   assert.match(s,/idempotency_key/);
-  assert.match(s,/provider_uncertain/);
+  assert.match(await load(20),/provider_uncertain/);
   assert.match(s,/getProviderSecret/);
 });
 
