@@ -147,5 +147,11 @@ async function confirmBazaarPurchase(env, order, receipt, ctx) {
     fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
   }
 
+  if (fresh?.status === 'awaiting_approval') {
+    const task = notifyTelegramAdminForOrder(env, fresh, 'awaiting_approval');
+    if (ctx?.waitUntil) ctx.waitUntil(task);
+    else await task;
+  }
+
   return { ok: true, order: fresh };
 }
