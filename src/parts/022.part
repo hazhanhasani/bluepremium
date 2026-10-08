@@ -13,7 +13,11 @@ function tgStoreClient(){
   document.head.appendChild(css);
   const section=document.createElement('section');section.id='tg-digital-shop';section.className='tg-store';
   section.innerHTML='<h2>⭐ فروشگاه خدمات دیجیتال</h2><p>محصولات به‌روز TG Tools با قیمت نهایی تومان؛ کارت مقصد و مبلغ پرداخت داخل بلوپرمیوم نمایش داده می‌شود.</p>'+
-    '<div class="tg-categories" id="tgCategories"></div><div id="tgItems" class="tg-items"></div>'+
+    '<div class="tg-categories" id="tgCategories"></div>'+
+    '<div id="tgCatalogSearchArea" style="display:none;margin:12px 0;gap:8px">'+
+    '<input id="tgCatalogSearch" maxlength="55" placeholder="جست‌وجوی برند؛ مانند Steam، Apple، Amazon" style="flex:1;background:#071426;color:white;border:1px solid #2b4d76;border-radius:12px;padding:12px">'+
+    '<button type="button" id="tgCatalogSearchButton">جست‌وجو</button></div>'+
+    '<div id="tgItems" class="tg-items"></div>'+
     '<div id="tgLiveQuote" style="display:none;border:1px solid #29476b;border-radius:15px;padding:13px;margin:12px 0">'+
     '<div id="tgQuoteFields"></div><button type="button" id="tgQuoteButton" style="margin-top:12px">استعلام قیمت لحظه‌ای</button></div>'+
     '<form id="tgCheckout" class="tg-checkout"><b id="tgChosen"></b><label for="tgDestination">مقصد سفارش</label>'+
@@ -29,8 +33,10 @@ function tgStoreClient(){
     currentKind=kind;selected=null;get('tgCheckout').style.display='none';
     items.innerHTML='<p>در حال دریافت محصولات...</p>';
     get('tgLiveQuote').style.display='none';
+    get('tgCatalogSearchArea').style.display=kind==='catalog'?'flex':'none';
     try{
-      const r=await fetch('/api/market/catalog?kind='+encodeURIComponent(kind),{cache:'no-store'}),d=await r.json();
+      const q=kind==='catalog'?get('tgCatalogSearch').value.trim():'';
+      const r=await fetch('/api/market/catalog?kind='+encodeURIComponent(kind)+(q?'&q='+encodeURIComponent(q):''),{cache:'no-store'}),d=await r.json();
       if(!d.ok)throw Error(d.error);
       all=d.products||[];
       categories.innerHTML=d.kinds.map(x=>'<button data-kind="'+escape(x.kind)+'" class="'+(x.kind===kind?'selected':'')+'">'+escape(x.title)+'</button>').join('');
@@ -95,7 +101,7 @@ function tgStoreClient(){
       const headers={'Content-Type':'application/json'};
       if(account())headers['X-Telegram-Init-Data']=account();
       const r=await fetch('/api/market/orders',{method:'POST',headers,body:JSON.stringify({
-        kind:selected.kind,sku:selected.sku,target,payment,expected_price_toman:selected.price_toman
+        kind:selected.kind,sku:selected.sku,catalog_key:selected.catalog_key||null,target,payment,expected_price_toman:selected.price_toman
       })});
       const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'payment_unavailable');
       const order=d.order;
@@ -126,6 +132,10 @@ function tgStoreClient(){
     }catch(e){selected=null;get('tgCheckout').style.display='none';feedback.textContent='قیمت معتبر دریافت نشد؛ این محصول فعلاً قابل خرید نیست.'}
     finally{btn.disabled=false}
   };
+  get('tgCatalogSearchButton').onclick=()=>load('catalog');
+  get('tgCatalogSearch').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();load('catalog')}
+  });
   get('tgCheckout').onsubmit=e=>{e.preventDefault();submit('blupal')};
   get('tgPayWallet').onclick=()=>submit('wallet');
   function render(o){
