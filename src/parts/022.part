@@ -132,11 +132,22 @@ function tgAdminClient(){
   async function load(){
     try{
       const [configs,orders]=await Promise.all([call('/api/admin/market/settings'),call('/api/admin/market/orders')]);
-      id('tgMarketSettings').innerHTML=Object.entries(configs.settings).map(([kind,s])=>
-        '<div class="plan"><h4>'+labels[kind]+'</h4><div class="field"><label>درصد سود</label><input class="input" id="tgPercent_'+kind+'" type="number" min="0" max="500" value="'+Number(s.profit_percent)+'"></div>'+
-        '<div class="field"><label>فروش</label><select class="input" id="tgEnabled_'+kind+'"><option value="1" '+(s.enabled?'selected':'')+'>فعال</option>'+
-        '<option value="0" '+(!s.enabled?'selected':'')+'>غیرفعال</option></select></div>'+
-        '<button class="btn" data-save-kind="'+kind+'">ذخیره</button></div>').join('');
+      id('tgMarketSettings').innerHTML=Object.entries(configs.settings).map(([kind,s])=>{
+        const canEnable=s.can_enable!==false&&!['nft','steam'].includes(kind);
+        const availability=canEnable
+          ?'<label for="tgEnabled_'+kind+'">وضعیت فروش</label><select class="input" id="tgEnabled_'+kind+'">'+
+            '<option value="1" '+(s.enabled?'selected':'')+'>فعال</option>'+
+            '<option value="0" '+(!s.enabled?'selected':'')+'>غیرفعال</option></select>'
+          :'<label>وضعیت فروش</label><div class="sub" style="padding:10px 0;line-height:1.9">'+
+            '🔒 غیرفعال — ابتدا باید استعلام قیمت لحظه‌ای و تحویل اختصاصی این محصول تکمیل شود.'+
+            '</div>';
+        return '<div class="plan"><h4>'+labels[kind]+'</h4>'+
+          '<div class="field"><label for="tgPercent_'+kind+'">درصد سود</label>'+
+          '<input class="input" id="tgPercent_'+kind+'" type="number" min="0" max="500" step="0.1" value="'+Number(s.profit_percent)+'"></div>'+
+          '<div class="field">'+availability+'</div>'+
+          '<button class="btn" data-save-kind="'+kind+'">'+(canEnable?'ذخیره تنظیمات':'ذخیره درصد سود')+'</button>'+
+          '<div class="sub" id="tgNotice_'+kind+'" role="status" aria-live="polite" style="min-height:20px;margin-top:8px"></div></div>';
+      }).join('');
       id('tgMarketOrders').innerHTML=(orders.orders||[]).map(x=>'<tr><td>'+esc(x.order_code)+'</td><td>'+esc(x.title)+'</td>'+
         '<td>'+money(x.price_toman)+'</td><td>'+esc(x.status)+'</td><td>'+esc(x.created_at)+'</td></tr>').join('');
     }catch(e){id('tgMarketSettings').textContent='خطا: '+e.message}
@@ -144,11 +155,27 @@ function tgAdminClient(){
   id('tgMarketSettings').onclick=async e=>{
     const btn=e.target.closest('[data-save-kind]');if(!btn)return;
     const kind=btn.dataset.saveKind;
-    const body={kind,enabled:id('tgEnabled_'+kind).value==='1',profit_percent:Number(id('tgPercent_'+kind).value)};
+    const note=id('tgNotice_'+kind);
+    const raw=id('tgPercent_'+kind).value.trim(),profit=Number(raw);
+    if(!raw||!Number.isFinite(profit)||profit<0||profit>500){
+      note.textContent='درصد سود باید عددی بین صفر تا ۵۰۰ باشد.';return;
+    }
+    const body={kind,profit_percent:profit};
+    const toggle=id('tgEnabled_'+kind);
+    if(toggle)body.enabled=toggle.value==='1';
     btn.disabled=true;
-    try{await call('/api/admin/market/settings',{method:'PATCH',body:JSON.stringify(body)});btn.textContent='ذخیره شد ✅'}
-    catch(e){alert('خطا در ذخیره: '+e.message)}
-    finally{btn.disabled=false}
+    note.textContent='در حال ذخیره تنظیمات...';
+    try{
+      await call('/api/admin/market/settings',{method:'PATCH',body:JSON.stringify(body)});
+      note.textContent=toggle?'✅ تنظیمات محصول ذخیره شد.':'✅ درصد سود ذخیره شد. فروش این دسته تا تکمیل استعلام قیمت غیرفعال می‌ماند.';
+    }catch(err){
+      const labels={
+        requires_live_quote_support:'فعال‌سازی این محصول هنوز آماده نیست؛ درصد سود را بدون تغییر وضعیت فروش ذخیره کن.',
+        invalid_profit:'درصد سود نامعتبر است.',
+        unauthorized:'نشست مدیریت منقضی شده؛ دوباره وارد شو.'
+      };
+      note.textContent='❌ '+(labels[err.message]||'ذخیره تنظیمات انجام نشد؛ دوباره تلاش کن.');
+    }finally{btn.disabled=false}
   };
   id('tgMarketReload').onclick=load;
 }
