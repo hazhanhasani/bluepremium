@@ -218,12 +218,16 @@ async function route(request, env, ctx) {
       return api({ ok: false, error: 'invoice_amount_mismatch' }, 502);
     }
 
+    if ((!details.card_number || !details.final_amount_rial) && details.payment_link) {
+      const hosted = await blupalHostedPaymentDetails(details.payment_link, expectedRial, details.final_amount_rial);
+      if (hosted) details = { ...details, ...hosted };
+    }
+
     if (
       !details.card_number ||
       details.card_number.length !== 16 ||
       !details.final_amount_rial ||
-      details.final_amount_rial < expectedRial ||
-      details.final_amount_rial > expectedRial + 999
+      !blupalAmountIsReasonable(expectedRial, details.final_amount_rial)
     ) {
       await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error='payment_details_unavailable', updated_at=? WHERE order_code=?`)
         .bind(new Date().toISOString(), orderCode).run();
