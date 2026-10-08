@@ -28,16 +28,12 @@ CREATE TABLE IF NOT EXISTS bp_wallet_ledger (
 );
 CREATE INDEX IF NOT EXISTS idx_bp_wallet_ledger_user ON bp_wallet_ledger(telegram_id,id DESC);
 
--- A single ledger INSERT is the atomic balance-changing operation.
-CREATE TRIGGER IF NOT EXISTS trg_bp_wallet_apply AFTER INSERT ON bp_wallet_ledger
-BEGIN
-  UPDATE bp_users SET balance_toman=balance_toman+NEW.delta_toman,
-    updated_at=CURRENT_TIMESTAMP
-    WHERE telegram_id=NEW.telegram_id AND balance_toman+NEW.delta_toman>=0;
-  SELECT CASE WHEN changes()!=1 THEN RAISE(ABORT,'insufficient_wallet_balance') END;
-  UPDATE bp_users SET referral_rewarded=1
-    WHERE telegram_id=NEW.related_user AND NEW.kind='referral';
-END;
+-- Wallet balance is derived from the immutable ledger, never from client-supplied values.
+-- A guarded INSERT ... SELECT ensures debits cannot overdraft in a single SQL statement.
+CREATE VIEW IF NOT EXISTS bp_wallet_balances AS
+SELECT u.telegram_id,COALESCE(SUM(l.delta_toman),0) AS balance_toman
+FROM bp_users u LEFT JOIN bp_wallet_ledger l ON l.telegram_id=u.telegram_id
+GROUP BY u.telegram_id;
 
 CREATE TABLE IF NOT EXISTS bp_forced_channels (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
