@@ -1,0 +1,233 @@
+
+function bpDecorateAdminHtml(source) {
+  return source.replace("</body>",
+    "<script>(" + bpAdminClient.toString() + ")()</script></body>");
+}
+function bpDecorateStoreHtml(source) {
+  return source.replace("</head>",
+    '<script src="https://telegram.org/js/telegram-web-app.js"></script></head>')
+    .replace("</body>", "<script>(" + bpStoreClient.toString() + ")()</script></body>");
+}
+
+// Serialized into the existing /admin page, never executed inside the Worker.
+function bpAdminClient() {
+  const $ = id => document.getElementById(id);
+  const escape = v => String(v ?? "").replace(/[&<>"']/g,c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const money = n => new Intl.NumberFormat("fa-IR").format(Number(n||0));
+  const css = document.createElement("style");
+  css.textContent = '.bp-tools{display:grid;gap:12px}.bp-tools .input{width:100%}.bp-tools .row{margin-top:10px}.bp-tools .card{width:100%}.bp-tools .orders{max-height:390px;overflow:auto}.bp-tools .orders table{min-width:660px}.bp-tools .bp-channel{border:1px solid rgba(154,190,235,.17);padding:11px;border-radius:15px;display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:7px}@media(max-width:980px){.mobilebar{overflow-x:auto;justify-content:flex-start;scrollbar-width:none}.mobilebar button{flex:0 0 66px}}';
+  document.head.appendChild(css);
+  const sections = '<section id="bp_customers" class="section bp-tools"><div class="grid">'+
+    '<article class="card"><div class="provider-head"><div><h3>کاربران و کیف پول</h3><div class="sub">مدیریت و جستجوی حساب‌های تلگرام</div></div><button class="btn secondary" id="bpReloadUsers">بروزرسانی</button></div>'+
+    '<div class="field"><label>شناسه یا نام کاربر</label><input id="bpSearch" class="input" placeholder="Telegram ID / @username"></div>'+
+    '<div class="orders"><table><thead><tr><th>ID</th><th>کاربر</th><th>موجودی</th><th>زیرمجموعه</th><th>وضعیت</th><th>انتخاب</th></tr></thead><tbody id="bpUserRows"></tbody></table></div></article>'+
+    '<article class="card" id="bpEditCustomer" style="display:none"><h3 id="bpSelectedLabel">تغییر موجودی</h3>'+
+    '<div class="sub">تمام تغییرات به‌همراه علت در تاریخچه کیف پول ثبت می‌شود.</div>'+
+    '<div class="row"><div class="field"><label>مبلغ تومان</label><input class="input" type="number" id="bpAmount" min="1" max="1000000000" placeholder="100000"></div>'+
+    '<div class="field"><label>دلیل تغییر</label><input class="input" id="bpReason" maxlength="160" placeholder="علت افزایش یا کاهش"></div></div>'+
+    '<div class="row"><button class="btn" id="bpCredit">+ افزایش اعتبار</button><button class="btn danger" id="bpDebit">− کاهش اعتبار</button></div>'+
+    '<button class="btn secondary" style="margin-top:10px" id="bpBlock">مسدودسازی</button><div class="sub" id="bpUserFeedback"></div></article></div></section>'+
+    '<section id="bp_community" class="section bp-tools"><div class="grid">'+
+    '<article class="card half"><h3>کانال‌های عضویت اجباری</h3><div class="sub">ابتدا ربات را ادمین کانال کن. عضویت هنگام استفاده از خدمات بررسی می‌شود.</div>'+
+    '<div class="field"><label>شناسه کانال</label><input class="input" id="bpChatId" placeholder="-1001234567890 یا @channel"></div>'+
+    '<div class="field"><label>عنوان</label><input class="input" id="bpChatTitle" placeholder="کانال اطلاع‌رسانی"></div>'+
+    '<div class="field"><label>لینک عضویت</label><input class="input" id="bpChatUrl" placeholder="https://t.me/channel"></div>'+
+    '<button class="btn" id="bpAddChannel" style="margin-top:10px">افزودن کانال</button><div class="sub" id="bpChannelFeedback"></div>'+
+    '<div id="bpChannels"></div></article>'+
+    '<article class="card half"><h3>مدیریت زیرمجموعه‌گیری</h3><div class="sub">پاداش فقط با اولین سفارش تحویل‌شده کاربر معرفی‌شده واریز می‌شود.</div>'+
+    '<div class="field"><label>پاداش هر معرفی موفق (تومان)</label><input class="input" id="bpBonus" type="number" min="0" max="1000000"></div>'+
+    '<button class="btn" style="margin-top:10px" id="bpSaveBonus">ذخیره تنظیمات</button><div class="sub" id="bpBonusFeedback"></div>'+
+    '</article></div></section>';
+  $("settings").insertAdjacentHTML("beforebegin",sections);
+  for(const [id,label,icon] of [["bp_customers","کاربران","👤"],["bp_community","کانال‌ها","📢"]]) {
+    const desktop=document.createElement("button");
+    desktop.dataset.tab=id;desktop.innerHTML=icon+" <span>"+label+"</span>";
+    desktop.onclick=()=>open(id);document.querySelector(".side .nav").appendChild(desktop);
+    const mobile=document.createElement("button");
+    mobile.dataset.tab=id;mobile.innerHTML=icon+" <span>"+label+"</span>";
+    mobile.onclick=()=>open(id);document.querySelector(".mobilebar").appendChild(mobile);
+  }
+  let rows=[],selected=null,debounce;
+  const headers=()=>({"content-type":"application/json","authorization":"Bearer "+(sessionStorage.getItem("bp_admin")||"")});
+  async function call(path,opts={}) {
+    const r=await fetch(path,{...opts,headers:headers(),cache:"no-store"});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw Error(d.error||"request_failed");
+    return d;
+  }
+  function open(name) {
+    document.querySelectorAll(".section").forEach(el=>el.classList.toggle("on",el.id===name));
+    document.querySelectorAll(".nav button,.mobilebar button").forEach(el=>el.classList.toggle("on",el.dataset.tab===name));
+    $("pageTitle").textContent=name==="bp_customers"?"کاربران و کیف پول":"کانال‌ها و زیرمجموعه‌گیری";
+    $("pageSub").textContent="مدیریت امن حساب‌های مشتریان";
+    if(name==="bp_customers")loadUsers();else loadCommunity();
+  }
+  async function loadUsers() {
+    $("bpUserRows").innerHTML='<tr><td colspan="6">در حال دریافت...</td></tr>';
+    try {
+      const d=await call("/api/admin/customers?q="+encodeURIComponent($("bpSearch").value.trim()));
+      rows=d.users||[];
+      $("bpUserRows").innerHTML=rows.length?rows.map(u=>
+        '<tr><td><code>'+escape(u.telegram_id)+'</code></td><td>'+escape(u.display_name||u.username||"-")+
+        '<small style="display:block">@'+escape(u.username)+'</small></td><td>'+money(u.balance_toman)+
+        '</td><td>'+money(u.referrals)+'</td><td>'+(u.blocked?"مسدود":"فعال")+
+        '</td><td><button class="btn secondary" data-bp-user="'+escape(u.telegram_id)+'">مدیریت</button></td></tr>'
+      ).join(""):'<tr><td colspan="6">کاربری یافت نشد.</td></tr>';
+    }catch(e){$("bpUserRows").textContent=e.message}
+  }
+  function select(id) {
+    selected=rows.find(u=>u.telegram_id===id)||null;
+    if(!selected)return;
+    $("bpEditCustomer").style.display="block";
+    $("bpSelectedLabel").textContent="کاربر "+id+" — "+money(selected.balance_toman)+" تومان";
+    $("bpBlock").textContent=selected.blocked?"رفع مسدودی":"مسدودسازی";
+    $("bpUserFeedback").textContent="";
+    $("bpEditCustomer").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  async function adjust(sign) {
+    if(!selected)return;
+    const amount=Number($("bpAmount").value),reason=$("bpReason").value.trim();
+    if(!Number.isSafeInteger(amount)||amount<1||amount>1000000000||reason.length<3) {
+      $("bpUserFeedback").textContent="مبلغ و دلیل (حداقل ۳ کاراکتر) را وارد کن.";return;
+    }
+    if(!confirm((sign>0?"افزایش":"کاهش")+" "+money(amount)+" تومان برای "+selected.telegram_id+"؟"))return;
+    try {
+      const d=await call("/api/admin/customers/"+selected.telegram_id+"/wallet",{
+        method:"POST",body:JSON.stringify({delta_toman:sign*amount,reason})
+      });
+      $("bpUserFeedback").textContent="ثبت شد. موجودی جدید: "+money(d.balance_toman)+" تومان";
+      $("bpSelectedLabel").textContent="کاربر "+selected.telegram_id+" — "+money(d.balance_toman)+" تومان";
+      await loadUsers();
+      selected=rows.find(u=>u.telegram_id===selected.telegram_id)||selected;
+    }catch(e){$("bpUserFeedback").textContent="خطا: "+e.message}
+  }
+  $("bpSearch").addEventListener("input",()=>{clearTimeout(debounce);debounce=setTimeout(loadUsers,350)});
+  $("bpReloadUsers").onclick=loadUsers;
+  $("bpUserRows").onclick=e=>{const button=e.target.closest("[data-bp-user]");if(button)select(button.dataset.bpUser)};
+  $("bpCredit").onclick=()=>adjust(1);
+  $("bpDebit").onclick=()=>adjust(-1);
+  $("bpBlock").onclick=async()=>{
+    if(!selected)return;
+    try {
+      await call("/api/admin/customers/"+selected.telegram_id,{method:"PATCH",body:JSON.stringify({blocked:!selected.blocked})});
+      const id=selected.telegram_id;await loadUsers();select(id);
+    }catch(e){$("bpUserFeedback").textContent=e.message}
+  };
+  async function loadCommunity() {
+    try{
+      const [a,b]=await Promise.all([call("/api/admin/channels"),call("/api/admin/referrals")]);
+      $("bpBonus").value=b.bonus_toman;
+      $("bpChannels").innerHTML=a.channels.length?a.channels.map(c=>
+        '<div class="bp-channel"><div><b>'+escape(c.title)+'</b><div class="sub">'+escape(c.chat_id)+
+        '</div></div><button class="btn danger" data-bp-channel="'+Number(c.id)+'">حذف</button></div>'
+      ).join(""):'<p class="sub">کانالی تعریف نشده است.</p>';
+    }catch(e){$("bpChannelFeedback").textContent=e.message}
+  }
+  $("bpAddChannel").onclick=async()=>{
+    try{
+      await call("/api/admin/channels",{method:"POST",body:JSON.stringify({
+        chat_id:$("bpChatId").value.trim(),title:$("bpChatTitle").value.trim(),invite_url:$("bpChatUrl").value.trim()
+      })});
+      $("bpChannelFeedback").textContent="کانال با موفقیت ثبت شد.";await loadCommunity();
+    }catch(e){$("bpChannelFeedback").textContent="خطا: "+e.message}
+  };
+  $("bpChannels").onclick=async e=>{
+    const b=e.target.closest("[data-bp-channel]");
+    if(!b||!confirm("کانال از عضویت اجباری حذف شود؟"))return;
+    try{await call("/api/admin/channels/"+b.dataset.bpChannel,{method:"DELETE"});await loadCommunity()}
+    catch(e){$("bpChannelFeedback").textContent=e.message}
+  };
+  $("bpSaveBonus").onclick=async()=>{
+    try{
+      const d=await call("/api/admin/referrals",{method:"POST",body:JSON.stringify({bonus_toman:Number($("bpBonus").value)})});
+      $("bpBonusFeedback").textContent="پاداش ذخیره شد: "+money(d.bonus_toman)+" تومان";
+    }catch(e){$("bpBonusFeedback").textContent=e.message}
+  };
+}
+
+// Serialized into the storefront, reading Telegram signed initData supplied by Telegram only.
+function bpStoreClient() {
+  const tg=window.Telegram?.WebApp;
+  const token=String(tg?.initData||"");
+  const $=id=>document.getElementById(id);
+  const money=n=>new Intl.NumberFormat("fa-IR").format(Number(n||0));
+  const escape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const css=document.createElement("style");
+  css.textContent='.bp-account-widget{border:1px solid rgba(122,168,240,.22);background:linear-gradient(155deg,#11233d,#07111e);border-radius:24px;padding:18px;margin:18px 0;color:#e6f3ff}.bp-account-widget h3{font-size:16px;margin:0 0 10px}.bp-account-widget .bp-flex{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.bp-account-widget .bp-value{font-size:22px;font-weight:900;color:#9fcaff}.bp-account-widget button{background:#167cfe;color:white;border:none;border-radius:12px;padding:12px;cursor:pointer;font:700 12px Tahoma}.bp-account-widget input{width:100%;border:1px solid #2a476d;background:#08182a;color:white;padding:11px;border-radius:11px;margin-top:8px}.bp-account-widget .bp-history{margin-top:12px;font-size:11px;line-height:2;color:#9db6d2}.bp-account-widget a{color:#80c5ff}.bp-account-widget .bp-links{margin-top:12px}.bp-account-widget .bp-links button{margin:3px}.bp-account-widget .bp-missing{margin:10px 0}';
+  document.head.appendChild(css);
+  $("checkout").insertAdjacentHTML("beforebegin",
+    '<section id="bp_account" class="bp-account-widget"><h3>👤 حساب کاربری و کیف پول</h3>'+
+    '<div id="bpIdentityState">در حال بررسی حساب تلگرام...</div>'+
+    '<div id="bpUserContent" style="display:none"><div class="bp-flex"><div>💰 موجودی کیف پول<div class="bp-value" id="bpBalance">۰ تومان</div></div><div>👥 زیرمجموعه‌ها<div id="bpReferralCount">۰</div></div></div>'+
+    '<div class="bp-links"><button id="bpReloadAccount">🔄 بروزرسانی</button><button id="bpCopyReferral">🎁 کپی لینک دعوت</button></div>'+
+    '<input id="bpReferralLink" readonly aria-label="لینک اختصاصی دعوت">'+
+    '<div id="bpJoinWarning" class="bp-missing"></div>'+
+    '<div class="bp-history" id="bpHistory"></div></div></section>'
+  );
+  const walletButton=document.createElement("button");
+  walletButton.id="bpWalletPurchase";walletButton.className="btn primary";
+  walletButton.textContent="💳 خرید با کیف پول";
+  walletButton.style.display="none";
+  const actions=document.querySelector("#checkout .actions");
+  if(actions) actions.appendChild(walletButton);
+  if(!token){
+    $("bpIdentityState").innerHTML='برای مشاهده کیف پول و زیرمجموعه‌ها، فروشگاه را از <b>مینی‌اپ ربات تلگرام</b> باز کن.';
+    return;
+  }
+  try{tg.ready();tg.expand()}catch(_){}
+  async function call(url,opts={}) {
+    const r=await fetch(url,{...opts,headers:{"Content-Type":"application/json","X-Telegram-Init-Data":token},cache:"no-store"});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw Error(d.error||"request_failed");
+    return d;
+  }
+  async function loadAccount(){
+    try{
+      const d=await call("/api/me"),u=d.user;
+      $("bpIdentityState").textContent="سلام "+(u.display_name||u.username||"دوست عزیز")+" 👋";
+      $("bpUserContent").style.display="block";
+      $("bpBalance").textContent=money(u.balance_toman)+" تومان";
+      $("bpReferralCount").textContent=money(u.referral_count)+" نفر";
+      $("bpReferralLink").value=u.referral_link||"";
+      $("bpHistory").textContent=u.transactions.length?
+        "آخرین تراکنش‌ها:\n"+u.transactions.slice(0,5).map(t=>
+          (t.delta_toman>0?"+":"")+money(t.delta_toman)+" تومان · "+t.reason).join("\n"):
+        "هنوز تراکنشی در کیف پول ثبت نشده است.";
+      $("bpHistory").style.whiteSpace="pre-line";
+      const join=$("bpJoinWarning");
+      join.textContent="";
+      for(const c of d.required_channels||[]){
+        const p=document.createElement("p"),a=document.createElement("a");
+        a.href=c.invite_url;a.textContent="عضویت در "+c.title;a.target="_blank";
+        p.appendChild(a);join.appendChild(p);
+      }
+      walletButton.style.display=d.required_channels?.length?"none":"inline-flex";
+    }catch(e){$("bpIdentityState").textContent="حساب در دسترس نیست: "+e.message}
+  }
+  $("bpReloadAccount").onclick=loadAccount;
+  $("bpCopyReferral").onclick=async()=>{
+    const link=$("bpReferralLink").value;
+    if(!link)return;
+    try{await navigator.clipboard.writeText(link);$("bpIdentityState").textContent="لینک دعوت کپی شد ✅"}
+    catch(_){$("bpReferralLink").select();document.execCommand("copy")}
+  };
+  walletButton.onclick=async()=>{
+    const selected=document.querySelector("#plans .plan.active");
+    const planId=Number(selected?.dataset?.id||0);
+    const username=String($("username")?.value||"").trim().replace(/^@/,"");
+    if(!planId||!username){$("bpIdentityState").textContent="ابتدا پلن و یوزرنیم مقصد را انتخاب کن.";return}
+    if(!confirm("مبلغ پلن از کیف پول کم شود و سفارش ثبت گردد؟"))return;
+    walletButton.disabled=true;walletButton.textContent="در حال ثبت سفارش...";
+    try{
+      const d=await call("/api/me/wallet/purchase",{method:"POST",body:JSON.stringify({plan_id:planId,username})});
+      localStorage.setItem("bp_order",JSON.stringify({code:d.code,token:d.token}));
+      location.hash="checkout";
+      $("bpIdentityState").textContent="✅ پرداخت کیف پول موفق بود؛ سفارش در حال پردازش است.";
+      await loadAccount();
+      location.reload();
+    }catch(e){$("bpIdentityState").textContent="خطای خرید: "+e.message}
+    finally{walletButton.disabled=false;walletButton.textContent="💳 خرید با کیف پول"}
+  };
+  loadAccount();
+}
