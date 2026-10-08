@@ -88,3 +88,27 @@ async function tgPreflightDelivery(env,order){
   }
   return {ok:true};
 }
+
+
+async function tgStopBeforeProvider(env,order,reason){
+  const now=new Date().toISOString(),why=String(reason||'preflight_failed').slice(0,100);
+  if(order.payment_provider==='wallet'&&order.telegram_user_id){
+    const result=await env.DB.batch([
+      env.DB.prepare("UPDATE bp_market_orders SET status='refunded',provider_error=?,updated_at=? WHERE id=? AND status='paid'")
+        .bind(why,now,order.id),
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+        "SELECT ?,?,'refund','system',?,?,? "+
+        "WHERE EXISTS(SELECT 1 FROM bp_market_orders WHERE id=? AND status='refunded')")
+        .bind(order.telegram_user_id,Number(order.price_toman),
+          'TG Tools checkout unavailable',order.order_code,'refund:'+order.order_code,order.id)
+    ]);
+    if(result[0]?.meta?.changes)await telegramSendMessage(env,order.telegram_user_id,
+      '⚠️ سفارش '+telegramEscapeHtml(order.order_code)+' قبل از ارسال به سرویس‌دهنده متوقف شد. مبلغ به کیف پول شما برگشت.').catch(()=>{});
+  }else{
+    await env.DB.prepare("UPDATE bp_market_orders SET status='refund_required',provider_error=?,updated_at=? WHERE id=? AND status='paid'")
+      .bind(why,now,order.id).run();
+    await notifyTelegramAdmin(env,'⚠️ سفارش '+telegramEscapeHtml(order.order_code)+
+      ' قبل از ارسال متوقف شد و بررسی/استرداد وجه لازم است: '+telegramEscapeHtml(why)).catch(()=>{});
+  }
+}
