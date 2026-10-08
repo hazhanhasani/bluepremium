@@ -13,6 +13,13 @@ async function tgMarketApi(request,env,url,ctx){
     const items=await tgNftBrowse(env);
     return api({ok:true,items});
   }
+  if(path==='/api/market/catalog/quote'&&method==='GET'){
+    const sku=String(url.searchParams.get('sku')||''),key=String(url.searchParams.get('catalog_key')||'');
+    if(String(await getSetting(env.DB,'market_catalog_enabled','0'))!=='1')
+      return api({ok:false,error:'product_unavailable'},409);
+    const product=await tgCatalogLiveQuote(env,sku,key);
+    return product?api({ok:true,product}):api({ok:false,error:'quote_unavailable'},409);
+  }
   if(path==='/api/market/quote'&&method==='GET'){
     const kind=String(url.searchParams.get('kind')||'');
     const sku=String(url.searchParams.get('sku')||'').trim();
