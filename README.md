@@ -68,6 +68,10 @@ Production APKs are built as signed `release` artifacts with a persistent signin
 - CI verifies the final APK certificate fingerprint before uploading the artifact.
 - The original debug-signed test APK cannot be upgraded in place to the first stable-signed release; uninstall it once. Stable releases after that can update each other normally.
 
+## Customer accounts, wallets and referrals
+
+Telegram-authenticated account profiles, auditable manual wallet credit/debit and wallet purchases, mandatory channel membership and one-time referral rewards are available in the bot, Mini App and admin panel. See [Customer Accounts & Wallet](docs/CUSTOMERS_WALLET.md) for security rules, setup and operation.
+
 ## Regression tests
 
 Run `npm test` to rebuild and syntax-check the Worker bundle and validate payment-card parsing, fee limits, and storefront JavaScript. GitHub Actions executes this suite on changes to the storefront and payment source.
