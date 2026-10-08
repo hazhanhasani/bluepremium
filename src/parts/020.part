@@ -16,23 +16,50 @@ async function tgPrice(env,kind,ton){
   const n=Math.ceil(ton*exchange*(1+percent/100)/round)*round;
   return exchange>0&&ton>0&&percent>=0&&percent<=500&&Number.isSafeInteger(n)&&n>=10000&&n<=1e9?n:0;
 }
-async function tgProducts(env,kind) {
+async function tgProducts(env,kind){
   if(!TG_TYPES.includes(kind)||['steam','nft'].includes(kind))return [];
   if(String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))!=='1')return [];
   const cached=tgCache.get(kind);if(cached&&cached.exp>Date.now())return cached.items;
-  const source={stars:'/api/purchase/prices',gift:'/api/purchase/gifts?lang=fa',smm:'/api/purchase/smm/bundles?lang=fa',catalog:'/api/catalog?pageSize=100'}[kind];
   const apiKey=await getProviderSecret(env,'tgtools_api_key');
-  const remote=await tgRequest(apiKey,'GET',source,null,false);
-  if(!remote.ok)return [];
-  const items=[];
-  for(const row of tgList(remote.data||{}).slice(0,100)){
-    const quantity=kind==='stars'?Number(row.qty??row.quantity??row.amount):kind==='smm'?Number(row.quantity??row.count??1):1;
-    const sku=kind==='stars'?String(quantity):tgSku(row);
-    const ton=tgTon(row);
-    if(!sku||!ton||!Number.isSafeInteger(quantity)||quantity<1||kind==='stars'&&(quantity<50||quantity>100000))continue;
-    const price=await tgPrice(env,kind,ton);if(!price)continue;
-    items.push({kind,sku,title:kind==='stars'?quantity+' استارز تلگرام':bpName(row.titleFa||row.nameFa||row.title||row.name||TG_LABELS[kind],110),
-      quantity,ton,price_toman:price,target_type:kind==='smm'?'link':kind==='catalog'?(row.requiresPlayerId?'player':'none'):'username'});
+  const paths=kind==='catalog'?
+    ['/api/catalog?category=giftcards&pageSize=24','/api/catalog?category=topups&pageSize=24']:
+    [({stars:'/api/purchase/prices',gift:'/api/purchase/gifts?lang=fa',
+       smm:'/api/purchase/smm/bundles?lang=fa'})[kind]];
+  const items=[],seen=new Set();
+  for(const path of paths){
+    const remote=await tgRequest(apiKey,'GET',path,null,false);
+    if(!remote.ok)continue;
+    const rows=tgList(remote.data||{});
+    for(const row of rows.slice(0,100)){
+      if(kind==='catalog'&&Array.isArray(row.variants)){
+        for(const v of row.variants.slice(0,75)){
+          const sku=String(v.productId||'');
+          if(!/^\d{1,12}$/.test(sku)||seen.has(sku)||v.available===false||v.active===false)continue;
+          const ton=tgTon(v),price=await tgPrice(env,kind,ton);
+          if(!price)continue;
+          seen.add(sku);
+          items.push({kind,sku,title:bpName(row.name+' · '+String(v.label||v.denomination||v.region||sku),110),
+            quantity:1,ton,price_toman:price,
+            target_type:row.requiresPlayerId?'player':'none'});
+        }
+        continue;
+      }
+      if(row.soldOut===true||row.available===false||row.active===false||
+         row.remainingCount===0&&kind==='gift')continue;
+      const quantity=kind==='stars'?Number(row.qty??row.quantity??row.amount):
+        kind==='smm'?Number(row.quantity??row.count??1):1;
+      const sku=kind==='stars'?String(quantity):tgSku(row);
+      const ton=tgTon(row);
+      if(!sku||!ton||seen.has(sku)||!Number.isSafeInteger(quantity)||quantity<1||
+         kind==='stars'&&(quantity<50||quantity>100000))continue;
+      const price=await tgPrice(env,kind,ton);if(!price)continue;
+      seen.add(sku);
+      items.push({kind,sku,title:kind==='stars'?quantity+' استارز تلگرام':
+        bpName(row.titleFa||row.nameFa||row.title||row.name||TG_LABELS[kind],110),
+        quantity,ton,price_toman:price,target_type:kind==='smm'?'link':
+        kind==='catalog'?(row.requiresPlayerId?'player':'none'):'username',
+        ...(kind==='smm'&&row.bundleKey?{bundleKey:String(row.bundleKey)}:{})});
+    }
   }
   tgCache.set(kind,{exp:Date.now()+60000,items});
   return items;
@@ -83,7 +110,7 @@ async function tgCreateOrder(env,input,user,ctx){
   const status=wallet?'paid':'creating_payment';
   const sql="INSERT INTO bp_market_orders(order_code,public_token_hash,telegram_user_id,kind,sku,title,target,quantity,price_toman,quoted_ton,provider_payload,payment_provider,status,created_at,updated_at,paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
   const fields=[code,hash,userId,kind,sku,item.title,dest,item.quantity,item.price_toman,item.ton,
-    JSON.stringify({sku,kind,quantity:item.quantity,target:dest}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
+    JSON.stringify({sku,kind,quantity:item.quantity,target:dest,serviceId:kind==='smm'?Number(sku):null,bundleKey:item.bundleKey||null}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
   if(wallet){
     const balance=await env.DB.prepare('SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?').bind(userId).first();
     if(Number(balance?.balance_toman||0)<item.price_toman)return {ok:false,error:'insufficient_wallet_balance',http:409};
