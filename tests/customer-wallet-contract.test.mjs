@@ -51,6 +51,6 @@ test("wallet and referral endpoints require authenticated identity or admin",asy
 test("referral credits require actual delivered orders",async()=>{
   const feature=await part(18);
   assert.match(feature,/order\.status !== "delivered"/);
-  assert.match(feature,/person\.referral_rewarded/);
+  assert.match(feature,/NOT EXISTS\(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key/);
   assert.match(feature,/"referral:"\+person\.telegram_id/);
 });
