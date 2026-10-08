@@ -4,7 +4,10 @@ const TG_LABELS={stars:'⭐ استارز',gift:'🎁 گیفت تلگرام',smm:
 const tgCache=new Map();
 function tgList(data){
   if(Array.isArray(data))return data;
-  for(const v of [data?.packages,data?.items,data?.products,data?.gifts,data?.bundles,data?.data?.items,data?.data?.products,data?.results])if(Array.isArray(v))return v;
+  for(const v of [data?.packages,data?.items,data?.products,data?.gifts,data?.bundles,
+    data?.services,data?.data?.items,data?.data?.products,data?.data?.bundles,
+    data?.data?.services,data?.results])
+    if(Array.isArray(v))return v;
   return [];
 }
 function tgTon(row){const n=Number(row?.ton??row?.totalPriceTon??row?.priceTon??row?.price_ton??row?.costTon??row?.quotedTotalTon);return Number.isFinite(n)&&n>0?n:0}
