@@ -176,3 +176,43 @@ async function tgCatalogLiveQuote(env,sku,catalogKey){
     title:bpName((item.name||'گیفت‌کارت')+' · '+String(variation.label||variation.denomination||variation.region||sku),110),
     target_type:item.requiresPlayerId?'player':'none',quantity:1,ton,price_toman:price};
 }
+
+
+// Administrative recovery only for definitely failed, undelivered WALLET orders.
+async function tgAdminRefundFailedWallet(env,id,reason) {
+  const why=bpName(reason,160);
+  if(!Number.isSafeInteger(Number(id))||Number(id)<1||why.length<6)
+    return {ok:false,error:'invalid_refund_request'};
+  const order=await env.DB.prepare(
+    "SELECT * FROM bp_market_orders WHERE id=? AND payment_provider='wallet' "+
+    "AND status IN ('failed','refund_required') AND provider_transaction_id IS NULL"
+  ).bind(Number(id)).first();
+  if(!order?.telegram_user_id||!Number.isSafeInteger(Number(order.price_toman))||order.price_toman<=0)
+    return {ok:false,error:'refund_not_allowed'};
+  const key='refund:'+order.order_code,now=new Date().toISOString();
+  try{
+    const result=await env.DB.batch([
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+        "SELECT o.telegram_user_id,o.price_toman,'refund','admin',?,o.order_code,'refund:'||o.order_code "+
+        "FROM bp_market_orders o WHERE o.id=? AND o.payment_provider='wallet' "+
+        "AND o.status IN ('failed','refund_required') AND o.provider_transaction_id IS NULL "+
+        "AND EXISTS(SELECT 1 FROM bp_wallet_ledger l WHERE l.idempotency_key='purchase:'||o.order_code)"
+      ).bind(why,order.id),
+      env.DB.prepare(
+        "UPDATE bp_market_orders SET status='refunded',updated_at=? WHERE id=? "+
+        "AND payment_provider='wallet' AND status IN ('failed','refund_required') "+
+        "AND provider_transaction_id IS NULL "+
+        "AND EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)"
+      ).bind(now,order.id,key)
+    ]);
+    if(!result?.[0]?.meta?.changes)return {ok:false,error:'refund_already_processed_or_not_allowed'};
+  }catch(e){
+    console.error('manual_wallet_refund_failed',String(e?.message||''));
+    return {ok:false,error:'refund_failed'};
+  }
+  await telegramSendMessage(env,order.telegram_user_id,
+    '✅ مبلغ '+bpPrice(order.price_toman)+' تومان سفارش '+telegramEscapeHtml(order.order_code)+
+    ' با تأیید مدیریت به کیف پول شما برگشت داده شد.').catch(()=>{});
+  return {ok:true,amount_toman:Number(order.price_toman),order_code:order.order_code};
+}
