@@ -41,7 +41,7 @@ async function tgProducts(env,kind,options={}){
        smm:'/api/purchase/smm/bundles?lang=fa'})[kind]];
   const items=[],seen=new Set();
   for(const path of paths){
-    const remote=await tgRequest(apiKey,'GET',path,null,false);
+    const remote=await tgRequest(apiKey,'GET',path,null,kind==='smm');
     if(!remote.ok)continue;
     const rows=tgList(remote.data||{});
     for(const row of rows.slice(0,300)){
