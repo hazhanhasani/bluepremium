@@ -436,10 +436,62 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
     const fromId = String(callback.from?.id || '');
     const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
 
-    if (callbackId) await telegramBotApi(token, 'answerCallbackQuery', { callback_query_id: callbackId });
+    if (callbackId) {
+      await telegramBotApi(token, 'answerCallbackQuery', {
+        callback_query_id: callbackId,
+        cache_time: 0,
+      });
+    }
+
+    if (data === 'buy') {
+      await telegramBeginPurchase(env, chatId, fromId);
+      return;
+    }
+
+    if (data === 'buy_cancel') {
+      await telegramSessionClear(env, chatId);
+      await telegramSendMessage(env, chatId, 'خرید لغو شد.', {
+        reply_markup: await telegramMainKeyboard(env, origin, fromId),
+      });
+      return;
+    }
+
+    if (data.startsWith('buy_plan:')) {
+      const planId = Number(data.slice('buy_plan:'.length));
+      const plan = await env.DB.prepare(`
+        SELECT id,months,price_toman,manual_price_toman,auto_price_toman
+        FROM plans WHERE id=? AND active=1 LIMIT 1
+      `).bind(planId).first();
+      const price = Number(plan?.manual_price_toman || plan?.price_toman || plan?.auto_price_toman || 0);
+      if (!plan || !ALLOWED_MONTHS.includes(Number(plan.months)) || price <= 0) {
+        await telegramSendMessage(env, chatId, 'این پلن در حال حاضر قابل خرید نیست.');
+        return;
+      }
+      await telegramSessionSet(env, chatId, fromId, 'awaiting_username', {
+        plan_id: Number(plan.id),
+        months: Number(plan.months),
+        price_toman: price,
+      });
+      await telegramSendMessage(
+        env,
+        chatId,
+        `👤 <b>حساب مقصد را بفرست</b>\n\nپلن: <b>${Number(plan.months)} ماهه</b>\nمبلغ: <b>${new Intl.NumberFormat('fa-IR').format(price)} تومان</b>\n\nیوزرنیم تلگرام مقصد را با یا بدون @ ارسال کن.`,
+        { reply_markup: { inline_keyboard: [[{ text: '✖️ انصراف', callback_data: 'buy_cancel' }]] } }
+      );
+      return;
+    }
 
     if (data === 'status_help') {
-      await telegramSendMessage(env, chatId, '🔎 کد سفارش را به این شکل ارسال کن:\n<code>BP-XXXXXXXXXXXXXX</code>');
+      await telegramSessionSet(env, chatId, fromId, 'awaiting_status', {});
+      await telegramSendMessage(env, chatId, '🔎 کد سفارش را ارسال کن:\n<code>BP-XXXXXXXXXXXXXX</code>', {
+        reply_markup: { inline_keyboard: [[{ text: '✖️ انصراف', callback_data: 'buy_cancel' }]] },
+      });
+      return;
+    }
+
+    if (data.startsWith('check:')) {
+      const code = data.slice('check:'.length);
+      await telegramSendOrderStatus(env, chatId, fromId, code);
       return;
     }
 
@@ -484,20 +536,19 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
 
   if (/^\/start(?:@\w+)?(?:\s|$)/i.test(text)) {
+    await telegramSessionClear(env, chatId);
     const firstName = telegramEscapeHtml(message.from?.first_name || 'دوست عزیز');
     await telegramSendMessage(
       env,
       chatId,
-      `👋 سلام <b>${firstName}</b>\n\nبه <b>بلوپرمیوم</b> خوش اومدی.\nاز اینجا می‌تونی تلگرام پرمیوم بخری و وضعیت سفارشت رو پیگیری کنی.`,
+      `👋 سلام <b>${firstName}</b>\n\nبه <b>بلوپرمیوم</b> خوش اومدی.\nخرید معمولی داخل خود ربات انجام می‌شود؛ مینی‌اپ هم از دکمه اختصاصی منوی ربات در دسترس است.`,
       { reply_markup: await telegramMainKeyboard(env, origin, fromId) }
     );
     return;
   }
 
   if (/^\/buy(?:@\w+)?(?:\s|$)/i.test(text)) {
-    await telegramSendMessage(env, chatId, '🛍 برای انتخاب پلن و خرید پرمیوم روی دکمه زیر بزن.', {
-      reply_markup: { inline_keyboard: [[{ text: 'باز کردن فروشگاه بلوپرمیوم', web_app: { url: String(origin).replace(/\/$/, '') + '/?from=telegram' } }]] }
-    });
+    await telegramBeginPurchase(env, chatId, fromId);
     return;
   }
 
@@ -521,20 +572,74 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   }
 
   const statusCommand = text.match(/^\/status(?:@\w+)?(?:\s+(.+))?$/i);
-  const orderCode = statusCommand ? String(statusCommand[1] || '').trim() : (/^BP-[A-Z0-9]{6,40}$/i.test(text) ? text : '');
-  if (statusCommand && !orderCode) {
-    await telegramSendMessage(env, chatId, 'کد سفارش را بعد از دستور وارد کن:\n<code>/status BP-XXXXXXXXXXXXXX</code>');
+  if (statusCommand) {
+    const code = String(statusCommand[1] || '').trim();
+    if (!code) {
+      await telegramSessionSet(env, chatId, fromId, 'awaiting_status', {});
+      await telegramSendMessage(env, chatId, 'کد سفارش را ارسال کن:\n<code>BP-XXXXXXXXXXXXXX</code>');
+    } else {
+      await telegramSendOrderStatus(env, chatId, fromId, code);
+    }
     return;
   }
-  if (orderCode) {
-    const statusText = await telegramOrderStatusText(env, orderCode);
-    if (!statusText) {
-      await telegramSendMessage(env, chatId, 'سفارشی با این کد پیدا نشد. کد را دقیق بررسی کن.');
+
+  const session = await telegramSessionGet(env, chatId);
+  if (session?.state === 'awaiting_username') {
+    const username = normalizeUsername(text);
+    if (!username) {
+      await telegramSendMessage(env, chatId, 'یوزرنیم معتبر نیست. لطفاً یوزرنیم تلگرام را با یا بدون @ ارسال کن.');
       return;
     }
-    await telegramSendMessage(env, chatId, statusText, {
-      reply_markup: await telegramMainKeyboard(env, origin, fromId)
+
+    await telegramSendMessage(env, chatId, '⏳ حساب تلگرام در حال بررسی و فاکتور BluePal در حال ساخت است...');
+    const created = await createTelegramBotBlupalOrder(env, {
+      chatId,
+      userId: fromId,
+      planId: Number(session.data?.plan_id || 0),
+      username,
     });
+
+    if (!created.ok) {
+      const errors = {
+        plan_not_found: 'پلن انتخاب‌شده پیدا نشد.',
+        plan_unavailable: 'این پلن فعلاً قابل خرید نیست.',
+        payment_not_configured: 'درگاه BluePal ربات آماده نیست.',
+        provider_not_configured: 'اتصال TG Tools هنوز تنظیم نشده است.',
+        telegram_lookup_failed: 'بررسی حساب تلگرام انجام نشد؛ دوباره تلاش کن.',
+        telegram_user_not_found: 'این حساب تلگرام پیدا نشد.',
+        not_premium_eligible: 'این حساب فعلاً امکان دریافت Telegram Premium ندارد.',
+        invoice_create_failed: 'ساخت فاکتور BluePal ناموفق بود.',
+      };
+      await telegramSendMessage(env, chatId, errors[created.error] || 'ثبت سفارش انجام نشد؛ دوباره تلاش کن.');
+      return;
+    }
+
+    await telegramSessionClear(env, chatId);
+    const order = created.order;
+    await telegramSendMessage(
+      env,
+      chatId,
+      `✅ <b>سفارش ثبت شد</b>\n\n🧾 کد: <code>${telegramEscapeHtml(order.order_code)}</code>\n👤 مقصد: @${telegramEscapeHtml(order.username)}\n📦 پلن: ${Number(order.months)} ماهه\n💳 مبلغ: ${new Intl.NumberFormat('fa-IR').format(Number(order.price_toman))} تومان\n\nبرای تکمیل سفارش، پرداخت را از BluePal انجام بده.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '💳 پرداخت با BluePal', url: created.payment_url }],
+            [{ text: '🔄 بررسی وضعیت پرداخت', callback_data: `check:${order.order_code}` }],
+          ],
+        },
+      }
+    );
+    return;
+  }
+
+  if (session?.state === 'awaiting_status') {
+    await telegramSessionClear(env, chatId);
+    await telegramSendOrderStatus(env, chatId, fromId, text);
+    return;
+  }
+
+  if (/^BP-[A-Z0-9]{6,40}$/i.test(text)) {
+    await telegramSendOrderStatus(env, chatId, fromId, text);
     return;
   }
 
@@ -542,3 +647,4 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
     reply_markup: await telegramMainKeyboard(env, origin, fromId)
   });
 }
+
