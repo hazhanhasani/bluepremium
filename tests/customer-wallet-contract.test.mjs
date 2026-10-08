@@ -34,8 +34,10 @@ test("wallet ledger schema requires immutable audited operations and nonnegative
   const sql=await readFile(new URL("../migrations/0007_customer_wallet_referrals.sql",import.meta.url),"utf8");
   assert.match(sql,/balance_toman INTEGER NOT NULL DEFAULT 0 CHECK\(balance_toman >= 0\)/);
   assert.match(sql,/idempotency_key TEXT NOT NULL UNIQUE/);
-  assert.match(sql,/CREATE TRIGGER IF NOT EXISTS trg_bp_wallet_apply/);
-  assert.match(sql,/RAISE\(ABORT,'insufficient_wallet_balance'\)/);
+  assert.match(sql,/CREATE VIEW IF NOT EXISTS bp_wallet_balances/);
+  const wallet=await part(18);
+  assert.match(wallet,/INSERT INTO bp_wallet_ledger/);
+  assert.match(wallet,/WHERE \(SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=\?\)>=\?/);
 });
 
 test("wallet and referral endpoints require authenticated identity or admin",async()=>{
