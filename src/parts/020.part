@@ -25,13 +25,18 @@ async function tgPrice(env,kind,ton){
   const n=Math.ceil(ton*exchange*(1+percent/100)/round)*round;
   return exchange>0&&ton>0&&percent>=0&&percent<=500&&Number.isSafeInteger(n)&&n>=10000&&n<=1e9?n:0;
 }
-async function tgProducts(env,kind){
+async function tgProducts(env,kind,options={}){
   if(!TG_TYPES.includes(kind)||['steam','nft'].includes(kind))return [];
   if(String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))!=='1')return [];
-  const cached=tgCache.get(kind);if(cached&&cached.exp>Date.now())return cached.items;
+  const query=kind==='catalog'?String(options.q||'').trim().slice(0,55):'';
+  const page=kind==='catalog'?Math.max(1,Math.min(100,Number(options.page)||1)):1;
+  const cacheKey=kind==='catalog'?kind+':'+query.toLowerCase()+':'+page:kind;
+  const cached=tgCache.get(cacheKey);if(cached&&cached.exp>Date.now())return cached.items;
   const apiKey=await getProviderSecret(env,'tgtools_api_key');
   const paths=kind==='catalog'?
-    ['/api/catalog?category=giftcards&pageSize=24','/api/catalog?category=topups&pageSize=24']:
+    ['giftcards','topups'].map(category=>
+      '/api/catalog?category='+category+'&pageSize=24&page='+page+
+      (query?'&q='+encodeURIComponent(query):'')) :
     [({stars:'/api/purchase/prices',gift:'/api/purchase/gifts?lang=fa',
        smm:'/api/purchase/smm/bundles?lang=fa'})[kind]];
   const items=[],seen=new Set();
@@ -47,7 +52,8 @@ async function tgProducts(env,kind){
           const ton=tgTon(v),price=await tgPrice(env,kind,ton);
           if(!price)continue;
           seen.add(sku);
-          items.push({kind,sku,title:bpName(row.name+' · '+String(v.label||v.denomination||v.region||sku),110),
+          items.push({kind,sku,catalog_key:String(row.catalogKey||''),
+            title:bpName(row.name+' · '+String(v.label||v.denomination||v.region||sku),110),
             quantity:1,ton,price_toman:price,
             target_type:row.requiresPlayerId?'player':'none'});
         }
@@ -71,7 +77,7 @@ async function tgProducts(env,kind){
     }
     if(items.length>=150)break;
   }
-  tgCache.set(kind,{exp:Date.now()+60000,items:items.slice(0,150)});
+  tgCache.set(cacheKey,{exp:Date.now()+60000,items:items.slice(0,150)});
   return items.slice(0,150);
 }
 function tgDestination(kind,value){
@@ -101,7 +107,8 @@ async function tgCreateOrder(env,input,user,ctx){
     if(!user)return {ok:false,error:'telegram_auth_required',http:401};
     if((await bpMissingChannels(env,user.telegram_id)).length)return {ok:false,error:'join_required',http:403};
   }
-  const item=await tgQuoteBySku(env,kind,sku);
+  const item=kind==='catalog'&&input.catalog_key?
+    await tgCatalogLiveQuote(env,sku,input.catalog_key):await tgQuoteBySku(env,kind,sku);
   if(!item)return {ok:false,error:'price_unavailable',http:409};
   const customerQuoted=Number(input.expected_price_toman||0);
   if(customerQuoted&&(!Number.isSafeInteger(customerQuoted)||customerQuoted!==item.price_toman))
@@ -120,7 +127,7 @@ async function tgCreateOrder(env,input,user,ctx){
   const status=wallet?'paid':'creating_payment';
   const sql="INSERT INTO bp_market_orders(order_code,public_token_hash,telegram_user_id,kind,sku,title,target,quantity,price_toman,quoted_ton,provider_payload,payment_provider,status,created_at,updated_at,paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
   const fields=[code,hash,userId,kind,sku,item.title,dest,item.quantity,item.price_toman,item.ton,
-    JSON.stringify({sku,kind,quantity:item.quantity,target:dest,serviceId:kind==='smm'?Number(sku):null,bundleKey:item.bundleKey||null}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
+    JSON.stringify({sku,kind,catalog_key:item.catalog_key||null,quantity:item.quantity,target:dest,serviceId:kind==='smm'?Number(sku):null,bundleKey:item.bundleKey||null}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
   if(wallet){
     const balance=await env.DB.prepare('SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?').bind(userId).first();
     if(Number(balance?.balance_toman||0)<item.price_toman)return {ok:false,error:'insufficient_wallet_balance',http:409};
