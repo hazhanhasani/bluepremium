@@ -40,6 +40,8 @@ async function tgProducts(env,kind) {
 function tgDestination(kind,value){
   const v=String(value||'').trim();
   if(['stars','gift'].includes(kind))return normalizeUsername(v);
+  if(kind==='nft')return tgTonAddress(v);
+  if(kind==='steam')return /^[A-Za-z0-9_.-]{3,64}$/.test(v)?v:'';
   if(kind==='catalog')return v.length<=120&&/^[a-z0-9@_.+: -]*$/i.test(v)?v:'';
   if(kind==='smm'){try{const u=new URL(v);return u.protocol==='https:'&&v.length<=320?v:''}catch(e){return ''}}
   return '';
@@ -54,7 +56,7 @@ function tgPublic(order,token=''){
 }
 async function tgCreateOrder(env,input,user,ctx){
   const kind=String(input.kind||''),sku=String(input.sku||''),wallet=input.payment==='wallet';
-  if(!['stars','gift','smm','catalog'].includes(kind))return {ok:false,error:'product_unavailable',http:409};
+  if(!TG_TYPES.includes(kind))return {ok:false,error:'product_unavailable',http:409};
   if(wallet&&!user)return {ok:false,error:'telegram_auth_required',http:401};
   if(user?.blocked)return {ok:false,error:'account_blocked',http:403};
   const required=await env.DB.prepare('SELECT COUNT(*) AS count FROM bp_forced_channels WHERE enabled=1').first();
@@ -62,7 +64,7 @@ async function tgCreateOrder(env,input,user,ctx){
     if(!user)return {ok:false,error:'telegram_auth_required',http:401};
     if((await bpMissingChannels(env,user.telegram_id)).length)return {ok:false,error:'join_required',http:403};
   }
-  const item=(await tgProducts(env,kind)).find(p=>p.sku===sku);
+  const item=await tgQuoteBySku(env,kind,sku);
   if(!item)return {ok:false,error:'price_unavailable',http:409};
   const dest=tgDestination(kind,input.target);
   if(!dest&&item.target_type!=='none')return {ok:false,error:'invalid_target',http:400};
@@ -134,21 +136,24 @@ async function tgMarketNotify(env,order){
 }
 async function tgMarketDeliver(env,order){
   if(order.status!=='paid')return;
+  const preflight=await tgPreflightDelivery(env,order);
+  if(!preflight.ok){
+    await env.DB.prepare("UPDATE bp_market_orders SET status='refund_required',provider_error=?,updated_at=? WHERE id=? AND status='paid'")
+      .bind(preflight.error,new Date().toISOString(),order.id).run();
+    return;
+  }
   const claimed=await env.DB.prepare("UPDATE bp_market_orders SET status='provider_submitting',updated_at=? WHERE id=? AND status='paid'")
     .bind(new Date().toISOString(),order.id).run();
   if(!claimed.meta?.changes)return;
   const apiKey=await getProviderSecret(env,'tgtools_api_key');
   if(!apiKey){await env.DB.prepare("UPDATE bp_market_orders SET status='failed',provider_error='provider_not_configured' WHERE id=?").bind(order.id).run();return}
-  const map={
-    stars:{path:'/api/purchase/stars',body:{recipientUsername:order.target,amount:order.quantity,paymentMethod:'ton',trackingCode:order.order_code}},
-    gift:{path:'/api/purchase/gift',body:{recipientUsername:order.target,giftId:order.sku,trackingCode:order.order_code}},
-    smm:{path:'/api/purchase/smm',body:{serviceId:Number(order.sku),link:order.target,quantity:order.quantity}},
-    catalog:{path:'/api/catalog/buy',body:{productId:Number(order.sku),quantity:order.quantity,...(order.target?{playerId:order.target}:{})}}
-  };
-  const action=map[order.kind];
-  if(!action ||(['smm','catalog'].includes(order.kind)&&!Number.isSafeInteger(Number(order.sku))))return;
+  const action=tgFulfillmentInput(order);
+  if(!action){
+    await env.DB.prepare("UPDATE bp_market_orders SET status='refund_required',provider_error='unsupported_product' WHERE id=?").bind(order.id).run();
+    return;
+  }
   const remote=await tgRequest(apiKey,'POST',action.path,action.body);
-  const data=remote.data||{},tx=String(data.transactionId??data.orderId??data.id??'');
+  const data=remote.data||{},tx=String(data.transactionId??data.orderId??data.purchaseId??data.id??'');
   if(!remote.ok){
     const uncertain=remote.http_status===0||remote.http_status>=500||remote.http_status===409;
     await env.DB.prepare("UPDATE bp_market_orders SET status=?,provider_error=?,updated_at=? WHERE id=?")
@@ -185,13 +190,14 @@ async function tgReconcileOrder(env,order){
   if(order.status==='paid'){await tgMarketDeliver(env,order);return}
   if(order.status==='provider_pending'&&order.provider_transaction_id){
     const key=await getProviderSecret(env,'tgtools_api_key');if(!key)return;
-    const route=order.kind==='catalog'?'/api/catalog/orders/':'/api/purchase/';
-    const remote=await tgRequest(key,'GET',route+encodeURIComponent(order.provider_transaction_id));
+    const route=tgOrderDetailRoute(order);
+    if(!route)return;
+    const remote=await tgRequest(key,'GET',route);
     if(!remote.ok)return;
     const state=tgState(remote.data||{});
     if(state!=='completed'&&state!=='failed')return;
     const status=state==='completed'?'delivered':'failed';
-    const delivery=status==='delivered'&&order.kind==='catalog'?String(remote.data?.deliveryCode||'').slice(0,300):null;
+    const delivery=status==='delivered'&&order.kind==='catalog'?String(remote.data?.deliveryCode||remote.data?.code||'').slice(0,300):null;
     const change=await env.DB.prepare("UPDATE bp_market_orders SET status=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=? AND status='provider_pending'")
       .bind(status,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
     if(change.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
