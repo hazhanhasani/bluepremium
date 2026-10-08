@@ -1,0 +1,143 @@
+
+async function tgMarketApi(request,env,url,ctx){
+  const path=url.pathname,method=request.method;
+  if(path==='/api/market/catalog'&&method==='GET'){
+    const kinds=TG_TYPES.map(kind=>({kind,title:TG_LABELS[kind]}));
+    const selected=String(url.searchParams.get('kind')||'stars');
+    if(!TG_TYPES.includes(selected))return api({ok:false,error:'invalid_kind'},400);
+    const enabled=String(await getSetting(env.DB,'market_'+selected+'_enabled',selected==='stars'?'1':'0'))==='1';
+    const products=enabled?await tgProducts(env,selected):[];
+    return api({ok:true,kinds,selected,enabled,products,last_price_sync:await getSetting(env.DB,'last_price_sync','')});
+  }
+  if(path==='/api/market/orders'&&method==='POST'){
+    let customer=null;
+    if(request.headers.has('X-Telegram-Init-Data')){
+      customer=await bpValidateTelegramInitData(env,request);
+      if(!customer)return api({ok:false,error:'telegram_auth_required'},401);
+    }
+    const body=await readJson(request);
+    const result=await tgCreateOrder(env,body,customer,ctx);
+    return api(result,result.ok?201:result.http||400);
+  }
+  const match=path.match(/^\/api\/market\/orders\/(BP-[A-Z0-9]{10,24})(?:\/(check))?$/i);
+  if(match&&method==='GET'){
+    const token=sanitizeToken(url.searchParams.get('token'),128);
+    if(!token)return api({ok:false,error:'unauthorized'},401);
+    const hash=await sha256Hex(token);
+    const row=await env.DB.prepare("SELECT * FROM bp_market_orders WHERE order_code=? AND public_token_hash=?")
+      .bind(match[1],hash).first();
+    if(!row)return api({ok:false,error:'not_found'},404);
+    if(match[2])await tgReconcileOrder(env,row);
+    const fresh=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE id=?').bind(row.id).first();
+    return api({ok:true,order:tgPublic(fresh||row)});
+  }
+  if(path==='/api/market/my-orders'&&method==='GET'){
+    const user=await bpValidateTelegramInitData(env,request);
+    if(!user)return api({ok:false,error:'telegram_auth_required'},401);
+    const records=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE telegram_user_id=? ORDER BY id DESC LIMIT 40')
+      .bind(user.telegram_id).all();
+    return api({ok:true,orders:(records.results||[]).map(x=>tgPublic(x))});
+  }
+  if(!path.startsWith('/api/admin/market'))return null;
+  if(!await requireAdmin(request,env))return api({ok:false,error:'unauthorized'},401);
+  if(path==='/api/admin/market/settings'&&method==='GET'){
+    const out={};
+    for(const kind of TG_TYPES)out[kind]={
+      enabled:String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1',
+      profit_percent:Number(await getSetting(env.DB,'market_'+kind+'_profit','15'))};
+    return api({ok:true,settings:out});
+  }
+  if(path==='/api/admin/market/settings'&&method==='PATCH'){
+    const body=await readJson(request),kind=String(body.kind||'');
+    if(!TG_TYPES.includes(kind))return api({ok:false,error:'invalid_kind'},400);
+    if(body.profit_percent!==undefined){
+      const margin=Number(body.profit_percent);
+      if(!Number.isFinite(margin)||margin<0||margin>500)return api({ok:false,error:'invalid_profit'},400);
+      await setSetting(env.DB,'market_'+kind+'_profit',String(margin));
+    }
+    if(typeof body.enabled==='boolean'){
+      // NFT and Steam need recipient-specific price quotes and cannot be sold as static packages.
+      if(body.enabled&&['nft','steam'].includes(kind))return api({ok:false,error:'requires_live_quote_support'},409);
+      await setSetting(env.DB,'market_'+kind+'_enabled',body.enabled?'1':'0');
+    }
+    tgCache.delete(kind);
+    return api({ok:true});
+  }
+  if(path==='/api/admin/market/orders'&&method==='GET'){
+    const result=await env.DB.prepare("SELECT id,order_code,telegram_user_id,kind,sku,title,target,quantity,price_toman,status,payment_provider,provider_error,provider_transaction_id,created_at,updated_at FROM bp_market_orders ORDER BY id DESC LIMIT 100").all();
+    return api({ok:true,orders:result.results||[]});
+  }
+  return api({ok:false,error:'not_found'},404);
+}
+async function tgBotMarketMenu(env,chatId){
+  const menu=[
+    [{text:'⭐ استارز تلگرام',callback_data:'tg_kind:stars'}],
+    [{text:'🎁 گیفت‌های تلگرام',callback_data:'tg_kind:gift'}],
+    [{text:'🎮 گیفت‌کارت و شارژ بازی',callback_data:'tg_kind:catalog'}],
+    [{text:'📣 خدمات شبکه‌های اجتماعی',callback_data:'tg_kind:smm'}],
+    [{text:'🔙 بازگشت',callback_data:'buy_cancel'}]
+  ];
+  await telegramSendMessage(env,chatId,'🛍 <b>محصولات دیجیتال بلوپرمیوم</b>\n\nدسته موردنظر را انتخاب کن:',{
+    reply_markup:{inline_keyboard:menu}
+  });
+}
+async function tgBotMarketKind(env,chatId,kind){
+  const products=await tgProducts(env,kind);
+  if(!products.length){
+    await telegramSendMessage(env,chatId,'این دسته فعلاً محصول دارای قیمت معتبر و قابل خرید ندارد.');
+    return;
+  }
+  const list=products.slice(0,24);
+  const rows=list.map(x=>[{text:x.title+' — '+bpPrice(x.price_toman)+' تومان',callback_data:'tg_item:'+kind+':'+x.sku}]);
+  rows.push([{text:'🔙 دسته‌بندی‌ها',callback_data:'tg_menu'}]);
+  await telegramSendMessage(env,chatId,'محصول را انتخاب کن:',{reply_markup:{inline_keyboard:rows}});
+}
+async function tgBotMarketSelect(env,chatId,userId,kind,sku){
+  const item=(await tgProducts(env,kind)).find(x=>x.sku===sku);
+  if(!item){await telegramSendMessage(env,chatId,'قیمت این محصول در دسترس نیست؛ دوباره تلاش کن.');return}
+  await telegramSessionSet(env,chatId,userId,'tg_market_target',{kind,sku});
+  const prompt=item.target_type==='link'?'لینک مقصد را ارسال کن':
+    item.target_type==='player'?'شناسه بازیکن را بفرست':
+    item.target_type==='none'?'برای ادامه پیام «تایید» را بفرست':'یوزرنیم تلگرام مقصد را بفرست';
+  await telegramSendMessage(env,chatId,'<b>'+telegramEscapeHtml(item.title)+'</b>\n'+bpPrice(item.price_toman)+' تومان\n\n'+prompt,{
+    reply_markup:{inline_keyboard:[[{text:'✖️ انصراف',callback_data:'buy_cancel'}]]}
+  });
+}
+async function tgBotMarketTarget(env,chatId,userId,value,session){
+  const kind=session.data?.kind,sku=session.data?.sku;
+  const item=(await tgProducts(env,kind)).find(p=>p.sku===sku);
+  if(!item){await telegramSendMessage(env,chatId,'محصول فعلاً موجود نیست.');return}
+  const target=item.target_type==='none'?'':tgDestination(kind,value);
+  if(item.target_type!=='none'&&!target){await telegramSendMessage(env,chatId,'مقصد نامعتبر است؛ دوباره ارسال کن.');return}
+  await telegramSessionSet(env,chatId,userId,'tg_market_payment',{kind,sku,target});
+  const customer=await bpCustomerView(env,userId);
+  await telegramSendMessage(env,chatId,'📦 '+telegramEscapeHtml(item.title)+'\n💰 '+bpPrice(item.price_toman)+' تومان\n'+
+    'موجودی کیف پول: '+bpPrice(customer?.balance_toman||0)+' تومان\n\nروش پرداخت را انتخاب کن:',{
+      reply_markup:{inline_keyboard:[
+        [{text:'💳 پرداخت از کیف پول',callback_data:'tg_pay:wallet'}],
+        [{text:'🏦 دریافت اطلاعات کارت',callback_data:'tg_pay:blupal'}],
+        [{text:'✖️ انصراف',callback_data:'buy_cancel'}]
+      ]}
+  });
+}
+async function tgBotMarketPay(env,chatId,userId,kind,ctx){
+  const sess=await telegramSessionGet(env,chatId);
+  if(sess?.state!=='tg_market_payment')return telegramSendMessage(env,chatId,'سفارش قبلی منقضی شده است؛ از منو دوباره انتخاب کن.');
+  const customer=await env.DB.prepare('SELECT * FROM bp_users WHERE telegram_id=?').bind(userId).first();
+  if(!customer)return;
+  const result=await tgCreateOrder(env,{...sess.data,payment:kind},customer,ctx);
+  if(!result.ok){
+    await telegramSendMessage(env,chatId,'❌ ثبت سفارش ناموفق: '+telegramEscapeHtml(result.error||'خطای نامشخص'));
+    return;
+  }
+  await telegramSessionClear(env,chatId);
+  const order=result.order;
+  const instructions=order.payment_instructions;
+  const payText=instructions?
+    '\n\n💳 کارت مقصد: <code>'+telegramEscapeHtml(instructions.card_number)+'</code>'+
+    '\n💰 مبلغ دقیق: <code>'+bpPrice(instructions.amount_rial)+'</code> ریال':
+    '\n\n✅ مبلغ از کیف پول کسر شد.';
+  await telegramSendMessage(env,chatId,'🧾 سفارش '+telegramEscapeHtml(order.title)+
+    '\nکد: <code>'+telegramEscapeHtml(order.code)+'</code>'+payText+
+    '\n\nپیگیری سفارش: <code>/market_'+telegramEscapeHtml(order.code)+'</code>');
+}
