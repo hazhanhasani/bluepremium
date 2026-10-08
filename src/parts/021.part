@@ -109,6 +109,24 @@ async function tgMarketApi(request,env,url,ctx){
       Number(await getSetting(env.DB,'market_'+kind+'_profit','15')),
       enabled:String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1'});
   }
+  if(path==='/api/admin/market/health'&&method==='GET'){
+    const counts=await env.DB.prepare(
+      "SELECT kind,status,COUNT(*) AS total FROM bp_market_orders GROUP BY kind,status ORDER BY kind,status"
+    ).all();
+    const key=await getProviderSecret(env,'tgtools_api_key');
+    let smm={status:'key_missing',http_status:0,product_count:0};
+    if(key){
+      const remote=await tgRequest(key,'GET','/api/Purchase/smm/bundles?lang=fa',null,true);
+      const body=remote.data||{};
+      const list=tgList(body);
+      smm={status:remote.ok?'reachable':'provider_error',http_status:remote.http_status||0,
+        product_count:list.length,shape:Array.isArray(body)?'array':Object.keys(body).slice(0,7),
+        error:remote.ok?'':bpName(remote.message||'unavailable',90)};
+    }
+    return api({ok:true,provider:{configured:!!key,smm},orders:counts.results||[],
+      warning_states:['provider_uncertain','provider_submitting','refund_required','failed'],
+      timestamp:new Date().toISOString()});
+  }
   if(path==='/api/admin/market/orders'&&method==='GET'){
     const result=await env.DB.prepare("SELECT id,order_code,telegram_user_id,kind,sku,title,target,quantity,price_toman,status,payment_provider,provider_error,provider_transaction_id,created_at,updated_at FROM bp_market_orders ORDER BY id DESC LIMIT 100").all();
     return api({ok:true,orders:result.results||[]});
