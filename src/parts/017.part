@@ -123,7 +123,7 @@ async function configureTelegramBot(env, origin, { token = '', adminId = '', ena
   await telegramBotApi(currentToken, 'setChatMenuButton', {
     menu_button: {
       type: 'web_app',
-      text: 'خرید پرمیوم',
+      text: 'مینی اپ',
       web_app: { url: String(origin || '').replace(/\/$/, '') + '/?from=telegram' },
     },
   });
@@ -147,7 +147,7 @@ async function telegramMainKeyboard(env, origin, senderId = '') {
   const support = telegramSupportUrl(await getSetting(env.DB, 'support', ''));
   const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
   const rows = [
-    [{ text: '🛍 خرید تلگرام پرمیوم', web_app: { url: String(origin).replace(/\/$/, '') + '/?from=telegram' } }],
+    [{ text: '🛍 خرید تلگرام پرمیوم', callback_data: 'buy' }],
     [{ text: '📦 پیگیری سفارش', callback_data: 'status_help' }],
   ];
   if (support) rows.push([{ text: '☎️ پشتیبانی', url: support }]);
@@ -233,6 +233,192 @@ async function telegramAdminSummaryText(env) {
   const delivered = count('delivered');
   const issues = count('provider_uncertain') + count('failed') + count('payment_error') + count('payment_mismatch');
   return `⚙️ <b>مدیریت بلوپرمیوم</b>\n\n📦 کل سفارش‌ها: ${total}\n🟡 منتظر تأیید: ${waiting}\n✅ تحویل‌شده: ${delivered}\n🔴 نیازمند بررسی: ${issues}`;
+}
+
+
+async function isTelegramBotBlupalOrderAllowed(env, order) {
+  if (!order || String(order.payment_provider || '') !== 'blupal') return false;
+  if (!/^tg:-?\d+$/.test(String(order.device_id || ''))) return String(await getSetting(env.DB, 'blupal_enabled', '0')) === '1';
+  return String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+}
+
+function telegramOrderChatId(order) {
+  const m = String(order?.device_id || '').match(/^tg:(-?\d+)$/);
+  return m ? m[1] : '';
+}
+
+async function telegramSessionGet(env, chatId) {
+  const row = await env.DB.prepare(`SELECT state,data,user_id,updated_at FROM telegram_bot_sessions WHERE chat_id=? LIMIT 1`)
+    .bind(String(chatId)).first();
+  if (!row) return null;
+  let data = {};
+  try { data = JSON.parse(String(row.data || '{}')); } catch (_) {}
+  return { state: String(row.state || ''), data, user_id: String(row.user_id || '') };
+}
+
+async function telegramSessionSet(env, chatId, userId, state, data = {}) {
+  await env.DB.prepare(`
+    INSERT INTO telegram_bot_sessions(chat_id,user_id,state,data,updated_at) VALUES(?,?,?,?,?)
+    ON CONFLICT(chat_id) DO UPDATE SET user_id=excluded.user_id,state=excluded.state,data=excluded.data,updated_at=excluded.updated_at
+  `).bind(String(chatId), String(userId), String(state), JSON.stringify(data || {}), new Date().toISOString()).run();
+}
+
+async function telegramSessionClear(env, chatId) {
+  await env.DB.prepare(`DELETE FROM telegram_bot_sessions WHERE chat_id=?`).bind(String(chatId)).run();
+}
+
+async function telegramPlansKeyboard(env) {
+  const result = await env.DB.prepare(`
+    SELECT id,months,price_toman,manual_price_toman,auto_price_toman
+    FROM plans WHERE active=1 ORDER BY months
+  `).all();
+  const plans = (result.results || [])
+    .map(p => ({
+      id: Number(p.id),
+      months: Number(p.months),
+      price: Number(p.manual_price_toman || p.price_toman || p.auto_price_toman || 0),
+    }))
+    .filter(p => ALLOWED_MONTHS.includes(p.months) && p.price > 0);
+  const rows = plans.map(p => [{
+    text: `⭐ ${p.months} ماهه — ${new Intl.NumberFormat('fa-IR').format(p.price)} تومان`,
+    callback_data: `buy_plan:${p.id}`,
+  }]);
+  rows.push([{ text: '✖️ انصراف', callback_data: 'buy_cancel' }]);
+  return { plans, reply_markup: { inline_keyboard: rows } };
+}
+
+async function telegramBeginPurchase(env, chatId, userId) {
+  const botBluePalEnabled = String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+  const bluePalKey = await getProviderSecret(env, 'blupal_api_key');
+  if (!botBluePalEnabled || !bluePalKey) {
+    await telegramSendMessage(env, chatId, 'درگاه BluePal ربات فعلاً آماده نیست. لطفاً با پشتیبانی در ارتباط باش.');
+    return;
+  }
+  const menu = await telegramPlansKeyboard(env);
+  if (!menu.plans.length) {
+    await telegramSendMessage(env, chatId, 'فعلاً پلن فعالی برای خرید وجود ندارد.');
+    return;
+  }
+  await telegramSessionClear(env, chatId);
+  await telegramSendMessage(env, chatId, '🛍 <b>خرید تلگرام پرمیوم</b>\n\nپلن موردنظرت را انتخاب کن:', {
+    reply_markup: menu.reply_markup,
+  });
+}
+
+async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, username }) {
+  const plan = await env.DB.prepare(`SELECT * FROM plans WHERE id=? AND active=1 LIMIT 1`).bind(Number(planId)).first();
+  if (!plan) return { ok: false, error: 'plan_not_found' };
+  const months = Number(plan.months);
+  const priceToman = Number(plan.manual_price_toman || plan.price_toman || plan.auto_price_toman || 0);
+  if (!ALLOWED_MONTHS.includes(months) || !Number.isFinite(priceToman) || priceToman < 10000) {
+    return { ok: false, error: 'plan_unavailable' };
+  }
+
+  const bluePalEnabled = String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+  const blupalKey = await getProviderSecret(env, 'blupal_api_key');
+  if (!bluePalEnabled || !blupalKey) return { ok: false, error: 'payment_not_configured' };
+
+  const tgKey = await getProviderSecret(env, 'tgtools_api_key');
+  if (!tgKey) return { ok: false, error: 'provider_not_configured' };
+  const lookup = await tgRequest(tgKey, 'GET', `/api/purchase/user/${encodeURIComponent(username)}`);
+  if (!lookup.ok) return { ok: false, error: 'telegram_lookup_failed' };
+  if (lookup.data?.found === false) return { ok: false, error: 'telegram_user_not_found' };
+  if (lookup.data?.premiumEligible === false) return { ok: false, error: 'not_premium_eligible' };
+
+  const orderCode = `BP-${crypto.randomUUID().replaceAll('-', '').slice(0, 14).toUpperCase()}`;
+  const publicToken = randomToken(24);
+  const publicTokenHash = await sha256Hex(publicToken);
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(`
+    INSERT INTO orders(
+      order_code,public_token_hash,plan_id,months,username,price_toman,status,device_id,
+      payment_provider,created_at,updated_at
+    ) VALUES(?,?,?,?,?,?,'creating_payment',?,'blupal',?,?)
+  `).bind(
+    orderCode,
+    publicTokenHash,
+    Number(plan.id),
+    months,
+    username,
+    Math.round(priceToman),
+    `tg:${chatId}`,
+    now,
+    now
+  ).run();
+
+  const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
+    amount: Math.round(priceToman) * 10,
+  });
+  const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
+  const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
+
+  if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
+    await env.DB.prepare(`UPDATE orders SET status='payment_error',provider_error=?,updated_at=? WHERE order_code=?`)
+      .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(), orderCode).run();
+    return { ok: false, error: 'invoice_create_failed', order_code: orderCode };
+  }
+
+  await env.DB.prepare(`
+    UPDATE orders
+    SET status='awaiting_payment',blupal_invoice_id=?,payment_url=?,updated_at=?
+    WHERE order_code=? AND status='creating_payment'
+  `).bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
+
+  const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
+  return { ok: true, order, payment_url: paymentLink };
+}
+
+async function notifyTelegramCustomerForOrder(env, order, type = 'update') {
+  const chatId = telegramOrderChatId(order);
+  if (!chatId) return { ok: false, skipped: true };
+  const code = telegramEscapeHtml(order.order_code);
+  if (type === 'paid') {
+    return telegramSendMessage(env, chatId,
+      `✅ <b>پرداخت سفارش تأیید شد</b>\n\n🧾 <code>${code}</code>\n📍 ${telegramEscapeHtml(customerStatusMessage(order.status))}`
+    );
+  }
+  if (type === 'delivered') {
+    return telegramSendMessage(env, chatId,
+      `🎉 <b>تلگرام پرمیوم با موفقیت فعال شد</b>\n\n🧾 <code>${code}</code>\n👤 @${telegramEscapeHtml(order.username)}\n📦 ${Number(order.months)} ماهه`
+    );
+  }
+  if (type === 'failed') {
+    return telegramSendMessage(env, chatId,
+      `⚠️ <b>سفارش نیاز به بررسی دارد</b>\n\n🧾 <code>${code}</code>\nپشتیبانی سفارش را بررسی خواهد کرد.`
+    );
+  }
+}
+
+async function telegramSendOrderStatus(env, chatId, fromId, code) {
+  const clean = String(code || '').trim().toUpperCase();
+  if (!/^BP-[A-Z0-9]{6,40}$/.test(clean)) {
+    await telegramSendMessage(env, chatId, 'کد سفارش معتبر نیست.');
+    return;
+  }
+  const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(clean).first();
+  if (!order) {
+    await telegramSendMessage(env, chatId, 'سفارشی با این کد پیدا نشد.');
+    return;
+  }
+  const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
+  const ownerChatId = telegramOrderChatId(order);
+  if (ownerChatId && String(ownerChatId) !== String(chatId) && String(fromId) !== adminId) {
+    await telegramSendMessage(env, chatId, 'این سفارش متعلق به این حساب تلگرام نیست.');
+    return;
+  }
+  if (order.status === 'awaiting_payment' && await isTelegramBotBlupalOrderAllowed(env, order)) {
+    await reconcileOrder(env, order, null);
+  }
+  const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first() || order;
+  let keyboard = await telegramMainKeyboard(env, 'https://bluepremium.hazhanhasani4268-0f9.workers.dev', fromId);
+  if (fresh.status === 'awaiting_payment' && fresh.payment_url && isHttpsUrl(fresh.payment_url)) {
+    keyboard = { inline_keyboard: [
+      [{ text: '💳 ادامه پرداخت BluePal', url: fresh.payment_url }],
+      [{ text: '🔄 بررسی پرداخت', callback_data: `check:${fresh.order_code}` }],
+    ] };
+  }
+  await telegramSendMessage(env, chatId, await telegramOrderStatusText(env, fresh.order_code), { reply_markup: keyboard });
 }
 
 async function handleTelegramBotUpdate(env, update, origin, ctx) {
