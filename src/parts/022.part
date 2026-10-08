@@ -188,7 +188,7 @@ function tgAdminClient(){
     '<button class="btn secondary" id="tgHealthReload" style="margin-top:12px">بررسی مجدد سلامت</button></article>'+
     '<article class="card"><h3>تنظیمات محصولات TG Tools</h3><p class="sub">درصد سود و وضعیت فروش برای هر دسته مستقل است. فعال‌سازی فقط برای دسته‌های دارای قیمت قابل استعلام انجام می‌شود.</p><div id="tgMarketSettings" class="plan-grid"></div></article>'+
     '<article class="card"><div class="provider-head"><h3>سفارش‌های دیجیتال</h3><button class="btn secondary" id="tgMarketReload">بروزرسانی</button></div>'+
-    '<div class="orders"><table><thead><tr><th>کد</th><th>محصول</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody id="tgMarketOrders"></tbody></table></div></article></div>';
+    '<div class="orders"><table><thead><tr><th>کد</th><th>محصول</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>مالی</th></tr></thead><tbody id="tgMarketOrders"></tbody></table></div></article></div>';
   id('settings').insertAdjacentElement('beforebegin',section);
   for(const selector of ['.side .nav','.mobilebar']){
     const nav=document.querySelector(selector);if(!nav)continue;
@@ -237,7 +237,9 @@ function tgAdminClient(){
         failed:'❌ ناموفق',payment_error:'خطای ایجاد فاکتور'
       };
       id('tgMarketOrders').innerHTML=(orders.orders||[]).map(x=>'<tr><td><code>'+esc(x.order_code)+'</code></td><td>'+esc(x.title)+'</td>'+
-        '<td>'+money(x.price_toman)+'</td><td title="'+esc(x.provider_error||'')+'">'+esc(statuses[x.status]||x.status)+'</td><td>'+esc(x.created_at)+'</td></tr>').join('');
+        '<td>'+money(x.price_toman)+'</td><td title="'+esc(x.provider_error||'')+'">'+esc(statuses[x.status]||x.status)+'</td><td>'+esc(x.created_at)+'</td>'+
+        '<td>'+(x.payment_provider==='wallet'&&!x.provider_transaction_id&&['failed','refund_required'].includes(x.status)
+          ?'<button class="btn secondary" data-tg-refund="'+Number(x.id)+'">بازپرداخت کیف پول</button>':'—')+'</td></tr>').join('');
     }catch(e){id('tgMarketSettings').textContent='خطا: '+e.message}
   }
   function renderHealth(data){
@@ -279,6 +281,25 @@ function tgAdminClient(){
       note.textContent='❌ '+(labels[err.message]||'ذخیره تنظیمات انجام نشد؛ دوباره تلاش کن.');
     }finally{btn.disabled=false}
   };
+  id('tgMarketOrders').addEventListener('click',async event=>{
+    const btn=event.target.closest('[data-tg-refund]');if(!btn)return;
+    const id=Number(btn.dataset.tgRefund);
+    if(!Number.isSafeInteger(id)||id<=0)return;
+    const reason=prompt('علت بازپرداخت سفارش (حداقل ۶ کاراکتر):');
+    if(!reason||reason.trim().length<6)return;
+    if(!confirm('آیا مطمئن هستی سفارش توسط TG Tools تحویل نشده و باید مبلغ به کیف پول مشتری برگردد؟'))return;
+    btn.disabled=true;
+    try{
+      const result=await call('/api/admin/market/orders/'+id+'/refund',{
+        method:'POST',body:JSON.stringify({confirm_no_delivery:true,reason:reason.trim()})
+      });
+      alert('✅ مبلغ '+money(result.amount_toman)+' تومان به کیف پول مشتری برگشت.');
+      await load();
+    }catch(e){
+      alert('بازپرداخت انجام نشد: '+(e.message==='refund_not_allowed'?'وضعیت سفارش قابل استرداد نیست.':e.message));
+      btn.disabled=false;
+    }
+  });
   id('tgMarketReload').onclick=load;
   id('tgHealthReload').onclick=load;
 }
