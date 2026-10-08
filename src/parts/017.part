@@ -410,8 +410,8 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
   await env.DB.prepare(`
     INSERT INTO orders(
       order_code,public_token_hash,plan_id,months,username,price_toman,status,device_id,
-      payment_provider,created_at,updated_at
-    ) VALUES(?,?,?,?,?,?,'creating_payment',?,'blupal',?,?)
+      payment_provider,created_at,updated_at,telegram_user_id
+    ) VALUES(?,?,?,?,?,?,'creating_payment',?,'blupal',?,?,?)
   `).bind(
     orderCode,
     publicTokenHash,
@@ -421,7 +421,8 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
     Math.round(priceToman),
     `tg:${chatId}`,
     now,
-    now
+    now,
+    String(userId)
   ).run();
 
   const expectedRial = Math.round(priceToman) * 10;
