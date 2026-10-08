@@ -82,3 +82,32 @@ test('new price and checkout routes require fresh quote',()=>{
   assert.match(ui,/استعلام قیمت لحظه‌ای/);
   assert.match(ui,/expected_price_toman:selected\.price_toman/);
 });
+
+
+test('catalog item quote rejects swapped denomination and derives TON price server-side',async()=>{
+  const quote=new Function('getProviderSecret','tgRequest','tgPrice','tgTon','bpName',advanced+
+    ';return tgCatalogLiveQuote;')(
+      async()=>null,async(_key,_method,url)=>({
+        ok:url.includes('giftcards%3Aamazon'),
+        data:{name:'Amazon',requiresPlayerId:false,variants:[
+          {productId:54,label:'20 USD',priceTon:1.25},
+          {productId:55,label:'50 USD',priceTon:3.2}
+        ]}
+      }),
+      async(_env,kind,ton)=>Math.round(ton*100000),
+      row=>Number(row.priceTon||0),text=>String(text).slice(0,110)
+  );
+  const result=await quote({},'54','giftcards:amazon');
+  assert.equal(result.sku,'54');
+  assert.equal(result.price_toman,125000);
+  assert.equal(await quote({},'99','giftcards:amazon'),null);
+  assert.equal(await quote({},'54','invalid:key'),null);
+});
+
+test('catalog search query and selected exact sku travel through API and client',()=>{
+  assert.match(market,/catalog_key:item\.catalog_key/);
+  assert.match(market,/tgCatalogLiveQuote\(env,sku,input\.catalog_key\)/);
+  assert.match(api,/url\.searchParams\.get\('q'\)/);
+  assert.match(ui,/tgCatalogSearch/);
+  assert.match(ui,/catalog_key:selected\.catalog_key/);
+});
