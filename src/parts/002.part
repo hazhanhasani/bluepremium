@@ -264,6 +264,7 @@
 
 async function runMaintenance(env) {
   await syncPricing(env).catch(error => console.error('price sync failed', error));
+  await tgMarketMaintenance(env).catch(error => console.error('market cron failed', error));
   await reconcileOpenOrders(env, { waitUntil: p => p }, 40).catch(error => console.error('reconcile failed', error));
 }
 
