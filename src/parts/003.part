@@ -107,6 +107,7 @@ async function reconcileOrder(env, order, ctx) {
       if (done.meta?.changes) {
         const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
         await notifyTelegramAdminForOrder(env, delivered, 'delivered');
+        await bpReferralCredit(env, delivered);
         await notifyTelegramCustomerForOrder(env, delivered, 'delivered');
       }
     } else if (state === 'failed') {
@@ -178,7 +179,8 @@ async function deliverPremium(env, order) {
     if (done.meta?.changes) {
       const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
       await notifyTelegramAdminForOrder(env, delivered, 'delivered');
-      await notifyTelegramCustomerForOrder(env, delivered, 'delivered');
+      await bpReferralCredit(env, delivered);
+        await notifyTelegramCustomerForOrder(env, delivered, 'delivered');
     }
   } else {
     await env.DB.prepare(`UPDATE orders SET status='provider_pending', tg_transaction_id=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
