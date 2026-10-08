@@ -45,6 +45,16 @@ function tgStoreClient(){
           '<label for="tgSteamAmount">مقدار شارژ به ارز انتخابی</label>'+
           '<input id="tgSteamAmount" type="number" min="10" max="10000" step="1" value="100">';
         items.innerHTML='<p>قیمت محصول به‌صورت اختصاصی استعلام می‌شود؛ قبل از پرداخت مبلغ نهایی را می‌بینی.</p>';
+        if(kind==='nft'){
+          try{
+            const browse=await fetch('/api/market/nft-listings',{cache:'no-store'}).then(r=>r.json());
+            if(currentKind==='nft'&&browse.ok&&Array.isArray(browse.items)&&browse.items.length){
+              items.innerHTML=browse.items.slice(0,30).map(x=>
+                '<article class="tg-item"><b>'+escape(x.title)+'</b><small>قیمت لحظه‌ای پس از انتخاب</small>'+
+                '<button type="button" data-nft-address="'+escape(x.sku)+'">استعلام NFT</button></article>').join('');
+            }
+          }catch(_){}
+        }
       }else
       items.innerHTML=!d.enabled?'<p>این دسته فعلاً توسط مدیریت غیرفعال است.</p>':
         all.length?all.map((x,i)=>'<article class="tg-item"><b>'+escape(x.title)+'</b><small>'+format(x.price_toman)+' تومان</small>'+
@@ -54,6 +64,14 @@ function tgStoreClient(){
   }
   categories.onclick=e=>{const b=e.target.closest('[data-kind]');if(b)load(b.dataset.kind)};
   items.onclick=e=>{
+    const nft=e.target.closest('[data-nft-address]');
+    if(nft){
+      if(get('tgNftAddress')){
+        get('tgNftAddress').value=nft.dataset.nftAddress;
+        get('tgQuoteButton').click();
+      }
+      return;
+    }
     const b=e.target.closest('[data-index]');if(!b)return;
     selected=all[Number(b.dataset.index)];if(!selected)return;
     get('tgChosen').textContent=selected.title+' | '+format(selected.price_toman)+' تومان';
