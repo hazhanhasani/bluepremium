@@ -42,7 +42,14 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
  .kpi{min-height:112px}
  .kpi b{font-variant-numeric:tabular-nums}
 }
-@media(max-width:650px){.main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}}
+@media(max-width:650px){
+  .main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
+  #dashboard .grid > .kpi{grid-column:span 6;min-width:0;min-height:124px;padding:14px 12px}
+  #dashboard .kpi .sub{font-size:10px;line-height:1.7;min-height:25px}
+  #dashboard .kpi b{font-size:clamp(19px,5.6vw,26px);margin-top:7px}
+  #dashboard .kpi span{font-size:9px;line-height:1.7;display:block;margin-top:3px}
+}
+@media(max-width:350px){#dashboard .grid > .kpi{padding:12px 9px}#dashboard .kpi b{font-size:19px}}
 </style>
 </head>
 <body>
