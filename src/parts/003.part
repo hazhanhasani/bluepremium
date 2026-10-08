@@ -58,11 +58,19 @@ async function reconcileOrder(env, order, ctx) {
     if (!remote.ok) return;
     const state = tgState(remote.data || {});
     if (state === 'completed') {
-      await env.DB.prepare(`UPDATE orders SET status='delivered', delivered_at=?, updated_at=?, provider_error=NULL WHERE id=? AND status='provider_pending'`)
+      const done = await env.DB.prepare(`UPDATE orders SET status='delivered', delivered_at=?, updated_at=?, provider_error=NULL WHERE id=? AND status='provider_pending'`)
         .bind(new Date().toISOString(), new Date().toISOString(), current.id).run();
+      if (done.meta?.changes) {
+        const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
+        await notifyTelegramAdminForOrder(env, delivered, 'delivered');
+      }
     } else if (state === 'failed') {
-      await env.DB.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='provider_pending'`)
+      const failed = await env.DB.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='provider_pending'`)
         .bind(safeProviderMessage(remote.message || 'provider_failed'), new Date().toISOString(), current.id).run();
+      if (failed.meta?.changes) {
+        const failedOrder = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
+        await notifyTelegramAdminForOrder(env, failedOrder, 'failed');
+      }
     }
   }
 }
@@ -111,11 +119,19 @@ async function deliverPremium(env, order) {
   }
   const state = tgState(data);
   if (state === 'failed') {
-    await env.DB.prepare(`UPDATE orders SET status='failed', tg_transaction_id=?, provider_error=?, updated_at=? WHERE id=? AND status='provider_submitting'`)
+    const failed = await env.DB.prepare(`UPDATE orders SET status='failed', tg_transaction_id=?, provider_error=?, updated_at=? WHERE id=? AND status='provider_submitting'`)
       .bind(tx, safeProviderMessage(data.message || purchase.message || 'provider_failed'), new Date().toISOString(), order.id).run();
+    if (failed.meta?.changes) {
+      const failedOrder = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+      await notifyTelegramAdminForOrder(env, failedOrder, 'failed');
+    }
   } else if (state === 'completed') {
-    await env.DB.prepare(`UPDATE orders SET status='delivered', tg_transaction_id=?, delivered_at=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
+    const done = await env.DB.prepare(`UPDATE orders SET status='delivered', tg_transaction_id=?, delivered_at=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
       .bind(tx, new Date().toISOString(), new Date().toISOString(), order.id).run();
+    if (done.meta?.changes) {
+      const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+      await notifyTelegramAdminForOrder(env, delivered, 'delivered');
+    }
   } else {
     await env.DB.prepare(`UPDATE orders SET status='provider_pending', tg_transaction_id=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
       .bind(tx, new Date().toISOString(), order.id).run();
