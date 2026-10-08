@@ -151,14 +151,17 @@ async function ensureTelegramBotPresentation(env, origin) {
   const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
   if (!enabled) return;
   const version = String(await getSetting(env.DB, 'telegram_bot_menu_version', ''));
-  if (version === '2') return;
+  if (version === '3') return;
   const token = await getProviderSecret(env, 'telegram_bot_token');
   if (!token) return;
 
   const commands = await telegramBotApi(token, 'setMyCommands', {
     commands: [
       { command: 'start', description: 'شروع و نمایش منوی بلوپرمیوم' },
-      { command: 'buy', description: 'خرید عادی تلگرام پرمیوم' },
+      { command: 'buy', description: 'خرید تلگرام پرمیوم' },
+      { command: 'profile', description: 'حساب کاربری و کیف پول' },
+      { command: 'wallet', description: 'موجودی و تراکنش‌ها' },
+      { command: 'referrals', description: 'زیرمجموعه‌گیری' },
       { command: 'status', description: 'پیگیری وضعیت سفارش' },
       { command: 'support', description: 'پشتیبانی' },
     ],
@@ -170,7 +173,7 @@ async function ensureTelegramBotPresentation(env, origin) {
       web_app: { url: String(origin || '').replace(/\/$/, '') + '/?from=telegram' },
     },
   });
-  if (commands.ok && menu.ok) await setSetting(env.DB, 'telegram_bot_menu_version', '2');
+  if (commands.ok && menu.ok) await setSetting(env.DB, 'telegram_bot_menu_version', '3');
 }
 
 async function telegramMainKeyboard(env, origin, senderId = '') {
@@ -179,6 +182,8 @@ async function telegramMainKeyboard(env, origin, senderId = '') {
   const rows = [
     [{ text: '🛍 خرید تلگرام پرمیوم', callback_data: 'buy' }],
     [{ text: '📦 پیگیری سفارش', callback_data: 'status_help' }],
+    [{ text: '👤 حساب کاربری', callback_data: 'bp_profile' }, { text: '💳 کیف پول', callback_data: 'bp_wallet' }],
+    [{ text: '🎁 زیرمجموعه‌گیری', callback_data: 'bp_referrals' }],
   ];
   if (support) rows.push([{ text: '☎️ پشتیبانی', url: support }]);
   if (String(senderId) === adminId) {
@@ -561,6 +566,23 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
       });
     }
 
+    if (data === 'bp_verify_join') {
+      if (await bpBotGate(env, chatId, callback.from)) {
+        await telegramSendMessage(env,chatId,'✅ عضویت شما تأیید شد. خوش آمدی!',{
+          reply_markup:await telegramMainKeyboard(env,origin,fromId)
+        });
+      }
+      return;
+    }
+    if (!await bpBotGate(env,chatId,callback.from)) return;
+    if (data === 'bp_profile') { await bpBotProfile(env,chatId,callback.from); return; }
+    if (data === 'bp_wallet') { await bpBotWallet(env,chatId,fromId); return; }
+    if (data === 'bp_referrals') { await bpBotReferrals(env,chatId,fromId); return; }
+    if (data === 'bp_wallet_pay' || data === 'bp_card_pay') {
+      await bpBotChoosePayment(env,chatId,fromId,data==='bp_wallet_pay'?'wallet':'card',ctx);
+      return;
+    }
+
     if (data === 'buy') {
       await telegramBeginPurchase(env, chatId, fromId);
       return;
@@ -655,6 +677,8 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
 
   if (/^\/start(?:@\w+)?(?:\s|$)/i.test(text)) {
     await telegramSessionClear(env, chatId);
+    const referralMatch = text.match(/^\/start(?:@\w+)?\s+ref_(\d{4,20})$/i);
+    await bpRegister(env,message.from,referralMatch?.[1] || '');
     const firstName = telegramEscapeHtml(message.from?.first_name || 'دوست عزیز');
     await telegramSendMessage(
       env,
@@ -662,8 +686,14 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
       `👋 سلام <b>${firstName}</b>\n\nبه <b>بلوپرمیوم</b> خوش اومدی.\nخرید معمولی داخل خود ربات انجام می‌شود؛ مینی‌اپ هم از دکمه اختصاصی منوی ربات در دسترس است.`,
       { reply_markup: await telegramMainKeyboard(env, origin, fromId) }
     );
+    await bpBotGate(env,chatId,message.from);
     return;
   }
+
+  if (!await bpBotGate(env,chatId,message.from)) return;
+  if (/^\/profile(?:@\w+)?$/i.test(text)) { await bpBotProfile(env,chatId,message.from); return; }
+  if (/^\/wallet(?:@\w+)?$/i.test(text)) { await bpBotWallet(env,chatId,fromId); return; }
+  if (/^\/referrals(?:@\w+)?$/i.test(text)) { await bpBotReferrals(env,chatId,fromId); return; }
 
   if (/^\/buy(?:@\w+)?(?:\s|$)/i.test(text)) {
     await telegramBeginPurchase(env, chatId, fromId);
@@ -705,42 +735,22 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   if (session?.state === 'awaiting_username') {
     const username = normalizeUsername(text);
     if (!username) {
-      await telegramSendMessage(env, chatId, 'یوزرنیم معتبر نیست. لطفاً یوزرنیم تلگرام را با یا بدون @ ارسال کن.');
+      await telegramSendMessage(env, chatId, 'یوزرنیم معتبر نیست. لطفاً بدون یا با @ وارد کن.');
       return;
     }
-
-    await telegramSendMessage(env, chatId, '⏳ حساب تلگرام در حال بررسی و اطلاعات پرداخت در حال آماده‌سازی است...');
-    const created = await createTelegramBotBlupalOrder(env, {
-      chatId,
-      userId: fromId,
-      planId: Number(session.data?.plan_id || 0),
-      username,
+    await telegramSessionSet(env,chatId,fromId,'bp_payment_choice',{
+      plan_id:Number(session.data?.plan_id || 0),username
     });
-
-    if (!created.ok) {
-      const errors = {
-        plan_not_found: 'پلن انتخاب‌شده پیدا نشد.',
-        plan_unavailable: 'این پلن فعلاً قابل خرید نیست.',
-        payment_not_configured: 'درگاه پرداخت آماده نیست.',
-        provider_not_configured: 'اتصال TG Tools هنوز تنظیم نشده است.',
-        telegram_lookup_failed: 'بررسی حساب تلگرام انجام نشد؛ دوباره تلاش کن.',
-        telegram_user_not_found: 'این حساب تلگرام پیدا نشد.',
-        not_premium_eligible: 'این حساب فعلاً امکان دریافت Telegram Premium ندارد.',
-        invoice_create_failed: 'ساخت اطلاعات پرداخت ناموفق بود.',
-        payment_details_unavailable: 'اطلاعات کارت مقصد دریافت نشد؛ کمی بعد دوباره تلاش کن.',
-      };
-      await telegramSendMessage(env, chatId, errors[created.error] || 'ثبت سفارش انجام نشد؛ دوباره تلاش کن.');
-      return;
-    }
-
-    await telegramSessionClear(env, chatId);
-    const order = created.order;
-    await telegramSendMessage(
-      env,
-      chatId,
-      telegramCardPaymentText(order),
-      { reply_markup: telegramCardPaymentKeyboard(order) }
-    );
+    const view=await bpCustomerView(env,fromId);
+    await telegramSendMessage(env,chatId,
+      '💳 <b>روش پرداخت را انتخاب کن</b>\n\n👤 @'+telegramEscapeHtml(username)+
+      '\n💰 موجودی کیف پول: '+bpPrice(view?.balance_toman || 0)+' تومان',{
+      reply_markup:{inline_keyboard:[
+        [{text:'💰 پرداخت از کیف پول',callback_data:'bp_wallet_pay'}],
+        [{text:'🏦 دریافت اطلاعات کارت',callback_data:'bp_card_pay'}],
+        [{text:'✖️ انصراف',callback_data:'buy_cancel'}]
+      ]}
+    });
     return;
   }
 
