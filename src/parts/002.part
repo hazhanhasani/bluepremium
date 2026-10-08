@@ -64,7 +64,15 @@
     if (!order && orderCode) {
       order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
     }
-    if (!order) return blupalCallbackResponse(null, 'error', 404);
+    if (!order) {
+      const market=invoiceId
+        ? await env.DB.prepare('SELECT * FROM bp_market_orders WHERE blupal_invoice_id=?').bind(invoiceId).first()
+        : orderCode?await env.DB.prepare('SELECT * FROM bp_market_orders WHERE order_code=?').bind(orderCode).first():null;
+      if(!market)return blupalCallbackResponse(null,'error',404);
+      await tgReconcileOrder(env,market);
+      const updated=await env.DB.prepare('SELECT status FROM bp_market_orders WHERE id=?').bind(market.id).first();
+      return api({ok:true,status:updated?.status||market.status});
+    }
     if (String(await getSetting(env.DB, 'blupal_enabled', '1')) !== '1' || String(order.payment_provider || '') !== 'blupal') {
       return api({ ok: false, error: 'blupal_disabled' }, 410);
     }
@@ -90,7 +98,13 @@
     const invoiceId = sanitizeToken(body.invoice_id || body.invoiceId || body.invoice || body.id, 128);
     if (!invoiceId) return api({ ok: false, error: 'invalid_invoice' }, 400);
     const order = await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first();
-    if (!order) return api({ ok: false, error: 'not_found' }, 404);
+    if(!order){
+      const market=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE blupal_invoice_id=?').bind(invoiceId).first();
+      if(!market)return api({ok:false,error:'not_found'},404);
+      await tgReconcileOrder(env,market);
+      const updated=await env.DB.prepare('SELECT status FROM bp_market_orders WHERE id=?').bind(market.id).first();
+      return api({ok:true,status:updated?.status||market.status});
+    }
     if (String(await getSetting(env.DB, 'blupal_enabled', '1')) !== '1' || String(order.payment_provider || '') !== 'blupal') {
       return api({ ok: false, error: 'blupal_disabled' }, 410);
     }
