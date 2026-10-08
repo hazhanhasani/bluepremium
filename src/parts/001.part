@@ -51,7 +51,7 @@ async function route(request, env, ctx) {
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
   }
-  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.6.0' });
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.7.0' });
 
   if (path === '/api/build/android-signing' && request.method === 'GET') {
     const claims = await verifyGitHubOidc(request);
@@ -77,7 +77,7 @@ async function route(request, env, ctx) {
 
   if (path === '/api/config' && request.method === 'GET') {
     const settings = await publicSettings(env.DB);
-    const paymentMethod = settings.payment_provider || 'cafebazaar';
+    const paymentMethod = settings.payment_provider || 'blupal';
     const bazaarConfigured = settings.cafebazaar_enabled === '1' &&
       !!settings.bazaar_rsa_public_key &&
       !!settings.bazaar_sku_3 && !!settings.bazaar_sku_6 && !!settings.bazaar_sku_12;
@@ -154,15 +154,11 @@ async function route(request, env, ctx) {
     if (profile.found === false) return api({ ok: false, error: 'telegram_user_not_found' }, 422);
     if (profile.premiumEligible === false) return api({ ok: false, error: 'not_premium_eligible' }, 422);
 
-    const paymentProvider = String(await getSetting(env.DB, 'payment_provider', 'cafebazaar'));
-    const bazaarEnabled = String(await getSetting(env.DB, 'cafebazaar_enabled', '0')) === '1';
-    const rsaPublicKey = String(await getSetting(env.DB, 'bazaar_rsa_public_key', '')).trim();
-    const bazaarProductId = await bazaarSkuForMonths(env.DB, months);
-    if (paymentProvider !== 'cafebazaar' || !bazaarEnabled) {
+    const paymentProvider = String(await getSetting(env.DB, 'payment_provider', 'blupal'));
+    const bluePalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '1')) === '1';
+    const blupalKey = await getProviderSecret(env, 'blupal_api_key');
+    if (paymentProvider !== 'blupal' || !bluePalEnabled || !blupalKey) {
       return api({ ok: false, error: 'payment_not_configured' }, 503);
-    }
-    if (!rsaPublicKey || !bazaarProductId) {
-      return api({ ok: false, error: 'cafebazaar_not_configured' }, 503);
     }
 
     const orderCode = `BP-${crypto.randomUUID().replaceAll('-', '').slice(0, 14).toUpperCase()}`;
@@ -173,9 +169,9 @@ async function route(request, env, ctx) {
     await env.DB.prepare(`
       INSERT INTO orders(
         order_code, public_token_hash, plan_id, months, username, price_toman, status,
-        device_id, payment_provider, bazaar_product_id, created_at, updated_at
+        device_id, payment_provider, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, 'awaiting_bazaar_payment', ?, 'cafebazaar', ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'creating_payment', ?, 'blupal', ?, ?)
     `).bind(
       orderCode,
       publicTokenHash,
@@ -184,29 +180,42 @@ async function route(request, env, ctx) {
       username,
       Math.round(priceToman),
       deviceId,
-      bazaarProductId,
       now,
       now
     ).run();
 
+    const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
+      amount: Math.round(priceToman) * 10,
+    });
+    const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
+    const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
+
+    if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
+      await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error=?, updated_at=? WHERE order_code=?`)
+        .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(), orderCode).run();
+      return api({ ok: false, error: 'invoice_create_failed' }, 502);
+    }
+
+    await env.DB.prepare(`
+      UPDATE orders
+      SET status='awaiting_payment', blupal_invoice_id=?, payment_url=?, updated_at=?
+      WHERE order_code=? AND status='creating_payment'
+    `).bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
+
     return api({
       ok: true,
-      payment_method: 'cafebazaar',
+      payment_method: 'blupal',
       order: {
         code: orderCode,
         token: publicToken,
         username,
         months,
         price_toman: Math.round(priceToman),
-        status: 'awaiting_bazaar_payment',
-        payment_method: 'cafebazaar',
-        bazaar_product_id: bazaarProductId,
+        status: 'awaiting_payment',
+        payment_method: 'blupal',
+        payment_url: paymentLink,
       },
-      bazaar: {
-        product_id: bazaarProductId,
-        rsa_public_key: rsaPublicKey,
-      },
-      payment_url: null,
+      payment_url: paymentLink,
     }, 201);
   }
 
