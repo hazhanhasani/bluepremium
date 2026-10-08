@@ -147,6 +147,32 @@ function telegramSupportUrl(value) {
   return '';
 }
 
+async function ensureTelegramBotPresentation(env, origin) {
+  const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
+  if (!enabled) return;
+  const version = String(await getSetting(env.DB, 'telegram_bot_menu_version', ''));
+  if (version === '2') return;
+  const token = await getProviderSecret(env, 'telegram_bot_token');
+  if (!token) return;
+
+  const commands = await telegramBotApi(token, 'setMyCommands', {
+    commands: [
+      { command: 'start', description: 'شروع و نمایش منوی بلوپرمیوم' },
+      { command: 'buy', description: 'خرید عادی تلگرام پرمیوم' },
+      { command: 'status', description: 'پیگیری وضعیت سفارش' },
+      { command: 'support', description: 'پشتیبانی' },
+    ],
+  });
+  const menu = await telegramBotApi(token, 'setChatMenuButton', {
+    menu_button: {
+      type: 'web_app',
+      text: 'مینی اپ',
+      web_app: { url: String(origin || '').replace(/\/$/, '') + '/?from=telegram' },
+    },
+  });
+  if (commands.ok && menu.ok) await setSetting(env.DB, 'telegram_bot_menu_version', '2');
+}
+
 async function telegramMainKeyboard(env, origin, senderId = '') {
   const support = telegramSupportUrl(await getSetting(env.DB, 'support', ''));
   const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
@@ -431,6 +457,10 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
 
   const token = await getProviderSecret(env, 'telegram_bot_token');
   if (!token) return;
+
+  const presentationTask = ensureTelegramBotPresentation(env, origin);
+  if (ctx?.waitUntil) ctx.waitUntil(presentationTask);
+  else await presentationTask;
 
   const callback = update?.callback_query;
   if (callback) {
