@@ -544,6 +544,16 @@ async function telegramSendOrderStatus(env, chatId, fromId, code) {
   });
 }
 
+async function telegramWelcomeAfterJoin(env, chatId, telegram, origin) {
+  const firstName = telegramEscapeHtml(telegram?.first_name || 'دوست عزیز');
+  return telegramSendMessage(
+    env,
+    chatId,
+    `👋 سلام <b>${firstName}</b>\n\n✅ عضویت شما تأیید شد. به <b>بلوپرمیوم</b> خوش اومدی.\nخرید، کیف پول و خدمات فقط پس از تأیید عضویت در دسترس هستند.`,
+    { reply_markup: await telegramMainKeyboard(env, origin, String(telegram?.id || '')) }
+  );
+}
+
 async function handleTelegramBotUpdate(env, update, origin, ctx) {
   const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
   if (!enabled) return;
@@ -572,13 +582,28 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
 
     if (data === 'bp_verify_join') {
       if (await bpBotGate(env, chatId, callback.from)) {
-        await telegramSendMessage(env,chatId,'✅ عضویت شما تأیید شد. خوش آمدی!',{
-          reply_markup:await telegramMainKeyboard(env,origin,fromId)
-        });
+        // Expire the verification action so an old prompt cannot open extra menus.
+        if (callback.message?.message_id) {
+          await telegramBotApi(token, 'editMessageReplyMarkup', {
+            chat_id: chatId, message_id: callback.message.message_id,
+            reply_markup: {inline_keyboard: []}
+          }).catch(() => {});
+        }
+        await telegramWelcomeAfterJoin(env, chatId, callback.from, origin);
       }
       return;
     }
-    if (!await bpBotGate(env,chatId,callback.from)) return;
+    if (!await bpBotGate(env,chatId,callback.from)) {
+      // Older bot messages may still contain buttons: disable the tapped
+      // keyboard, but never execute their commands without membership.
+      if (callback.message?.message_id) {
+        await telegramBotApi(token, 'editMessageReplyMarkup', {
+          chat_id: chatId, message_id: callback.message.message_id,
+          reply_markup: {inline_keyboard: []}
+        }).catch(() => {});
+      }
+      return;
+    }
     if (data === 'bp_profile') { await bpBotProfile(env,chatId,callback.from); return; }
     if (data === 'bp_wallet') { await bpBotWallet(env,chatId,fromId); return; }
     if (data === 'bp_referrals') { await bpBotReferrals(env,chatId,fromId); return; }
@@ -694,15 +719,10 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   if (/^\/start(?:@\w+)?(?:\s|$)/i.test(text)) {
     await telegramSessionClear(env, chatId);
     const referralMatch = text.match(/^\/start(?:@\w+)?\s+ref_(\d{4,20})$/i);
-    await bpRegister(env,message.from,referralMatch?.[1] || '');
-    const firstName = telegramEscapeHtml(message.from?.first_name || 'دوست عزیز');
-    await telegramSendMessage(
-      env,
-      chatId,
-      `👋 سلام <b>${firstName}</b>\n\nبه <b>بلوپرمیوم</b> خوش اومدی.\nخرید معمولی داخل خود ربات انجام می‌شود؛ مینی‌اپ هم از دکمه اختصاصی منوی ربات در دسترس است.`,
-      { reply_markup: await telegramMainKeyboard(env, origin, fromId) }
-    );
-    await bpBotGate(env,chatId,message.from);
+    await bpRegister(env, message.from, referralMatch?.[1] || '');
+    // Hard gate: no welcome or main-menu markup before verified membership.
+    if (!await bpBotGate(env, chatId, message.from)) return;
+    await telegramWelcomeAfterJoin(env, chatId, message.from, origin);
     return;
   }
 
