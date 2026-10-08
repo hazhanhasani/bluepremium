@@ -14,6 +14,8 @@ function tgStoreClient(){
   const section=document.createElement('section');section.id='tg-digital-shop';section.className='tg-store';
   section.innerHTML='<h2>⭐ فروشگاه خدمات دیجیتال</h2><p>محصولات به‌روز TG Tools با قیمت نهایی تومان؛ کارت مقصد و مبلغ پرداخت داخل بلوپرمیوم نمایش داده می‌شود.</p>'+
     '<div class="tg-categories" id="tgCategories"></div><div id="tgItems" class="tg-items"></div>'+
+    '<div id="tgLiveQuote" style="display:none;border:1px solid #29476b;border-radius:15px;padding:13px;margin:12px 0">'+
+    '<div id="tgQuoteFields"></div><button type="button" id="tgQuoteButton" style="margin-top:12px">استعلام قیمت لحظه‌ای</button></div>'+
     '<form id="tgCheckout" class="tg-checkout"><b id="tgChosen"></b><label for="tgDestination">مقصد سفارش</label>'+
     '<input id="tgDestination" required placeholder="یوزرنیم تلگرام بدون @" maxlength="320">'+
     '<div class="tg-paychoices"><button type="submit" value="blupal" id="tgPayCard">🏦 دریافت اطلاعات کارت</button>'+
@@ -26,11 +28,24 @@ function tgStoreClient(){
   async function load(kind){
     currentKind=kind;selected=null;get('tgCheckout').style.display='none';
     items.innerHTML='<p>در حال دریافت محصولات...</p>';
+    get('tgLiveQuote').style.display='none';
     try{
       const r=await fetch('/api/market/catalog?kind='+encodeURIComponent(kind),{cache:'no-store'}),d=await r.json();
       if(!d.ok)throw Error(d.error);
       all=d.products||[];
       categories.innerHTML=d.kinds.map(x=>'<button data-kind="'+escape(x.kind)+'" class="'+(x.kind===kind?'selected':'')+'">'+escape(x.title)+'</button>').join('');
+      if(d.enabled&&['nft','steam'].includes(kind)){
+        get('tgLiveQuote').style.display='block';
+        get('tgQuoteFields').innerHTML=kind==='nft'?
+          '<label for="tgNftAddress">آدرس NFT موردنظر در شبکه TON</label>'+
+          '<input id="tgNftAddress" placeholder="آدرس دقیق NFT" maxlength="90" dir="ltr">':
+          '<label for="tgSteamCurrency">ارز حساب Steam</label>'+
+          '<select id="tgSteamCurrency" style="width:100%;background:#071426;color:white;padding:12px;border-radius:12px">'+
+          ['RUB','USD','EUR','TRY','KZT','UAH','ARS'].map(c=>'<option value="'+c+'">'+c+'</option>').join('')+'</select>'+
+          '<label for="tgSteamAmount">مقدار شارژ به ارز انتخابی</label>'+
+          '<input id="tgSteamAmount" type="number" min="10" max="10000" step="1" value="100">';
+        items.innerHTML='<p>قیمت محصول به‌صورت اختصاصی استعلام می‌شود؛ قبل از پرداخت مبلغ نهایی را می‌بینی.</p>';
+      }else
       items.innerHTML=!d.enabled?'<p>این دسته فعلاً توسط مدیریت غیرفعال است.</p>':
         all.length?all.map((x,i)=>'<article class="tg-item"><b>'+escape(x.title)+'</b><small>'+format(x.price_toman)+' تومان</small>'+
         '<button data-index="'+i+'">انتخاب</button></article>').join(''):
@@ -62,7 +77,7 @@ function tgStoreClient(){
       const headers={'Content-Type':'application/json'};
       if(account())headers['X-Telegram-Init-Data']=account();
       const r=await fetch('/api/market/orders',{method:'POST',headers,body:JSON.stringify({
-        kind:selected.kind,sku:selected.sku,target,payment
+        kind:selected.kind,sku:selected.sku,target,payment,expected_price_toman:selected.price_toman
       })});
       const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'payment_unavailable');
       const order=d.order;
@@ -72,6 +87,27 @@ function tgStoreClient(){
     }catch(e){feedback.textContent='خطا: '+e.message}
     finally{loading=false;get('tgPayCard').disabled=false;get('tgPayWallet').disabled=false}
   }
+  get('tgQuoteButton').onclick=async()=>{
+    const kind=currentKind;
+    const sku=kind==='nft'?String(get('tgNftAddress')?.value||'').trim():
+      String(get('tgSteamCurrency')?.value||'RUB')+':'+String(get('tgSteamAmount')?.value||'100');
+    if(!sku){feedback.textContent='ابتدا مشخصات محصول را وارد کن.';return}
+    const btn=get('tgQuoteButton');btn.disabled=true;feedback.textContent='در حال استعلام قیمت واقعی از TG Tools...';
+    try{
+      const r=await fetch('/api/market/quote?kind='+encodeURIComponent(kind)+'&sku='+encodeURIComponent(sku),
+        {cache:'no-store'}),d=await r.json();
+      if(!r.ok||!d.ok)throw Error(d.error||'quote_unavailable');
+      selected=d.product;
+      get('tgChosen').textContent=selected.title+' | '+format(selected.price_toman)+' تومان';
+      get('tgDestination').value='';
+      get('tgDestination').required=true;
+      get('tgDestination').style.display='block';
+      get('tgDestination').placeholder=kind==='nft'?'آدرس کیف پول TON دریافت‌کننده':'نام ورود به حساب Steam (Steam Login)';
+      get('tgCheckout').style.display='flex';
+      feedback.textContent='✅ قیمت لحظه‌ای دریافت شد. سفارش با قیمت روز دوباره اعتبارسنجی می‌شود.';
+    }catch(e){selected=null;get('tgCheckout').style.display='none';feedback.textContent='قیمت معتبر دریافت نشد؛ این محصول فعلاً قابل خرید نیست.'}
+    finally{btn.disabled=false}
+  };
   get('tgCheckout').onsubmit=e=>{e.preventDefault();submit('blupal')};
   get('tgPayWallet').onclick=()=>submit('wallet');
   function render(o){
@@ -133,7 +169,7 @@ function tgAdminClient(){
     try{
       const [configs,orders]=await Promise.all([call('/api/admin/market/settings'),call('/api/admin/market/orders')]);
       id('tgMarketSettings').innerHTML=Object.entries(configs.settings).map(([kind,s])=>{
-        const canEnable=s.can_enable!==false&&!['nft','steam'].includes(kind);
+        const canEnable=s.can_enable!==false;
         const availability=canEnable
           ?'<label for="tgEnabled_'+kind+'">وضعیت فروش</label><select class="input" id="tgEnabled_'+kind+'">'+
             '<option value="1" '+(s.enabled?'selected':'')+'>فعال</option>'+
@@ -167,7 +203,7 @@ function tgAdminClient(){
     note.textContent='در حال ذخیره تنظیمات...';
     try{
       await call('/api/admin/market/settings',{method:'PATCH',body:JSON.stringify(body)});
-      note.textContent=toggle?'✅ تنظیمات محصول ذخیره شد.':'✅ درصد سود ذخیره شد. فروش این دسته تا تکمیل استعلام قیمت غیرفعال می‌ماند.';
+      note.textContent=toggle?'✅ تنظیمات محصول ذخیره شد.':'✅ درصد سود ذخیره شد. فعال‌سازی فروش به تأیید قیمت لحظه‌ای وابسته است.';
     }catch(err){
       const labels={
         requires_live_quote_support:'فعال‌سازی این محصول هنوز آماده نیست؛ درصد سود را بدون تغییر وضعیت فروش ذخیره کن.',
