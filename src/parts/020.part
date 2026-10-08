@@ -168,8 +168,7 @@ async function tgMarketDeliver(env,order){
   if(order.status!=='paid')return;
   const preflight=await tgPreflightDelivery(env,order);
   if(!preflight.ok){
-    await env.DB.prepare("UPDATE bp_market_orders SET status='refund_required',provider_error=?,updated_at=? WHERE id=? AND status='paid'")
-      .bind(preflight.error,new Date().toISOString(),order.id).run();
+    await tgStopBeforeProvider(env,order,preflight.error);
     return;
   }
   const claimed=await env.DB.prepare("UPDATE bp_market_orders SET status='provider_submitting',updated_at=? WHERE id=? AND status='paid'")
@@ -179,7 +178,7 @@ async function tgMarketDeliver(env,order){
   if(!apiKey){await env.DB.prepare("UPDATE bp_market_orders SET status='failed',provider_error='provider_not_configured' WHERE id=?").bind(order.id).run();return}
   const action=tgFulfillmentInput(order);
   if(!action){
-    await env.DB.prepare("UPDATE bp_market_orders SET status='refund_required',provider_error='unsupported_product' WHERE id=?").bind(order.id).run();
+    await tgStopBeforeProvider(env,order,'unsupported_product');
     return;
   }
   const remote=await tgRequest(apiKey,'POST',action.path,action.body);
