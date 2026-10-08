@@ -135,16 +135,6 @@ async function tgMarketApi(request,env,url,ctx){
     const result=await tgAdminRefundFailedWallet(env,Number(refundPath[1]),body.reason);
     return api(result,result.ok?200:409);
   }
-  if(path==='/api/admin/market/health'&&method==='GET'){
-    const [smm,nfts,steam]=await Promise.all([
-      tgProducts(env,'smm'),tgNftBrowse(env),tgLiveQuote(env,'steam','RUB:100')
-    ]);
-    return api({ok:true,catalog:{
-      smm:{sellable_count:smm.length,ready:smm.length>0},
-      nft:{buyable_count:nfts.length,ready:nfts.length>0},
-      steam:{live_quote_ready:!!steam},
-    },checked_at:new Date().toISOString()});
-  }
   if(path==='/api/admin/market/orders'&&method==='GET'){
     const result=await env.DB.prepare("SELECT id,order_code,telegram_user_id,kind,sku,title,target,quantity,price_toman,status,payment_provider,provider_error,provider_transaction_id,created_at,updated_at FROM bp_market_orders ORDER BY id DESC LIMIT 100").all();
     return api({ok:true,orders:result.results||[]});
