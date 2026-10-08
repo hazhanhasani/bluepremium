@@ -42,26 +42,47 @@ async function tgMarketApi(request,env,url,ctx){
   if(!await requireAdmin(request,env))return api({ok:false,error:'unauthorized'},401);
   if(path==='/api/admin/market/settings'&&method==='GET'){
     const out={};
-    for(const kind of TG_TYPES)out[kind]={
-      enabled:String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1',
-      profit_percent:Number(await getSetting(env.DB,'market_'+kind+'_profit','15'))};
+    for(const kind of TG_TYPES){
+      const canEnable=!['nft','steam'].includes(kind);
+      out[kind]={
+        enabled:canEnable&&String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1',
+        profit_percent:Number(await getSetting(env.DB,'market_'+kind+'_profit','15')),
+        can_enable:canEnable,
+        availability:canEnable?'configurable':'requires_live_quote_support'
+      };
+    }
     return api({ok:true,settings:out});
   }
   if(path==='/api/admin/market/settings'&&method==='PATCH'){
     const body=await readJson(request),kind=String(body.kind||'');
     if(!TG_TYPES.includes(kind))return api({ok:false,error:'invalid_kind'},400);
-    if(body.profit_percent!==undefined){
-      const margin=Number(body.profit_percent);
-      if(!Number.isFinite(margin)||margin<0||margin>500)return api({ok:false,error:'invalid_profit'},400);
-      await setSetting(env.DB,'market_'+kind+'_profit',String(margin));
-    }
-    if(typeof body.enabled==='boolean'){
-      // NFT and Steam need recipient-specific price quotes and cannot be sold as static packages.
-      if(body.enabled&&['nft','steam'].includes(kind))return api({ok:false,error:'requires_live_quote_support'},409);
-      await setSetting(env.DB,'market_'+kind+'_enabled',body.enabled?'1':'0');
-    }
+    const changingProfit=Object.prototype.hasOwnProperty.call(body,'profit_percent');
+    const changingEnabled=Object.prototype.hasOwnProperty.call(body,'enabled');
+    if(!changingProfit&&!changingEnabled)return api({ok:false,error:'no_changes'},400);
+    const margin=changingProfit?Number(body.profit_percent):null;
+    if(changingProfit&&(body.profit_percent===null||body.profit_percent===''||
+      !Number.isFinite(margin)||margin<0||margin>500))
+      return api({ok:false,error:'invalid_profit'},400);
+    if(changingEnabled&&typeof body.enabled!=='boolean')
+      return api({ok:false,error:'invalid_enabled'},400);
+    // Validate every field BEFORE writing anything, so unsupported activation
+    // never partially persists a new profit percentage.
+    if(changingEnabled&&body.enabled&&['nft','steam'].includes(kind))
+      return api({ok:false,error:'requires_live_quote_support',
+        message:'این محصول به استعلام قیمت اختصاصی نیاز دارد و هنوز قابل فعال‌سازی نیست.'},409);
+    const writes=[];
+    const now=new Date().toISOString();
+    const sql='INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) '+
+      'ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at';
+    if(changingProfit)writes.push(env.DB.prepare(sql)
+      .bind('market_'+kind+'_profit',String(margin),now));
+    if(changingEnabled)writes.push(env.DB.prepare(sql)
+      .bind('market_'+kind+'_enabled',body.enabled?'1':'0',now));
+    await env.DB.batch(writes);
     tgCache.delete(kind);
-    return api({ok:true});
+    return api({ok:true,kind,profit_percent:changingProfit?margin:
+      Number(await getSetting(env.DB,'market_'+kind+'_profit','15')),
+      enabled:String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1'});
   }
   if(path==='/api/admin/market/orders'&&method==='GET'){
     const result=await env.DB.prepare("SELECT id,order_code,telegram_user_id,kind,sku,title,target,quantity,price_toman,status,payment_provider,provider_error,provider_transaction_id,created_at,updated_at FROM bp_market_orders ORDER BY id DESC LIMIT 100").all();
