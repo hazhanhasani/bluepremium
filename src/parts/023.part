@@ -112,3 +112,25 @@ async function tgStopBeforeProvider(env,order,reason){
       ' قبل از ارسال متوقف شد و بررسی/استرداد وجه لازم است: '+telegramEscapeHtml(why)).catch(()=>{});
   }
 }
+
+
+async function tgRefundSoldOutGift(env,order) {
+  if(order.kind!=='gift'||order.payment_provider!=='wallet'||!order.telegram_user_id)return false;
+  const ledgerSql="INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+    "SELECT telegram_user_id,price_toman,'refund','system','Provider confirmed gift sold out',order_code,'refund:'||order_code "+
+    "FROM bp_market_orders WHERE id=? AND kind='gift' AND status='failed' "+
+    "AND payment_provider='wallet' AND provider_transaction_id IS NULL AND lower(provider_error) LIKE '%sold out%'";
+  const result=await env.DB.batch([
+    env.DB.prepare(ledgerSql).bind(order.id),
+    env.DB.prepare("UPDATE bp_market_orders SET status='refunded',updated_at=? WHERE id=? AND status='failed' "+
+      "AND kind='gift' AND payment_provider='wallet' AND provider_transaction_id IS NULL "+
+      "AND lower(provider_error) LIKE '%sold out%' "+
+      "AND EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)")
+      .bind(new Date().toISOString(),order.id,'refund:'+order.order_code)
+  ]);
+  const credited=Number(result[0]?.meta?.changes||0)===1;
+  if(credited)await telegramSendMessage(env,order.telegram_user_id,
+    '✅ مبلغ سفارش گیفت '+telegramEscapeHtml(order.order_code)+
+    ' به‌دلیل ناموجودبودن محصول به کیف پول شما برگردانده شد.').catch(()=>{});
+  return credited;
+}
