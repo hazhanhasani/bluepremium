@@ -18,10 +18,37 @@ async function reconcileOrder(env, order, ctx) {
     const remote = await blupalRequest(key, 'GET', `/v1/invoices/${encodeURIComponent(current.blupal_invoice_id)}`);
     if (!remote.ok) return;
     const data = remote.data || remote.raw || {};
-    const status = String(data.status || data.data?.status || '').toUpperCase();
-    if (status !== 'PAID') return;
-    const amount = Number(data.amount ?? data.data?.amount ?? 0);
     const expected = Number(current.price_toman) * 10;
+    const details = blupalInvoiceFields(data, expected);
+
+    if (details.card_number || details.final_amount_rial || details.expires_at) {
+      await env.DB.prepare(`
+        UPDATE orders
+        SET blupal_card_number=COALESCE(?,blupal_card_number),
+            blupal_final_amount_rial=COALESCE(?,blupal_final_amount_rial),
+            blupal_expires_at=COALESCE(?,blupal_expires_at),
+            payment_url=COALESCE(?,payment_url),
+            updated_at=?
+        WHERE id=? AND status='awaiting_payment'
+      `).bind(
+        details.card_number || null,
+        details.final_amount_rial || null,
+        details.expires_at || null,
+        details.payment_link || null,
+        new Date().toISOString(),
+        current.id
+      ).run();
+      current = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first() || current;
+    }
+
+    const status = details.status;
+    if (status === 'EXPIRED' || status === 'CANCELED') {
+      await env.DB.prepare(`UPDATE orders SET status='payment_error',provider_error=?,updated_at=? WHERE id=? AND status='awaiting_payment'`)
+        .bind(status === 'EXPIRED' ? 'payment_expired' : 'payment_canceled', new Date().toISOString(), current.id).run();
+      return;
+    }
+    if (status !== 'PAID') return;
+    const amount = Number(details.amount_rial || 0);
     if (amount && amount !== expected) {
       await env.DB.prepare(`UPDATE orders SET status='payment_mismatch', provider_error='amount_mismatch', updated_at=? WHERE id=? AND status='awaiting_payment'`)
         .bind(new Date().toISOString(), current.id).run();
