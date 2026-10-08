@@ -272,7 +272,7 @@ function tgAdminClient(){
     const errorTotal=counts.filter(x=>(data.warning_states||[]).includes(x.status))
       .reduce((total,x)=>total+Number(x.total||0),0);
     const smmText=health.status==='reachable'
-      ?'اتصال برقرار · '+money(health.product_count)+' آیتم در پاسخ API':
+      ?'اتصال برقرار · '+money(health.product_count)+' آیتم API · '+money(health.sellable_count||0)+' محصول قیمت‌دار':
       health.status==='key_missing'?'کلید API وارد نشده':'خطای TG Tools · HTTP '+Number(health.http_status||0);
     id('tgMarketHealth').innerHTML='<div class="tg-health-report">'+
       '<div class="tg-health-row"><span class="tg-health-icon">🔑</span><div class="tg-health-copy">کلید سرویس: <b>'+
