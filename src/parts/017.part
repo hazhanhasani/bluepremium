@@ -217,7 +217,7 @@ async function telegramOrderStatusText(env, code) {
     '📦 <b>وضعیت سفارش بلوپرمیوم</b>',
     '',
     `🧾 کد: <code>${telegramEscapeHtml(order.order_code)}</code>`,
-    `👤 مقصد: @${telegramEscapeHtml(order.username)}</code>`.replace('</code>', ''),
+    `👤 مقصد: @${telegramEscapeHtml(order.username)}`,
     `📅 پلن: ${Number(order.months)} ماهه`,
     `💳 مبلغ: ${new Intl.NumberFormat('fa-IR').format(Number(order.price_toman || 0))} تومان`,
     `📍 وضعیت: <b>${telegramEscapeHtml(customerStatusMessage(order.status))}</b>`,
