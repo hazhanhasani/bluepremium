@@ -129,7 +129,7 @@ async function bpReferralCredit(env, order) {
     "SELECT ?,?,'referral','system','First delivered referral',?,?,? " +
     "WHERE NOT EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)"
   ).bind(person.referred_by,amount,person.telegram_id,order.order_code,
-    "referral:"+person.telegram_id,person.telegram_id).run();
+    "referral:"+person.telegram_id,"referral:"+person.telegram_id).run();
 }
 
 async function bpWalletBuy(env,telegramId,planId,username,ctx) {
@@ -233,9 +233,10 @@ async function bpFeatureApi(request,env,url,ctx) {
     if (!current) return api({ok:false,error:"user_not_found"},404);
     if (Number(current.balance_toman)+delta<0) return api({ok:false,error:"insufficient_wallet_balance"},409);
     try {
-      await env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,idempotency_key) "+
+      const adjustment = await env.DB.prepare("INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,idempotency_key) "+
         "SELECT ?,?,?,?,?,? WHERE ? > 0 OR (SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?)>=?")
         .bind(wallet[1],delta,delta>0?"admin_credit":"admin_debit","admin",reason,crypto.randomUUID(),delta,wallet[1],-delta).run();
+      if (!adjustment.meta?.changes) return api({ok:false,error:"insufficient_wallet_balance"},409);
     } catch(error) {
       return api({ok:false,error:"wallet_adjustment_rejected"},409);
     }
