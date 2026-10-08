@@ -53,7 +53,7 @@ async function telegramBotHealth(env) {
     getSetting(env.DB, 'telegram_bot_username', ''),
     getProviderSecret(env, 'telegram_bot_token'),
     getProviderSecret(env, 'blupal_api_key'),
-    getSetting(env.DB, 'telegram_bot_blupal_enabled', '1'),
+    getSetting(env.DB, 'blupal_enabled', '1'),
   ]);
   const configured = !!token && telegramAdminIdLooksValid(adminId);
   const out = {
@@ -268,8 +268,7 @@ async function telegramAdminSummaryText(env) {
 
 async function isTelegramBotBlupalOrderAllowed(env, order) {
   if (!order || String(order.payment_provider || '') !== 'blupal') return false;
-  if (!/^tg:-?\d+$/.test(String(order.device_id || ''))) return String(await getSetting(env.DB, 'blupal_enabled', '0')) === '1';
-  return String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+  return String(await getSetting(env.DB, 'blupal_enabled', '1')) === '1';
 }
 
 function telegramOrderChatId(order) {
@@ -318,7 +317,7 @@ async function telegramPlansKeyboard(env) {
 }
 
 async function telegramBeginPurchase(env, chatId, userId) {
-  const botBluePalEnabled = String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+  const botBluePalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '1')) === '1';
   const bluePalKey = await getProviderSecret(env, 'blupal_api_key');
   if (!botBluePalEnabled || !bluePalKey) {
     await telegramSendMessage(env, chatId, 'درگاه BluePal ربات فعلاً آماده نیست. لطفاً با پشتیبانی در ارتباط باش.');
@@ -344,7 +343,7 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
     return { ok: false, error: 'plan_unavailable' };
   }
 
-  const bluePalEnabled = String(await getSetting(env.DB, 'telegram_bot_blupal_enabled', '1')) === '1';
+  const bluePalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '1')) === '1';
   const blupalKey = await getProviderSecret(env, 'blupal_api_key');
   if (!bluePalEnabled || !blupalKey) return { ok: false, error: 'payment_not_configured' };
 
