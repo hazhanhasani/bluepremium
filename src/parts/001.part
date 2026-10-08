@@ -27,6 +27,9 @@ async function route(request, env, ctx) {
   const path = url.pathname;
 
   if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+  const bpFeature = await bpFeatureApi(request, env, url, ctx);
+  if (bpFeature) return bpFeature;
+
 
   if (path === '/' && request.method === 'GET') return html(storeHtmlV4());
   if (path === '/admin' && request.method === 'GET') return html(adminHtmlV2());
@@ -139,6 +142,19 @@ async function route(request, env, ctx) {
     const deviceId = sanitizeToken(body.device_id, 128) || 'web';
     if (!planId || !username) return api({ ok: false, error: 'invalid_request' }, 400);
 
+    const customer = request.headers.has('X-Telegram-Init-Data')
+      ? await bpValidateTelegramInitData(env, request) : null;
+    if (request.headers.has('X-Telegram-Init-Data') && !customer)
+      return api({ ok: false, error: 'telegram_auth_required' }, 401);
+    if (customer?.blocked) return api({ ok: false, error: 'account_blocked' }, 403);
+    const mandatory = await env.DB.prepare("SELECT COUNT(*) AS total FROM bp_forced_channels WHERE enabled=1").first();
+    if (Number(mandatory?.total || 0)) {
+      if (!customer) return api({ ok:false,error:'telegram_auth_required' },401);
+      const missing = await bpMissingChannels(env,customer.telegram_id);
+      if (missing.length) return api({ok:false,error:'join_required',channels:missing},403);
+    }
+
+
     const plan = await env.DB.prepare(`SELECT * FROM plans WHERE id = ? AND active = 1`).bind(planId).first();
     if (!plan) return api({ ok: false, error: 'plan_not_found' }, 404);
     const months = Number(plan.months);
@@ -169,9 +185,9 @@ async function route(request, env, ctx) {
     await env.DB.prepare(`
       INSERT INTO orders(
         order_code, public_token_hash, plan_id, months, username, price_toman, status,
-        device_id, payment_provider, created_at, updated_at
+        device_id, payment_provider, created_at, updated_at, telegram_user_id
       )
-      VALUES (?, ?, ?, ?, ?, ?, 'creating_payment', ?, 'blupal', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'creating_payment', ?, 'blupal', ?, ?, ?)
     `).bind(
       orderCode,
       publicTokenHash,
@@ -181,7 +197,8 @@ async function route(request, env, ctx) {
       Math.round(priceToman),
       deviceId,
       now,
-      now
+      now,
+      customer?.telegram_id || null
     ).run();
 
     const expectedRial = Math.round(priceToman) * 10;
