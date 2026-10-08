@@ -99,12 +99,14 @@ function bpPrice(toman) {
 async function bpCustomerView(env, telegramId) {
   const user = await env.DB.prepare("SELECT u.*,v.balance_toman AS actual_balance FROM bp_users u JOIN bp_wallet_balances v ON v.telegram_id=u.telegram_id WHERE u.telegram_id=?").bind(telegramId).first();
   if (!user) return null;
-  const [ledger, stats, bot] = await Promise.all([
+  const [ledger, stats, bot, orders] = await Promise.all([
     env.DB.prepare("SELECT id,delta_toman,kind,reason,created_at FROM bp_wallet_ledger WHERE telegram_id=? ORDER BY id DESC LIMIT 20")
       .bind(telegramId).all(),
     env.DB.prepare("SELECT COUNT(*) AS total,(SELECT COUNT(*) FROM bp_wallet_ledger l WHERE l.telegram_id=? AND l.kind='referral') AS rewarded FROM bp_users WHERE referred_by=?")
       .bind(telegramId,telegramId).first(),
-    getSetting(env.DB,"telegram_bot_username","")
+    getSetting(env.DB,"telegram_bot_username",""),
+    env.DB.prepare("SELECT order_code,months,status,price_toman,created_at FROM orders WHERE telegram_user_id=? ORDER BY id DESC LIMIT 10")
+      .bind(telegramId).all()
   ]);
   return {
     telegram_id:user.telegram_id, username:user.username,display_name:user.display_name,
@@ -112,7 +114,7 @@ async function bpCustomerView(env, telegramId) {
     referred_by:user.referred_by,referral_count:Number(stats?.total||0),
     rewarded_count:Number(stats?.rewarded||0),transactions:ledger.results||[],
     referral_link:bot ? "https://t.me/"+bot+"?start=ref_"+telegramId : "",
-    referral_reward_toman:Number(await getSetting(env.DB,"referral_bonus_toman","0"))
+    referral_reward_toman:Number(await getSetting(env.DB,"referral_bonus_toman","0")),orders:orders.results||[]
   };
 }
 
@@ -242,6 +244,10 @@ async function bpFeatureApi(request,env,url,ctx) {
     }
     const updated=await env.DB.prepare("SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?")
       .bind(wallet[1]).first();
+    const msg = (delta>0?"✅ کیف پول شما شارژ شد":"💳 موجودی کیف پول شما اصلاح شد")+
+      "\nمبلغ تغییر: "+bpPrice(delta)+" تومان\nموجودی جدید: "+bpPrice(updated.balance_toman)+" تومان";
+    const notify = telegramSendMessage(env,wallet[1],msg);
+    if (ctx?.waitUntil) ctx.waitUntil(notify); else await notify.catch(()=>{});
     return api({ok:true,balance_toman:Number(updated.balance_toman)});
   }
   if (path==="/api/admin/channels" && method==="GET") {
