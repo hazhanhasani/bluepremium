@@ -73,6 +73,7 @@ function adminHtmlV2() {
 <section id="providers" class="section">
 <div class="grid">
   <article class="card provider"><div class="provider-head"><div><h3>TG Tools</h3><div class="sub">فعال‌سازی Telegram Premium</div></div><div id="tgState" class="provider-state"></div></div><div id="tgMeta" class="provider-meta"></div><div class="provider-actions"><div class="field"><label>API Key جدید</label><input id="tgkey" type="password" class="input" placeholder="TG Tools API Key"></div><button class="btn" onclick="saveProviders('tg')">ذخیره</button></div><div class="mode-box"><div class="mode-row"><div class="field" style="margin-top:0"><label>شیوه ارسال سفارش به TG Tools</label><select id="fulfillmentMode" class="input"><option value="auto">خودکار بعد از تایید پرداخت</option><option value="manual">تایید دستی مدیر</option></select></div><button class="btn secondary" onclick="saveFulfillmentMode()">ذخیره حالت</button></div><div id="modeHelp" class="provider-note">در حالت دستی، سفارش بعد از پرداخت تا تایید شما به TG Tools ارسال نمی‌شود.</div></div></article>
+  <article class="card provider"><div class="provider-head"><div><h3>ربات تلگرام</h3><div class="sub">فروشگاه، پیگیری سفارش و اعلان‌های مدیریت</div></div><div id="botState" class="provider-state"></div></div><div id="botMeta" class="provider-meta"></div><div class="field"><label>Bot Token جدید</label><input id="botToken" type="password" class="input" autocomplete="off" placeholder="123456789:AA..."></div><div class="row" style="margin-top:8px"><div class="field"><label>Telegram Admin ID</label><input id="botAdminId" class="input" inputmode="numeric" placeholder="مثلاً 123456789"></div><div class="field"><label>وضعیت ربات</label><select id="botEnabled" class="input"><option value="1">فعال</option><option value="0">غیرفعال</option></select></div></div><div class="endpoint-box"><div class="endpoint-label">Webhook</div><div class="endpoint-row"><input id="botWebhook" class="endpoint-url" readonly><button class="copybtn" onclick="copyEndpoint('botWebhook')">کپی</button></div></div><div class="row" style="margin-top:10px"><button class="btn" onclick="saveTelegramBot()">ذخیره + ثبت Webhook</button><button class="btn secondary" onclick="testTelegramBot()">ارسال پیام تست</button></div><div class="provider-note">توکن به‌صورت رمزگذاری‌شده ذخیره می‌شود و در پنل دوباره نمایش داده نمی‌شود. با فعال‌سازی، Webhook و دستورات ربات خودکار تنظیم می‌شوند.</div></article>
   <article class="card provider"><div class="provider-head"><div><h3>کافه‌بازار</h3><div class="sub">پرداخت درون‌برنامه‌ای با Poolakey</div></div><div id="bazaarState" class="provider-state"></div></div><div class="field"><label>RSA Public Key برنامه در کافه‌بازار</label><textarea id="bazaarRsa" class="input" style="height:92px;padding:10px;resize:vertical" placeholder="RSA Public Key"></textarea></div><div class="row" style="margin-top:8px"><div class="field"><label>Product ID پلن ۳ ماهه</label><input id="bazaarSku3" class="input" placeholder="premium_3m"></div><div class="field"><label>Product ID پلن ۶ ماهه</label><input id="bazaarSku6" class="input" placeholder="premium_6m"></div></div><div class="field"><label>Product ID پلن ۱۲ ماهه</label><input id="bazaarSku12" class="input" placeholder="premium_12m"></div><button class="btn" style="margin-top:10px;width:100%" onclick="saveBazaar()">ذخیره تنظیمات کافه‌بازار</button><div class="provider-note">هر پلن باید یک محصول In-App جدا در پیشخان بازار داشته باشد. قیمت هر Product ID را با قیمت همان پلن در بلوپرمیوم یکسان تنظیم کن.</div></article>
   <article class="card provider" style="opacity:.58"><div class="provider-head"><div><h3>BluePal</h3><div class="sub">درگاه قبلی؛ اطلاعات آن حذف نشده است</div></div><div class="provider-state"><i class="dot bad"></i>غیرفعال</div></div><div class="provider-note">پرداخت جدید از BluePal ساخته نمی‌شود و Callback/Webhook آن در حالت غیرفعال پاسخ 410 می‌دهند.</div></article>
 </div>
@@ -101,7 +102,7 @@ function adminHtmlV2() {
 let token=sessionStorage.getItem('bp_admin')||'',summary=null;
 const H=()=>({'content-type':'application/json','authorization':'Bearer '+token});
 const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
-const titles={dashboard:['داشبورد','وضعیت لحظه‌ای فروش و اتصال سرویس‌ها'],providers:['اتصال‌ها','مدیریت TG Tools و پرداخت کافه‌بازار'],plans:['پلن و قیمت','کنترل قیمت‌گذاری خودکار و دستی'],orders:['سفارش‌ها','پیگیری وضعیت فعال‌سازی‌ها'],settings:['تنظیمات','پیکربندی فروشگاه و امنیت']};
+const titles={dashboard:['داشبورد','وضعیت لحظه‌ای فروش و اتصال سرویس‌ها'],providers:['اتصال‌ها','TG Tools، ربات تلگرام و پرداخت کافه‌بازار'],plans:['پلن و قیمت','کنترل قیمت‌گذاری خودکار و دستی'],orders:['سفارش‌ها','پیگیری وضعیت فعال‌سازی‌ها'],settings:['تنظیمات','پیکربندی فروشگاه و امنیت']};
 async function login(){
   const msg=document.getElementById('loginmsg');msg.textContent='در حال ورود...';
   try{
@@ -119,17 +120,23 @@ function statusTotal(name){const x=(summary.orders||[]).find(o=>o.status===name)
 function renderSummary(){
   const total=(summary.orders||[]).reduce((a,b)=>a+Number(b.count||0),0);const pending=['awaiting_payment','awaiting_bazaar_payment','paid','awaiting_approval','provider_submitting','provider_pending','provider_uncertain'].reduce((a,s)=>a+statusCount(s),0);
   document.getElementById('kOrders').textContent=money(total);document.getElementById('kDelivered').textContent=money(statusCount('delivered'));document.getElementById('kPending').textContent=money(pending);document.getElementById('kRevenue').textContent=money(statusTotal('delivered'));
-  const tg=summary.providers.tgtools||{},bazaar=summary.providers.cafebazaar||{},bp=summary.providers.blupal||{};
+  const tg=summary.providers.tgtools||{},bazaar=summary.providers.cafebazaar||{},bp=summary.providers.blupal||{},bot=summary.providers.telegram_bot||{};
   document.getElementById('dashTg').innerHTML=providerCard('TG Tools','فعال‌سازی Premium',tg.ok,tg.configured,(tg.balance_ton!=null?'موجودی: '+tg.balance_ton+' TON':''));
   document.getElementById('dashBp').innerHTML=providerCard('کافه‌بازار','پرداخت درون‌برنامه‌ای',bazaar.ok,bazaar.configured,bazaar.active?'درگاه فعال':'نیاز به تنظیم');
   document.getElementById('tgState').innerHTML=stateHtml(tg.ok,tg.configured,Number(tg.http_status||0),tg.error||'');
   document.getElementById('bazaarState').innerHTML=bazaar.ok?'<i class="dot ok"></i>فعال و آماده':'<i class="dot bad"></i>'+(bazaar.configured?'نیاز به بررسی':'تنظیم نشده');
+  document.getElementById('botState').innerHTML=bot.enabled?(bot.ok?'<i class="dot ok"></i>فعال و متصل':'<i class="dot bad"></i>'+(bot.configured?'خطا در اتصال':'تنظیم نشده')):'<i class="dot bad"></i>غیرفعال';
+  document.getElementById('botMeta').innerHTML=(bot.username?'<span class="chip">@'+String(bot.username).replace(/[<>&]/g,'')+'</span>':'')+(bot.configured?'<span class="chip">توکن ذخیره شده</span>':'');
+  document.getElementById('botAdminId').value=summary.settings.telegram_admin_id||bot.admin_id||'';
+  document.getElementById('botEnabled').value=String(summary.settings.telegram_bot_enabled||'0')==='1'?'1':'0';
+  document.getElementById('botWebhook').value=bot.webhook_url||summary.settings.telegram_bot_webhook_url||location.origin+'/api/telegram/bot/webhook';
   document.getElementById('tgMeta').innerHTML=(tg.balance_ton!=null?'<span class="chip">موجودی '+tg.balance_ton+' TON</span>':'')+(tg.wallet_address?'<span class="chip">آدرس کیف پول ثبت شده</span>':'')+(!tg.ok&&tg.configured?'<span class="chip">HTTP '+Number(tg.http_status||0)+'</span>':'')+(!tg.ok&&tg.error?'<span class="chip">'+String(tg.error).replace(/[<>&]/g,'')+'</span>':'');
   document.getElementById('bazaarRsa').value=summary.settings.bazaar_rsa_public_key||'';
   document.getElementById('bazaarSku3').value=summary.settings.bazaar_sku_3||'';
   document.getElementById('bazaarSku6').value=summary.settings.bazaar_sku_6||'';
   document.getElementById('bazaarSku12').value=summary.settings.bazaar_sku_12||'';
   document.getElementById('profit').value=summary.settings.profit_percent||15;document.getElementById('rounding').value=summary.settings.rounding||1000;document.getElementById('support').value=summary.settings.support||'';document.getElementById('fulfillmentMode').value=summary.settings.tgtools_fulfillment_mode||'auto';
+  document.getElementById('botToken').value='';
   document.getElementById('planGrid').innerHTML=(summary.plans||[]).map(p=>'<div class="plan"><h4>'+p.months+' ماهه</h4><div class="price">'+money(p.price_toman)+' تومان</div><div class="auto">قیمت خودکار: '+money(p.auto_price_toman||0)+' تومان</div><div class="controls"><input id="price-'+p.id+'" class="input" type="number" value="'+(p.manual_price_toman||'')+'" placeholder="قیمت دستی"><button class="btn" onclick="savePlan('+p.id+')">ذخیره</button></div></div>').join('');
 }
 function providerCard(name,desc,ok,configured,meta){return '<div class="provider-head"><div><h3>'+name+'</h3><div class="sub">'+desc+'</div></div><div class="provider-state"><i class="dot '+(ok?'ok':'bad')+'"></i>'+(configured?(ok?'متصل':'نیاز به بررسی'):'تنظیم نشده')+'</div></div>'+(meta?'<div class="provider-meta"><span class="chip">'+meta+'</span></div>':'')}
@@ -167,6 +174,28 @@ async function saveFulfillmentMode(){
   summary.settings=d.settings||summary.settings;
   document.getElementById('fulfillmentMode').value=summary.settings.tgtools_fulfillment_mode||mode;
   alert(mode==='auto'?'ارسال خودکار فعال شد.':'تایید دستی فعال شد. سفارش‌های پرداخت‌شده منتظر تایید شما می‌مانند.');
+}
+async function saveTelegramBot(){
+  const body={
+    token:document.getElementById('botToken').value.trim(),
+    admin_id:document.getElementById('botAdminId').value.trim(),
+    enabled:document.getElementById('botEnabled').value==='1'
+  };
+  if(!body.admin_id){alert('Telegram Admin ID را وارد کن.');return}
+  const r=await fetch('/api/admin/telegram-bot',{method:'POST',headers:H(),body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!d.ok){
+    const map={invalid_bot_token:'فرمت Bot Token معتبر نیست.',bot_token_rejected:'توکن توسط تلگرام تایید نشد.',invalid_admin_id:'Telegram Admin ID معتبر نیست.',bot_token_required:'ابتدا Bot Token را وارد کن.',set_webhook_failed:'ثبت Webhook در تلگرام ناموفق بود.'};
+    alert(map[d.error]||d.message||'ذخیره تنظیمات ربات انجام نشد.');return
+  }
+  document.getElementById('botToken').value='';
+  await load();
+  alert(body.enabled?'ربات فعال شد و Webhook با موفقیت ثبت شد.':'ربات غیرفعال شد.');
+}
+async function testTelegramBot(){
+  const r=await fetch('/api/admin/telegram-bot/test',{method:'POST',headers:H()});
+  const d=await r.json();
+  alert(d.ok?'پیام تست برای ادمین ارسال شد.':'ارسال پیام تست ناموفق بود. ابتدا ربات را فعال و Admin ID را بررسی کن.');
 }
 async function saveBazaar(){
   const body={
