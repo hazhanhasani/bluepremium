@@ -110,22 +110,37 @@ async function tgMarketApi(request,env,url,ctx){
       enabled:String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))==='1'});
   }
   if(path==='/api/admin/market/health'&&method==='GET'){
-    const counts=await env.DB.prepare(
-      "SELECT kind,status,COUNT(*) AS total FROM bp_market_orders GROUP BY kind,status ORDER BY kind,status"
-    ).all();
-    const key=await getProviderSecret(env,'tgtools_api_key');
-    let smm={status:'key_missing',http_status:0,product_count:0};
+    // Premium and every market category share one encrypted TG Tools credential.
+    // A present ciphertext must not be described as "not configured" if a
+    // decryption issue occurs; that is a distinct, actionable state.
+    const [counts,stored,key]=await Promise.all([
+      env.DB.prepare("SELECT kind,status,COUNT(*) AS total FROM bp_market_orders GROUP BY kind,status ORDER BY kind,status").all(),
+      env.DB.prepare("SELECT CASE WHEN length(value)>0 THEN 1 ELSE 0 END AS present FROM provider_secrets WHERE key=?")
+        .bind('tgtools_api_key').first(),
+      getProviderSecret(env,'tgtools_api_key')
+    ]);
+    const hasStoredKey=Boolean(stored?.present);
+    let tgtools={
+      stored:hasStoredKey,configured:!!key,connected:false,http_status:0,
+      key_state:key?'configured':hasStoredKey?'decryption_failed':'missing',
+      shared_with_premium:true
+    };
+    let smm={status:key?'checking':'key_missing',http_status:0,product_count:0,sellable_count:0};
     if(key){
-      const remote=await tgRequest(key,'GET','/api/Purchase/smm/bundles?lang=fa',null,true);
-      const body=remote.data||{};
-      const list=tgList(body);
+      // /api/wallet is the same connectivity check used by the Premium panel.
+      const [wallet,remote]=await Promise.all([
+        tgRequest(key,'GET','/api/wallet'),
+        tgRequest(key,'GET','/api/Purchase/smm/bundles?lang=fa',null,true)
+      ]);
+      tgtools={...tgtools,connected:!!wallet.ok,http_status:Number(wallet.http_status||0)};
+      const body=remote.data||{},list=tgList(body);
       const sellable=remote.ok?await tgProducts(env,'smm').catch(()=>[]):[];
-      smm={status:remote.ok?'reachable':'provider_error',http_status:remote.http_status||0,
+      smm={status:remote.ok?'reachable':'provider_error',http_status:Number(remote.http_status||0),
         product_count:list.length,sellable_count:sellable.length,
         shape:Array.isArray(body)?'array':Object.keys(body).slice(0,7),
         error:remote.ok?'':bpName(remote.message||'unavailable',90)};
     }
-    return api({ok:true,provider:{configured:!!key,smm},orders:counts.results||[],
+    return api({ok:true,provider:{configured:!!key,tgtools,smm},orders:counts.results||[],
       warning_states:['provider_uncertain','provider_submitting','refund_required','failed'],
       timestamp:new Date().toISOString()});
   }
