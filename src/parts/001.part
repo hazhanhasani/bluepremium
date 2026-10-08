@@ -27,6 +27,8 @@ async function route(request, env, ctx) {
   const path = url.pathname;
 
   if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+  const marketFeature = await tgMarketApi(request, env, url, ctx);
+  if (marketFeature) return marketFeature;
   const bpFeature = await bpFeatureApi(request, env, url, ctx);
   if (bpFeature) return bpFeature;
 
