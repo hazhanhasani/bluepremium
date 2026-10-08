@@ -12,8 +12,7 @@
 async function reconcileOrder(env, order, ctx) {
   let current = order;
   if (current.status === 'awaiting_payment') {
-    const blupalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '0')) === '1';
-    if (!blupalEnabled || String(current.payment_provider || 'blupal') !== 'blupal') return;
+    if (!await isTelegramBotBlupalOrderAllowed(env, current)) return;
     const key = await getProviderSecret(env, 'blupal_api_key');
     if (!key || !current.blupal_invoice_id) return;
     const remote = await blupalRequest(key, 'GET', `/v1/invoices/${encodeURIComponent(current.blupal_invoice_id)}`);
@@ -33,6 +32,12 @@ async function reconcileOrder(env, order, ctx) {
     await env.DB.prepare(`UPDATE orders SET status=?, paid_at=?, updated_at=? WHERE id=? AND status='awaiting_payment'`)
       .bind(paidStatus, new Date().toISOString(), new Date().toISOString(), current.id).run();
     current = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
+    if (telegramOrderChatId(current)) {
+      await notifyTelegramCustomerForOrder(env, current, 'paid');
+      if (current.status === 'awaiting_approval') {
+        await notifyTelegramAdminForOrder(env, current, 'awaiting_approval');
+      }
+    }
   }
 
   if (current.status === 'paid') {
@@ -63,6 +68,7 @@ async function reconcileOrder(env, order, ctx) {
       if (done.meta?.changes) {
         const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
         await notifyTelegramAdminForOrder(env, delivered, 'delivered');
+        await notifyTelegramCustomerForOrder(env, delivered, 'delivered');
       }
     } else if (state === 'failed') {
       const failed = await env.DB.prepare(`UPDATE orders SET status='failed', provider_error=?, updated_at=? WHERE id=? AND status='provider_pending'`)
@@ -70,6 +76,7 @@ async function reconcileOrder(env, order, ctx) {
       if (failed.meta?.changes) {
         const failedOrder = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(current.id).first();
         await notifyTelegramAdminForOrder(env, failedOrder, 'failed');
+        await notifyTelegramCustomerForOrder(env, failedOrder, 'failed');
       }
     }
   }
@@ -124,6 +131,7 @@ async function deliverPremium(env, order) {
     if (failed.meta?.changes) {
       const failedOrder = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
       await notifyTelegramAdminForOrder(env, failedOrder, 'failed');
+      await notifyTelegramCustomerForOrder(env, failedOrder, 'failed');
     }
   } else if (state === 'completed') {
     const done = await env.DB.prepare(`UPDATE orders SET status='delivered', tg_transaction_id=?, delivered_at=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
@@ -131,6 +139,7 @@ async function deliverPremium(env, order) {
     if (done.meta?.changes) {
       const delivered = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
       await notifyTelegramAdminForOrder(env, delivered, 'delivered');
+      await notifyTelegramCustomerForOrder(env, delivered, 'delivered');
     }
   } else {
     await env.DB.prepare(`UPDATE orders SET status='provider_pending', tg_transaction_id=?, provider_error=NULL, updated_at=? WHERE id=? AND status='provider_submitting'`)
