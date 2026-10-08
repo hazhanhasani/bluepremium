@@ -147,7 +147,7 @@ async function tgBotMarketKind(env,chatId,kind){
     return;
   }
   const list=products.slice(0,24);
-  const rows=list.map(x=>[{text:x.title+' — '+bpPrice(x.price_toman)+' تومان',callback_data:'tg_item:'+kind+':'+x.sku}]);
+  const rows=list.map(x=>[{text:bpName(x.title,32)+' — '+bpPrice(x.price_toman)+' تومان',callback_data:'tg_item:'+kind+':'+x.sku}]);
   rows.push([{text:'🔙 دسته‌بندی‌ها',callback_data:'tg_menu'}]);
   await telegramSendMessage(env,chatId,'محصول را انتخاب کن:',{reply_markup:{inline_keyboard:rows}});
 }
