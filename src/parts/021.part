@@ -110,6 +110,8 @@ async function tgBotMarketMenu(env,chatId){
     [{text:'🎁 گیفت‌های تلگرام',callback_data:'tg_kind:gift'}],
     [{text:'🎮 گیفت‌کارت و شارژ بازی',callback_data:'tg_kind:catalog'}],
     [{text:'📣 خدمات شبکه‌های اجتماعی',callback_data:'tg_kind:smm'}],
+    [{text:'💎 گیفت NFT به کیف پول TON',callback_data:'tg_kind:nft'}],
+    [{text:'🎮 شارژ مستقیم Steam',callback_data:'tg_kind:steam'}],
     [{text:'🔙 بازگشت',callback_data:'buy_cancel'}]
   ];
   await telegramSendMessage(env,chatId,'🛍 <b>محصولات دیجیتال بلوپرمیوم</b>\n\nدسته موردنظر را انتخاب کن:',{
@@ -117,6 +119,24 @@ async function tgBotMarketMenu(env,chatId){
   });
 }
 async function tgBotMarketKind(env,chatId,kind){
+  if(kind==='nft'){
+    if(String(await getSetting(env.DB,'market_nft_enabled','0'))!=='1') {
+      await telegramSendMessage(env,chatId,'فروش NFT فعلاً غیرفعال است.');return;
+    }
+    await telegramSessionSet(env,chatId,chatId,'tg_nft_address',{});
+    await telegramSendMessage(env,chatId,'💎 آدرس دقیق NFT موردنظر را بفرست. بعد از استعلام قیمت، آدرس کیف پول TON مقصد را می‌گیرم.');
+    return;
+  }
+  if(kind==='steam'){
+    if(String(await getSetting(env.DB,'market_steam_enabled','0'))!=='1'){
+      await telegramSendMessage(env,chatId,'شارژ Steam فعلاً غیرفعال است.');return;
+    }
+    const options=[100,200,500,1000].map(v=>[{
+      text:v+' RUB',callback_data:'tg_item:steam:RUB:'+v
+    }]);
+    await telegramSendMessage(env,chatId,'🎮 مقدار شارژ Steam را انتخاب کن:',{reply_markup:{inline_keyboard:options}});
+    return;
+  }
   const products=await tgProducts(env,kind);
   if(!products.length){
     await telegramSendMessage(env,chatId,'این دسته فعلاً محصول دارای قیمت معتبر و قابل خرید ندارد.');
@@ -128,11 +148,13 @@ async function tgBotMarketKind(env,chatId,kind){
   await telegramSendMessage(env,chatId,'محصول را انتخاب کن:',{reply_markup:{inline_keyboard:rows}});
 }
 async function tgBotMarketSelect(env,chatId,userId,kind,sku){
-  const item=(await tgProducts(env,kind)).find(x=>x.sku===sku);
+  const item=await tgQuoteBySku(env,kind,sku);
   if(!item){await telegramSendMessage(env,chatId,'قیمت این محصول در دسترس نیست؛ دوباره تلاش کن.');return}
   await telegramSessionSet(env,chatId,userId,'tg_market_target',{kind,sku});
   const prompt=item.target_type==='link'?'لینک مقصد را ارسال کن':
     item.target_type==='player'?'شناسه بازیکن را بفرست':
+    item.target_type==='ton_wallet'?'آدرس کیف پول TON دریافت‌کننده را ارسال کن':
+    item.target_type==='steam_login'?'نام ورود به حساب Steam را بفرست':
     item.target_type==='none'?'برای ادامه پیام «تایید» را بفرست':'یوزرنیم تلگرام مقصد را بفرست';
   await telegramSendMessage(env,chatId,'<b>'+telegramEscapeHtml(item.title)+'</b>\n'+bpPrice(item.price_toman)+' تومان\n\n'+prompt,{
     reply_markup:{inline_keyboard:[[{text:'✖️ انصراف',callback_data:'buy_cancel'}]]}
@@ -140,11 +162,11 @@ async function tgBotMarketSelect(env,chatId,userId,kind,sku){
 }
 async function tgBotMarketTarget(env,chatId,userId,value,session){
   const kind=session.data?.kind,sku=session.data?.sku;
-  const item=(await tgProducts(env,kind)).find(p=>p.sku===sku);
+  const item=await tgQuoteBySku(env,kind,sku);
   if(!item){await telegramSendMessage(env,chatId,'محصول فعلاً موجود نیست.');return}
   const target=item.target_type==='none'?'':tgDestination(kind,value);
   if(item.target_type!=='none'&&!target){await telegramSendMessage(env,chatId,'مقصد نامعتبر است؛ دوباره ارسال کن.');return}
-  await telegramSessionSet(env,chatId,userId,'tg_market_payment',{kind,sku,target});
+  await telegramSessionSet(env,chatId,userId,'tg_market_payment',{kind,sku,target,expected_price_toman:item.price_toman});
   const customer=await bpCustomerView(env,userId);
   await telegramSendMessage(env,chatId,'📦 '+telegramEscapeHtml(item.title)+'\n💰 '+bpPrice(item.price_toman)+' تومان\n'+
     'موجودی کیف پول: '+bpPrice(customer?.balance_toman||0)+' تومان\n\nروش پرداخت را انتخاب کن:',{
