@@ -134,3 +134,26 @@ async function tgRefundSoldOutGift(env,order) {
     ' به‌دلیل ناموجودبودن محصول به کیف پول شما برگردانده شد.').catch(()=>{});
   return credited;
 }
+
+
+async function tgNftBrowse(env){
+  if(String(await getSetting(env.DB,'market_nft_enabled','0'))!=='1')return [];
+  const key=await getProviderSecret(env,'tgtools_api_key');
+  if(!key)return [];
+  const response=await tgRequest(key,'GET','/api/marketplace/browse?limit=40',null,true);
+  if(!response.ok)return [];
+  const d=response.data||{};
+  const candidates=Array.isArray(d)?d:
+    d.items||d.listings||d.results||d.nfts||d.data?.items||d.data?.listings||[];
+  if(!Array.isArray(candidates))return [];
+  const seen=new Set(),out=[];
+  for(const row of candidates.slice(0,100)){
+    const a=tgTonAddress(row.nftAddress||row.nft?.address||row.address||row.itemAddress);
+    if(!a||seen.has(a)||row.sold===true||row.isForSale===false||row.listed===false)continue;
+    seen.add(a);
+    out.push({kind:'nft',sku:a,title:bpName(row.nftName||row.name||row.title||'گیفت NFT تلگرام',90),
+      target_type:'ton_wallet'});
+    if(out.length>=30)break;
+  }
+  return out;
+}
