@@ -39,7 +39,7 @@ async function tgProducts(env,kind){
     const remote=await tgRequest(apiKey,'GET',path,null,false);
     if(!remote.ok)continue;
     const rows=tgList(remote.data||{});
-    for(const row of rows.slice(0,100)){
+    for(const row of rows.slice(0,300)){
       if(kind==='catalog'&&Array.isArray(row.variants)){
         for(const v of row.variants.slice(0,75)){
           const sku=String(v.productId||'');
