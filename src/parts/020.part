@@ -38,7 +38,7 @@ async function tgProducts(env,kind,options={}){
       '/api/catalog?category='+category+'&pageSize=24&page='+page+
       (query?'&q='+encodeURIComponent(query):'')) :
     [({stars:'/api/purchase/prices',gift:'/api/purchase/gifts?lang=fa',
-       smm:'/api/purchase/smm/bundles?lang=fa'})[kind]];
+       smm:'/api/Purchase/smm/bundles?lang=fa'})[kind]];
   const items=[],seen=new Set();
   for(const path of paths){
     const remote=await tgRequest(apiKey,'GET',path,null,kind==='smm');
@@ -64,6 +64,7 @@ async function tgProducts(env,kind,options={}){
       const quantity=kind==='stars'?Number(row.qty??row.quantity??row.amount):
         kind==='smm'?Number(row.quantity??row.count??1):1;
       const sku=kind==='stars'?String(quantity):tgSku(row);
+      if(kind==='smm'&&!/^\d{1,10}$/.test(sku))continue;
       const ton=tgTon(row);
       if(!sku||!ton||seen.has(sku)||!Number.isSafeInteger(quantity)||quantity<1||
          kind==='stars'&&(quantity<50||quantity>100000))continue;
@@ -127,7 +128,7 @@ async function tgCreateOrder(env,input,user,ctx){
   const status=wallet?'paid':'creating_payment';
   const sql="INSERT INTO bp_market_orders(order_code,public_token_hash,telegram_user_id,kind,sku,title,target,quantity,price_toman,quoted_ton,provider_payload,payment_provider,status,created_at,updated_at,paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
   const fields=[code,hash,userId,kind,sku,item.title,dest,item.quantity,item.price_toman,item.ton,
-    JSON.stringify({sku,kind,catalog_key:item.catalog_key||null,quantity:item.quantity,target:dest,serviceId:kind==='smm'?Number(sku):null,bundleKey:item.bundleKey||null}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
+    JSON.stringify({sku,kind,catalog_key:item.catalog_key||null,quantity:item.quantity,target:dest,requires_delivery_code:kind==='catalog'&&item.target_type==='none',serviceId:kind==='smm'?Number(sku):null,bundleKey:item.bundleKey||null}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
   if(wallet){
     const balance=await env.DB.prepare('SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?').bind(userId).first();
     if(Number(balance?.balance_toman||0)<item.price_toman)return {ok:false,error:'insufficient_wallet_balance',http:409};
@@ -188,16 +189,17 @@ async function tgMarketDeliver(env,order){
     await tgStopBeforeProvider(env,order,preflight.error);
     return;
   }
+  // Validate everything before claiming/submitting. A missing key or invalid
+  // payload must never strand a wallet debit in provider_submitting.
+  const apiKey=await getProviderSecret(env,'tgtools_api_key');
+  if(!apiKey){await tgStopBeforeProvider(env,order,'provider_not_configured');return}
+  const action=tgFulfillmentInput(order);
+  if(!action||!action.path||!action.body){
+    await tgStopBeforeProvider(env,order,'unsupported_product');return;
+  }
   const claimed=await env.DB.prepare("UPDATE bp_market_orders SET status='provider_submitting',updated_at=? WHERE id=? AND status='paid'")
     .bind(new Date().toISOString(),order.id).run();
   if(!claimed.meta?.changes)return;
-  const apiKey=await getProviderSecret(env,'tgtools_api_key');
-  if(!apiKey){await env.DB.prepare("UPDATE bp_market_orders SET status='failed',provider_error='provider_not_configured' WHERE id=?").bind(order.id).run();return}
-  const action=tgFulfillmentInput(order);
-  if(!action){
-    await tgStopBeforeProvider(env,order,'unsupported_product');
-    return;
-  }
   const remote=await tgRequest(apiKey,'POST',action.path,action.body);
   const data=remote.data||{},tx=String(data.transactionId??data.orderId??data.purchaseId??data.id??'');
   if(!remote.ok){
@@ -213,8 +215,11 @@ async function tgMarketDeliver(env,order){
     await env.DB.prepare("UPDATE bp_market_orders SET status='provider_uncertain',provider_error='missing_provider_id',updated_at=? WHERE id=?")
       .bind(new Date().toISOString(),order.id).run();return;
   }
-  const state=tgState(data),status=state==='completed'?'delivered':state==='failed'?'failed':'provider_pending';
-  const delivery=status==='delivered'&&order.kind==='catalog'?String(data.deliveryCode||'').slice(0,300):null;
+  const state=tgState(data);
+  const requiresCode=order.kind==='catalog'&&!order.target;
+  const delivery=order.kind==='catalog'?String(data.deliveryCode||data.code||'').slice(0,300):null;
+  const status=state==='completed'&&(!requiresCode||delivery)?'delivered':
+    state==='failed'?'failed':'provider_pending';
   const changed=await env.DB.prepare("UPDATE bp_market_orders SET status=?,provider_transaction_id=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=?")
     .bind(status,tx,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
   if(changed.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
@@ -245,8 +250,10 @@ async function tgReconcileOrder(env,order){
     if(!remote.ok)return;
     const state=tgState(remote.data||{});
     if(state!=='completed'&&state!=='failed')return;
+    const requiresCode=order.kind==='catalog'&&!order.target;
+    const delivery=order.kind==='catalog'?String(remote.data?.deliveryCode||remote.data?.code||'').slice(0,300):null;
+    if(state==='completed'&&requiresCode&&!delivery)return;
     const status=state==='completed'?'delivered':'failed';
-    const delivery=status==='delivered'&&order.kind==='catalog'?String(remote.data?.deliveryCode||remote.data?.code||'').slice(0,300):null;
     const change=await env.DB.prepare("UPDATE bp_market_orders SET status=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=? AND status='provider_pending'")
       .bind(status,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
     if(change.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
