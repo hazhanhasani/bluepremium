@@ -320,7 +320,7 @@ async function telegramBeginPurchase(env, chatId, userId) {
   const botBluePalEnabled = String(await getSetting(env.DB, 'blupal_enabled', '1')) === '1';
   const bluePalKey = await getProviderSecret(env, 'blupal_api_key');
   if (!botBluePalEnabled || !bluePalKey) {
-    await telegramSendMessage(env, chatId, 'درگاه BluePal ربات فعلاً آماده نیست. لطفاً با پشتیبانی در ارتباط باش.');
+    await telegramSendMessage(env, chatId, 'درگاه پرداخت فعلاً آماده نیست. لطفاً با پشتیبانی در ارتباط باش.');
     return;
   }
   const menu = await telegramPlansKeyboard(env);
@@ -332,6 +332,49 @@ async function telegramBeginPurchase(env, chatId, userId) {
   await telegramSendMessage(env, chatId, '🛍 <b>خرید تلگرام پرمیوم</b>\n\nپلن موردنظرت را انتخاب کن:', {
     reply_markup: menu.reply_markup,
   });
+}
+
+function formatCardNumber(value) {
+  const digits = String(value || '').replace(/\D+/g, '');
+  return digits.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function telegramCardPaymentText(order) {
+  const card = String(order?.blupal_card_number || '').replace(/\D+/g, '');
+  const amountRial = Number(order?.blupal_final_amount_rial || 0);
+  const toman = amountRial / 10;
+  const tomanText = Number.isInteger(toman)
+    ? new Intl.NumberFormat('fa-IR').format(toman)
+    : new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(toman);
+  return [
+    '💳 <b>اطلاعات پرداخت سفارش</b>',
+    '',
+    `🧾 کد سفارش: <code>${telegramEscapeHtml(order.order_code)}</code>`,
+    `👤 مقصد: @${telegramEscapeHtml(order.username)}</code>`.replace('</code>', ''),
+    `📦 پلن: ${Number(order.months)} ماهه`,
+    '',
+    '🏦 <b>شماره کارت مقصد</b>',
+    `<code>${telegramEscapeHtml(formatCardNumber(card))}</code>`,
+    '',
+    '💰 <b>مبلغ دقیق قابل پرداخت</b>',
+    `<code>${new Intl.NumberFormat('fa-IR').format(amountRial)}</code> ریال`,
+    `معادل تقریبی: <code>${tomanText}</code> تومان`,
+    '',
+    '⚠️ مبلغ را <b>دقیقاً</b> مطابق عدد بالا واریز کن.',
+    'بعد از انتقال وجه، روی «بررسی پرداخت» بزن؛ وضعیت به‌صورت خودکار هم بررسی می‌شود.',
+  ].join('\n');
+}
+
+function telegramCardPaymentKeyboard(order) {
+  const card = String(order?.blupal_card_number || '').replace(/\D+/g, '');
+  const amountRial = String(Math.round(Number(order?.blupal_final_amount_rial || 0)));
+  return {
+    inline_keyboard: [
+      [{ text: '📋 کپی شماره کارت', copy_text: { text: card } }],
+      [{ text: '📋 کپی مبلغ دقیق', copy_text: { text: amountRial } }],
+      [{ text: '🔄 بررسی پرداخت', callback_data: `check:${order.order_code}` }],
+    ],
+  };
 }
 
 async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, username }) {
@@ -376,26 +419,63 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
     now
   ).run();
 
+  const expectedRial = Math.round(priceToman) * 10;
   const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
-    amount: Math.round(priceToman) * 10,
+    amount: expectedRial,
   });
-  const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
-  const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
+  let details = blupalInvoiceFields(invoice.data || invoice.raw || {}, expectedRial);
 
-  if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
+  if (!invoice.ok || !details.invoice_id) {
     await env.DB.prepare(`UPDATE orders SET status='payment_error',provider_error=?,updated_at=? WHERE order_code=?`)
       .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(), orderCode).run();
     return { ok: false, error: 'invoice_create_failed', order_code: orderCode };
   }
 
+  if (!details.card_number || !details.final_amount_rial) {
+    const fetched = await blupalRequest(blupalKey, 'GET', `/v1/invoices/${encodeURIComponent(details.invoice_id)}`);
+    if (fetched.ok) {
+      const refreshed = blupalInvoiceFields(fetched.data || fetched.raw || {}, expectedRial);
+      details = {
+        ...details,
+        ...refreshed,
+        invoice_id: refreshed.invoice_id || details.invoice_id,
+        payment_link: refreshed.payment_link || details.payment_link,
+        card_number: refreshed.card_number || details.card_number,
+        final_amount_rial: refreshed.final_amount_rial || details.final_amount_rial,
+        expires_at: refreshed.expires_at || details.expires_at,
+      };
+    }
+  }
+
+  if (
+    !details.card_number ||
+    details.card_number.length < 16 ||
+    !details.final_amount_rial ||
+    details.final_amount_rial < expectedRial ||
+    details.final_amount_rial > expectedRial + 999
+  ) {
+    await env.DB.prepare(`UPDATE orders SET status='payment_error',provider_error='payment_details_unavailable',updated_at=? WHERE order_code=?`)
+      .bind(new Date().toISOString(), orderCode).run();
+    return { ok: false, error: 'payment_details_unavailable', order_code: orderCode };
+  }
+
   await env.DB.prepare(`
     UPDATE orders
-    SET status='awaiting_payment',blupal_invoice_id=?,payment_url=?,updated_at=?
+    SET status='awaiting_payment',blupal_invoice_id=?,payment_url=?,
+        blupal_final_amount_rial=?,blupal_card_number=?,blupal_expires_at=?,updated_at=?
     WHERE order_code=? AND status='creating_payment'
-  `).bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
+  `).bind(
+    details.invoice_id,
+    details.payment_link || null,
+    details.final_amount_rial,
+    details.card_number,
+    details.expires_at || null,
+    new Date().toISOString(),
+    orderCode
+  ).run();
 
   const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
-  return { ok: true, order, payment_url: paymentLink };
+  return { ok: true, order };
 }
 
 async function notifyTelegramCustomerForOrder(env, order, type = 'update') {
@@ -440,14 +520,15 @@ async function telegramSendOrderStatus(env, chatId, fromId, code) {
     await reconcileOrder(env, order, null);
   }
   const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first() || order;
-  let keyboard = await telegramMainKeyboard(env, 'https://bluepremium.hazhanhasani4268-0f9.workers.dev', fromId);
-  if (fresh.status === 'awaiting_payment' && fresh.payment_url && isHttpsUrl(fresh.payment_url)) {
-    keyboard = { inline_keyboard: [
-      [{ text: '💳 ادامه پرداخت BluePal', url: fresh.payment_url }],
-      [{ text: '🔄 بررسی پرداخت', callback_data: `check:${fresh.order_code}` }],
-    ] };
+  if (fresh.status === 'awaiting_payment' && fresh.blupal_card_number && fresh.blupal_final_amount_rial) {
+    await telegramSendMessage(env, chatId, telegramCardPaymentText(fresh), {
+      reply_markup: telegramCardPaymentKeyboard(fresh),
+    });
+    return;
   }
-  await telegramSendMessage(env, chatId, await telegramOrderStatusText(env, fresh.order_code), { reply_markup: keyboard });
+  await telegramSendMessage(env, chatId, await telegramOrderStatusText(env, fresh.order_code), {
+    reply_markup: await telegramMainKeyboard(env, 'https://bluepremium.hazhanhasani4268-0f9.workers.dev', fromId),
+  });
 }
 
 async function handleTelegramBotUpdate(env, update, origin, ctx) {
@@ -624,7 +705,7 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
       return;
     }
 
-    await telegramSendMessage(env, chatId, '⏳ حساب تلگرام در حال بررسی و فاکتور BluePal در حال ساخت است...');
+    await telegramSendMessage(env, chatId, '⏳ حساب تلگرام در حال بررسی و اطلاعات پرداخت در حال آماده‌سازی است...');
     const created = await createTelegramBotBlupalOrder(env, {
       chatId,
       userId: fromId,
@@ -636,12 +717,13 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
       const errors = {
         plan_not_found: 'پلن انتخاب‌شده پیدا نشد.',
         plan_unavailable: 'این پلن فعلاً قابل خرید نیست.',
-        payment_not_configured: 'درگاه BluePal ربات آماده نیست.',
+        payment_not_configured: 'درگاه پرداخت آماده نیست.',
         provider_not_configured: 'اتصال TG Tools هنوز تنظیم نشده است.',
         telegram_lookup_failed: 'بررسی حساب تلگرام انجام نشد؛ دوباره تلاش کن.',
         telegram_user_not_found: 'این حساب تلگرام پیدا نشد.',
         not_premium_eligible: 'این حساب فعلاً امکان دریافت Telegram Premium ندارد.',
-        invoice_create_failed: 'ساخت فاکتور BluePal ناموفق بود.',
+        invoice_create_failed: 'ساخت اطلاعات پرداخت ناموفق بود.',
+        payment_details_unavailable: 'اطلاعات کارت مقصد دریافت نشد؛ کمی بعد دوباره تلاش کن.',
       };
       await telegramSendMessage(env, chatId, errors[created.error] || 'ثبت سفارش انجام نشد؛ دوباره تلاش کن.');
       return;
@@ -652,15 +734,8 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
     await telegramSendMessage(
       env,
       chatId,
-      `✅ <b>سفارش ثبت شد</b>\n\n🧾 کد: <code>${telegramEscapeHtml(order.order_code)}</code>\n👤 مقصد: @${telegramEscapeHtml(order.username)}\n📦 پلن: ${Number(order.months)} ماهه\n💳 مبلغ: ${new Intl.NumberFormat('fa-IR').format(Number(order.price_toman))} تومان\n\nبرای تکمیل سفارش، پرداخت را از BluePal انجام بده.`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💳 پرداخت با BluePal', url: created.payment_url }],
-            [{ text: '🔄 بررسی وضعیت پرداخت', callback_data: `check:${order.order_code}` }],
-          ],
-        },
-      }
+      telegramCardPaymentText(order),
+      { reply_markup: telegramCardPaymentKeyboard(order) }
     );
     return;
   }
