@@ -200,7 +200,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
       <div class="input-wrap"><span class="input-icon">${ICON.user}</span><input id="username" class="input" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="telegram_username"></div>
     </div>
     <div id="account" class="account"><div id="avatar" class="avatar">T</div><div class="account-info"><b id="displayName">حساب تلگرام</b><small id="verifiedUser">@username</small></div><div class="account-check">${ICON.check}</div></div>
-    <div class="actions"><button id="verify" class="btn secondary">${ICON.user}<span>بررسی حساب</span></button><button id="buy" class="btn primary" disabled>${ICON.card}<span>پرداخت با کافه‌بازار</span></button></div>
+    <div class="actions"><button id="verify" class="btn secondary">${ICON.user}<span>بررسی حساب</span></button><button id="buy" class="btn primary" disabled>${ICON.card}<span>پرداخت با BluePal</span></button></div>
     <div id="order" class="order"></div>
   </article>
 
@@ -214,7 +214,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
         <div class="summary-row"><span>مبلغ نهایی</span><b id="sumPrice">---</b></div>
       </div>
     </div>
-    <div class="secure">${ICON.shield}<span>پرداخت از داخل اپ رسمی کافه‌بازار انجام می‌شود و رسید خرید قبل از فعال‌سازی بررسی می‌شود.</span></div>
+    <div class="secure">${ICON.shield}<span>پرداخت از طریق BluePal انجام می‌شود و وضعیت و مبلغ فاکتور قبل از فعال‌سازی دوباره بررسی می‌شود.</span></div>
   </aside>
 </section>
 </main>
@@ -232,7 +232,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;ba
 <div id="toast" class="toast"></div>
 
 <script>
-const UI_VERSION='8.0.0';
+const UI_VERSION='9.0.0';
 const ICONS=${JSON.stringify(ICON)};
 let plans=[],selected=null,current=null,verifiedUsername='',busy=false,appConfig={},restoreRequested=false;
 const el=id=>document.getElementById(id);
@@ -243,7 +243,7 @@ function currentPlan(){return plans.find(p=>Number(p.id)===Number(selected))}
 function setStep(n){[1,2,3].forEach(i=>el('step'+i).classList.toggle('on',i<=n))}
 function hasBazaarBridge(){try{return !!window.BluePremiumNative&&typeof window.BluePremiumNative.purchaseCafeBazaar==='function'}catch(e){return false}}
 function updateSummary(){const p=currentPlan();el('sumMonths').textContent=p?p.months+' ماه':'---';el('sumPrice').textContent=p?money(p.price_toman):'---';el('sumUser').textContent=verifiedUsername?'@'+verifiedUsername:'---';el('ctaText').textContent=p?p.months+' ماهه · '+money(p.price_toman):'فعلاً پلنی موجود نیست'}
-function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">پرداخت امن با کافه‌بازار</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
+function renderPlans(){if(!plans.length){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">فعلاً پلن قابل خریدی وجود ندارد</div><div class="plan-note">قیمت‌ها باید توسط مدیر تنظیم شوند.</div></article>';updateSummary();return}selected=selected||plans[0].id;el('plans').innerHTML=plans.map(p=>'<article class="plan '+(Number(p.id)===Number(selected)?'active':'')+'" data-id="'+p.id+'"><span class="selector">'+ICONS.check+'</span><span class="plan-label">'+(Number(p.months)===6?'پیشنهاد ویژه':'Premium')+'</span><div class="months">'+p.months+' <small>ماه</small></div><div class="type">Telegram Premium</div><div class="price">'+money(p.price_toman)+'</div><div class="plan-note">پرداخت امن با BluePal</div></article>').join('');document.querySelectorAll('.plan[data-id]').forEach(x=>x.onclick=()=>{selected=Number(x.dataset.id);renderPlans();updateSummary();setStep(verifiedUsername?2:1)});updateSummary()}
 async function loadConfig(){try{const d=await fetch('/api/config?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());appConfig=d||{};const s=String(d.support||'').trim();if(s){const href=s.startsWith('http')?s:(s.startsWith('t.me/')?'https://'+s:'https://t.me/'+s.replace(/^@/,''));const a=el('supportLink');a.href=href;a.style.display='inline-flex'}}catch(e){appConfig={}}}
 async function load(){await loadConfig();try{const d=await fetch('/api/plans?v='+UI_VERSION,{cache:'no-store'}).then(r=>r.json());plans=d.plans||[];renderPlans()}catch(e){el('plans').innerHTML='<article class="plan"><div class="months">---</div><div class="type">ارتباط با سرور برقرار نشد</div></article>'}try{const saved=localStorage.getItem('bp_order');if(saved){current=JSON.parse(saved);document.body.classList.add('order-active');setActiveNav('order');check()}else{document.body.classList.remove('order-active')}}catch(e){document.body.classList.remove('order-active')}}
 el('username').addEventListener('input',()=>{verifiedUsername='';el('account').classList.remove('show');el('buy').disabled=true;updateSummary();setStep(1)});
@@ -251,20 +251,18 @@ el('verify').onclick=async()=>{if(busy)return;const u=el('username').value.trim(
 el('buy').onclick=async()=>{
   const p=currentPlan();if(!p){toast('اول یک پلن انتخاب کن');return}
   if(!verifiedUsername){toast('اول حساب تلگرام را بررسی کن');return}
-  if(appConfig.payment_method==='cafebazaar'&&!hasBazaarBridge()){toast('پرداخت کافه‌بازار فقط از داخل اپ بلوپرمیوم انجام می‌شود.');return}
-  if(appConfig.payment_method==='cafebazaar'&&!appConfig.cafebazaar_configured){toast('درگاه کافه‌بازار هنوز توسط مدیر تکمیل نشده است.');return}
   el('buy').disabled=true;el('buy').querySelector('span').textContent='آماده‌سازی پرداخت';setStep(3);
   try{
     let did=localStorage.getItem('bp_device');if(!did){did=crypto.randomUUID();localStorage.setItem('bp_device',did)}
     const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plan_id:selected,username:verifiedUsername,device_id:did})});
     const d=await r.json();
     if(!d.ok){toast(errorText(d.error));setStep(2);return}
-    current={code:d.order.code,token:d.order.token,bazaar:d.bazaar||null};
+    current={code:d.order.code,token:d.order.token,payment_url:d.payment_url||d.order.payment_url||null};
     localStorage.setItem('bp_order',JSON.stringify(current));
-    showOrder(d.order,null);
-    if(d.payment_method==='cafebazaar')startBazaarPayment(d.order,d.bazaar);
+    showOrder(d.order,d.payment_url||d.order.payment_url||null);
+    if(d.payment_method==='blupal'&&(d.payment_url||d.order.payment_url)) location.href=d.payment_url||d.order.payment_url;
   }catch(e){toast('ارتباط با سرور قطع شد');setStep(2)}
-  finally{el('buy').querySelector('span').textContent='پرداخت با کافه‌بازار';el('buy').disabled=!verifiedUsername}
+  finally{el('buy').querySelector('span').textContent='پرداخت با BluePal';el('buy').disabled=!verifiedUsername}
 };
 function bazaarConfigForOrder(o,bazaar){const months=Number(o?.months||currentPlan()?.months||0);return {productId:String(bazaar?.product_id||o?.bazaar_product_id||appConfig.cafebazaar?.products?.[months]||''),rsa:String(bazaar?.rsa_public_key||appConfig.cafebazaar?.rsa_public_key||'')}}
 function startBazaarPayment(o,bazaar){if(!current)return;if(!hasBazaarBridge()){toast('اپ کافه‌بازار یا نسخه مناسب بلوپرمیوم در دسترس نیست.');return}const cfg=bazaarConfigForOrder(o,bazaar);if(!cfg.productId||!cfg.rsa){toast('تنظیمات کافه‌بازار کامل نیست.');return}try{window.BluePremiumNative.purchaseCafeBazaar(cfg.productId,current.code,current.token,cfg.rsa);toast('در حال باز کردن پرداخت کافه‌بازار...')}catch(e){toast('شروع پرداخت کافه‌بازار ناموفق بود.')}}
@@ -291,14 +289,14 @@ function showOrder(o,pay){
   document.body.classList.add('order-active');setActiveNav('order');
   const x=el('order');x.className='order show';
   let action='';
-  if(o.status==='awaiting_bazaar_payment')action='<button class="btn primary" style="margin-top:9px;width:100%" onclick="retryBazaarPayment()">'+ICONS.card+'<span>پرداخت با کافه‌بازار</span></button>';
+  if(o.status==='awaiting_bazaar_payment')action='<button class="btn primary" style="margin-top:9px;width:100%" onclick="retryBazaarPayment()">'+ICONS.card+'<span>پرداخت با BluePal</span></button>';
   else if(pay&&o.status==='awaiting_payment')action='<a class="btn primary" style="margin-top:9px" href="'+pay+'">'+ICONS.card+'<span>ادامه پرداخت</span></a>';
   else if(['delivered','failed','payment_mismatch','payment_error','provider_uncertain'].includes(o.status))action='<button class="btn secondary" style="margin-top:9px;width:100%" onclick="resetOrder()">'+ICONS.refresh+'<span>سفارش جدید</span></button>';
-  x.innerHTML='<div class="order-state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+esc(o.message)+'</b><small>'+esc(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="order-grid"><div class="meta"><small>مقصد</small><b>@'+esc(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>پرداخت</small><b>'+(o.payment_method==='cafebazaar'?'کافه‌بازار':esc(o.message))+'</b></div></div>'+action
+  x.innerHTML='<div class="order-state"><div class="state-icon">'+stateIcon(o.status)+'</div><div><b>'+esc(o.message)+'</b><small>'+esc(o.code)+'</small></div></div><div class="progress"><i style="width:'+progress(o.status)+'%"></i></div><div class="order-grid"><div class="meta"><small>مقصد</small><b>@'+esc(o.username)+'</b></div><div class="meta"><small>پلن</small><b>'+o.months+' ماهه</b></div><div class="meta"><small>مبلغ</small><b>'+money(o.price_toman)+'</b></div><div class="meta"><small>پرداخت</small><b>'+(o.payment_method==='blupal'?'BluePal':(o.payment_method==='cafebazaar'?'کافه‌بازار':esc(o.message)))+'</b></div></div>'+action
 }
 function navTo(id,button){setActiveNav(button?.dataset?.nav||id);const target=id==='home'?document.body:el(id);target?.scrollIntoView({behavior:'smooth',block:'start'});if(navigator.vibrate)navigator.vibrate(8)}
 function goOrder(button){setActiveNav('order');el('checkout').scrollIntoView({behavior:'smooth',block:'start'});if(current)check();else{document.body.classList.remove('order-active');toast('هنوز سفارشی روی این دستگاه ثبت نشده')}}
-function errorText(e){return ({invalid_username:'یوزرنیم معتبر نیست.',telegram_user_not_found:'حساب تلگرام پیدا نشد.',not_premium_eligible:'این حساب امکان دریافت پرمیوم ندارد.',payment_not_configured:'درگاه پرداخت کافه‌بازار فعال نیست.',cafebazaar_not_configured:'RSA و Product IDهای کافه‌بازار هنوز تنظیم نشده‌اند.',invalid_bazaar_receipt:'رسید خرید کافه‌بازار معتبر نیست.',invalid_bazaar_receipt_json:'اطلاعات رسید کافه‌بازار ناقص است.',bazaar_receipt_mismatch:'رسید خرید با سفارش مطابقت ندارد.',invalid_bazaar_signature:'امضای خرید کافه‌بازار معتبر نیست.',bazaar_purchase_already_used:'این خرید قبلاً برای سفارش دیگری استفاده شده است.',order_not_waiting_bazaar_payment:'این سفارش دیگر در انتظار پرداخت نیست.',plan_unavailable:'این پلن فعلاً قابل خرید نیست.'})[e]||'عملیات انجام نشد؛ دوباره تلاش کن.'}
+function errorText(e){return ({invalid_username:'یوزرنیم معتبر نیست.',telegram_user_not_found:'حساب تلگرام پیدا نشد.',not_premium_eligible:'این حساب امکان دریافت پرمیوم ندارد.',payment_not_configured:'درگاه BluePal فعال یا تنظیم نشده است.',cafebazaar_not_configured:'RSA و Product IDهای کافه‌بازار هنوز تنظیم نشده‌اند.',invalid_bazaar_receipt:'رسید خرید کافه‌بازار معتبر نیست.',invalid_bazaar_receipt_json:'اطلاعات رسید کافه‌بازار ناقص است.',bazaar_receipt_mismatch:'رسید خرید با سفارش مطابقت ندارد.',invalid_bazaar_signature:'امضای خرید کافه‌بازار معتبر نیست.',bazaar_purchase_already_used:'این خرید قبلاً برای سفارش دیگری استفاده شده است.',order_not_waiting_bazaar_payment:'این سفارش دیگر در انتظار پرداخت نیست.',plan_unavailable:'این پلن فعلاً قابل خرید نیست.'})[e]||'عملیات انجام نشد؛ دوباره تلاش کن.'}
 load();
 </script>
 </body>
