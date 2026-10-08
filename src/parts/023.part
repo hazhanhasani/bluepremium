@@ -140,7 +140,7 @@ async function tgNftBrowse(env){
   if(String(await getSetting(env.DB,'market_nft_enabled','0'))!=='1')return [];
   const key=await getProviderSecret(env,'tgtools_api_key');
   if(!key)return [];
-  const response=await tgRequest(key,'GET','/api/marketplace/browse?limit=40',null,true);
+  const response=await tgRequest(key,'GET','/api/marketplace/feed?offset=0&limit=40',null,false);
   if(!response.ok)return [];
   const d=response.data||{};
   const candidates=Array.isArray(d)?d:
@@ -149,7 +149,9 @@ async function tgNftBrowse(env){
   const seen=new Set(),out=[];
   for(const row of candidates.slice(0,100)){
     const a=tgTonAddress(row.nftAddress||row.nft?.address||row.address||row.itemAddress);
-    if(!a||seen.has(a)||row.sold===true||row.isForSale===false||row.listed===false)continue;
+    // The marketplace feed contains rental-only NFTs. Never expose these as buyable.
+    if(!a||seen.has(a)||row.isBuyAvailable!==true||
+       !(Number(row.platformSalePriceTon)>0||Number(row.chainSalePriceTon)>0))continue;
     seen.add(a);
     out.push({kind:'nft',sku:a,title:bpName(row.nftName||row.name||row.title||'گیفت NFT تلگرام',90),
       target_type:'ton_wallet'});
