@@ -174,7 +174,9 @@ async function tgReconcileOrder(env,order){
     if(!remote.ok)return;
     const detail=blupalInvoiceFields(remote.raw||remote.data||{},order.price_toman*10);
     if(detail.status!=='PAID')return;
-    if(Number(detail.amount_rial)!==order.price_toman*10)return;
+    // Require a real invoice amount from the provider; never accept the expected fallback.
+    const actual=Number(remote.raw?.data?.amount??remote.raw?.amount??remote.data?.amount??0);
+    if(!Number.isSafeInteger(actual)||actual!==order.price_toman*10)return;
     const update=await env.DB.prepare("UPDATE bp_market_orders SET status='paid',paid_at=?,updated_at=? WHERE id=? AND status='awaiting_payment'")
       .bind(new Date().toISOString(),new Date().toISOString(),order.id).run();
     if(!update.meta?.changes)return;
@@ -183,7 +185,7 @@ async function tgReconcileOrder(env,order){
   if(order.status==='paid'){await tgMarketDeliver(env,order);return}
   if(order.status==='provider_pending'&&order.provider_transaction_id){
     const key=await getProviderSecret(env,'tgtools_api_key');if(!key)return;
-    const route=order.kind==='catalog'?'/api/catalog/orders/':'/api/transaction/';
+    const route=order.kind==='catalog'?'/api/catalog/orders/':'/api/purchase/';
     const remote=await tgRequest(key,'GET',route+encodeURIComponent(order.provider_transaction_id));
     if(!remote.ok)return;
     const state=tgState(remote.data||{});
