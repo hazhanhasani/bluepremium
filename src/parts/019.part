@@ -163,7 +163,7 @@ function bpStoreClient() {
     '<div class="bp-links"><button id="bpReloadAccount">🔄 بروزرسانی</button><button id="bpCopyReferral">🎁 کپی لینک دعوت</button></div>'+
     '<input id="bpReferralLink" readonly aria-label="لینک اختصاصی دعوت">'+
     '<div id="bpJoinWarning" class="bp-missing"></div>'+
-    '<div class="bp-history" id="bpHistory"></div></div></section>'
+    '<div class="bp-history" id="bpHistory"></div><div class="bp-history" id="bpMyOrders"></div></div></section>'
   );
   const walletButton=document.createElement("button");
   walletButton.id="bpWalletPurchase";walletButton.className="btn primary";
@@ -195,6 +195,10 @@ function bpStoreClient() {
           (t.delta_toman>0?"+":"")+money(t.delta_toman)+" تومان · "+t.reason).join("\n"):
         "هنوز تراکنشی در کیف پول ثبت نشده است.";
       $("bpHistory").style.whiteSpace="pre-line";
+      $("bpMyOrders").textContent=(u.orders||[]).length?
+        "📦 سفارش‌های اخیر:\n"+u.orders.slice(0,6).map(o=>o.months+" ماهه · "+o.status+" · "+money(o.price_toman)+" تومان").join("\n") :
+        "هنوز سفارش ثبت‌شده‌ای وجود ندارد.";
+      $("bpMyOrders").style.whiteSpace="pre-line";
       const join=$("bpJoinWarning");
       join.textContent="";
       for(const c of d.required_channels||[]){
