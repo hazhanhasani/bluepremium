@@ -108,7 +108,20 @@ function tgStoreClient(){
       localStorage.setItem('tg_market_order',JSON.stringify({code:order.code,token:order.token}));
       render(order);
       feedback.textContent='سفارش ثبت شد.';
-    }catch(e){feedback.textContent='خطا: '+e.message}
+    }catch(e){
+      const messages={
+        price_changed:'قیمت تغییر کرده است؛ دوباره محصول را انتخاب و مبلغ را تأیید کن.',
+        price_unavailable:'قیمت این محصول فعلاً معتبر نیست.',
+        insufficient_wallet_balance:'موجودی کیف پول کافی نیست.',
+        telegram_user_not_found:'حساب مقصد پیدا نشد.',
+        invalid_target:'اطلاعات مقصد معتبر نیست.',
+        join_required:'ابتدا در کانال‌های الزامی عضو شو.',
+        payment_details_unavailable:'اطلاعات پرداخت دریافت نشد؛ دوباره تلاش کن.',
+        quote_unavailable:'استعلام قیمت لحظه‌ای ناموفق بود.',
+        provider_not_configured:'اتصال سرویس‌دهنده هنوز آماده نیست.'
+      };
+      feedback.textContent='⚠️ '+(messages[e.message]||'ثبت سفارش ناموفق بود؛ دوباره تلاش کن.');
+    }
     finally{loading=false;get('tgPayCard').disabled=false;get('tgPayWallet').disabled=false}
   }
   get('tgQuoteButton').onclick=async()=>{
