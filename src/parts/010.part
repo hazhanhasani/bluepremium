@@ -173,7 +173,7 @@ function stateHtml(ok,configured,httpStatus=0,error=''){
   if(httpStatus>=500||httpStatus===0)return '<i class="dot bad"></i>اختلال ارتباط با TG Tools';
   return '<i class="dot bad"></i>خطای اتصال ('+httpStatus+')';
 }
-function statusLabel(s){return ({awaiting_payment:'در انتظار پرداخت',awaiting_bazaar_payment:'در انتظار پرداخت بازار',paid:'پرداخت‌شده',awaiting_approval:'منتظر تایید مدیر',provider_submitting:'در حال ارسال به TG Tools',provider_uncertain:'نیازمند بررسی ارسال',processing:'در حال فعال‌سازی',provider_pending:'در حال پردازش',delivered:'تحویل‌شده',payment_error:'خطای پرداخت',payment_mismatch:'مغایرت پرداخت',failed:'نیاز به بررسی'})[s]||s}
+function statusLabel(s){return ({awaiting_payment:'در انتظار پرداخت',awaiting_bazaar_payment:'در انتظار پرداخت بازار',paid:'پرداخت‌شده',awaiting_approval:'منتظر تایید مدیر',provider_submitting:'در حال ارسال به TG Tools',provider_uncertain:'نیازمند بررسی ارسال',processing:'در حال فعال‌سازی',provider_pending:'در حال پردازش',delivered:'تحویل‌شده',payment_error:'خطای پرداخت',payment_mismatch:'مغایرت پرداخت',creating_payment:'در حال صدور فاکتور',refund_required:'در انتظار استرداد',refunded:'بازپرداخت‌شده',failed:'ناموفق'})[s]||s}
 async function loadOrders(){
   if(!token)return;
   const d=await fetch('/api/admin/orders',{headers:H(),cache:'no-store'}).then(r=>r.json());
