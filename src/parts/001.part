@@ -139,7 +139,8 @@ async function route(request, env, ctx) {
     const body = await readJson(request);
     const planId = Number(body.plan_id || 0);
     const username = normalizeUsername(body.username);
-    const deviceId = sanitizeToken(body.device_id, 128) || 'web';
+    const claimedDevice = sanitizeToken(body.device_id, 128) || 'web';
+    const deviceId = claimedDevice.startsWith('tg:') ? 'web' : claimedDevice;
     if (!planId || !username) return api({ ok: false, error: 'invalid_request' }, 400);
 
     const customer = request.headers.has('X-Telegram-Init-Data')
