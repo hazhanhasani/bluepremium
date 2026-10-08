@@ -9,10 +9,19 @@ function tgList(data){
 }
 function tgTon(row){const n=Number(row?.ton??row?.totalPriceTon??row?.priceTon??row?.price_ton??row?.costTon??row?.quotedTotalTon);return Number.isFinite(n)&&n>0?n:0}
 function tgSku(row){const s=String(row?.productId??row?.giftId??row?.serviceId??row?.id??row?.key??'');return /^[a-z0-9:._-]{1,110}$/i.test(s)?s:''}
+const tgPriceConfigCache=new Map();
 async function tgPrice(env,kind,ton){
-  const exchange=Number(await getSetting(env.DB,'last_ton_toman','0'));
-  const percent=Number(await getSetting(env.DB,'market_'+kind+'_profit','15'));
-  const round=Number(await getSetting(env.DB,'rounding','1000'))||1000;
+  let cfg=tgPriceConfigCache.get(kind);
+  if(!cfg||cfg.until<Date.now()){
+    const [exchange,percent,rounding]=await Promise.all([
+      getSetting(env.DB,'last_ton_toman','0'),
+      getSetting(env.DB,'market_'+kind+'_profit','15'),
+      getSetting(env.DB,'rounding','1000')
+    ]);
+    cfg={exchange:Number(exchange),percent:Number(percent),round:Number(rounding)||1000,until:Date.now()+10000};
+    tgPriceConfigCache.set(kind,cfg);
+  }
+  const {exchange,percent,round}=cfg;
   const n=Math.ceil(ton*exchange*(1+percent/100)/round)*round;
   return exchange>0&&ton>0&&percent>=0&&percent<=500&&Number.isSafeInteger(n)&&n>=10000&&n<=1e9?n:0;
 }
@@ -60,9 +69,10 @@ async function tgProducts(env,kind){
         kind==='catalog'?(row.requiresPlayerId?'player':'none'):'username',
         ...(kind==='smm'&&row.bundleKey?{bundleKey:String(row.bundleKey)}:{})});
     }
+    if(items.length>=150)break;
   }
-  tgCache.set(kind,{exp:Date.now()+60000,items});
-  return items;
+  tgCache.set(kind,{exp:Date.now()+60000,items:items.slice(0,150)});
+  return items.slice(0,150);
 }
 function tgDestination(kind,value){
   const v=String(value||'').trim();
