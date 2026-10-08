@@ -157,3 +157,20 @@ async function tgNftBrowse(env){
   }
   return out;
 }
+
+
+async function tgCatalogLiveQuote(env,sku,catalogKey){
+  if(!/^\d{1,12}$/.test(String(sku||''))||
+    !/^(giftcards|topups):[a-zA-Z0-9:_-]{1,100}$/.test(String(catalogKey||'')))return null;
+  const key=await getProviderSecret(env,'tgtools_api_key');
+  const remote=await tgRequest(key,'GET','/api/catalog/item?key='+encodeURIComponent(catalogKey),null,false);
+  if(!remote.ok)return null;
+  const d=remote.data||{},item=d.item||d.product||d;
+  const variation=(item.variants||[]).find(v=>String(v.productId)===String(sku));
+  if(!variation||variation.available===false||variation.active===false)return null;
+  const ton=tgTon(variation),price=await tgPrice(env,'catalog',ton);
+  if(!price)return null;
+  return {kind:'catalog',sku:String(sku),catalog_key:String(catalogKey),
+    title:bpName((item.name||'گیفت‌کارت')+' · '+String(variation.label||variation.denomination||variation.region||sku),110),
+    target_type:item.requiresPlayerId?'player':'none',quantity:1,ton,price_toman:price};
+}
