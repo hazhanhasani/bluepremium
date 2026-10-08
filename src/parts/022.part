@@ -1,0 +1,154 @@
+
+function tgDecorateStore(html){
+  return html.replace('</body>','<script>('+tgStoreClient.toString()+')()</script></body>');
+}
+function tgDecorateAdmin(html){
+  return html.replace('</body>','<script>('+tgAdminClient.toString()+')()</script></body>');
+}
+function tgStoreClient(){
+  const get=id=>document.getElementById(id),format=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
+  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const css=document.createElement('style');
+  css.textContent='.tg-store{margin:22px auto;border:1px solid #24456b;border-radius:24px;background:linear-gradient(140deg,#11243d,#07101c);padding:18px;max-width:1100px;color:#f5f9ff}.tg-store h2{font-size:21px;margin:0 0 12px}.tg-store p{font-size:12px;color:#97acc7;line-height:1.9}.tg-categories{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none}.tg-categories button,.tg-store button{border:1px solid #284665;border-radius:13px;background:#142d4e;color:#eaf5ff;padding:10px 13px;cursor:pointer;font:700 12px Tahoma}.tg-categories button.selected{background:linear-gradient(130deg,#145ffe,#31a8ff);color:#fff}.tg-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}.tg-item{border:1px solid #234366;border-radius:16px;padding:15px;background:#0b1a2e;text-align:right}.tg-item b{font-size:14px;display:block}.tg-item small{display:block;color:#9db5d4;margin:9px 0}.tg-item button{width:100%;background:#206af6}.tg-checkout{max-width:520px;display:none;gap:10px;flex-direction:column;margin-top:14px}.tg-checkout label{font-size:12px}.tg-checkout input{padding:13px;border:1px solid #2b4d76;border-radius:12px;background:#071426;color:white;width:100%;box-sizing:border-box}.tg-order{border:1px solid #2d517d;padding:14px;border-radius:14px;background:#071524;line-height:2;margin-top:14px;font-size:13px}.tg-order button{margin:7px}.tg-paychoices{display:flex;gap:8px;flex-wrap:wrap}.tg-store button:disabled{opacity:.45}@media(max-width:600px){.tg-items{grid-template-columns:repeat(2,minmax(0,1fr))}.tg-store{margin:15px 0;padding:13px}.tg-item{padding:11px}.tg-item b{font-size:12px}}';
+  document.head.appendChild(css);
+  const section=document.createElement('section');section.id='tg-digital-shop';section.className='tg-store';
+  section.innerHTML='<h2>⭐ فروشگاه خدمات دیجیتال</h2><p>محصولات به‌روز TG Tools با قیمت نهایی تومان؛ کارت مقصد و مبلغ پرداخت داخل بلوپرمیوم نمایش داده می‌شود.</p>'+
+    '<div class="tg-categories" id="tgCategories"></div><div id="tgItems" class="tg-items"></div>'+
+    '<form id="tgCheckout" class="tg-checkout"><b id="tgChosen"></b><label for="tgDestination">مقصد سفارش</label>'+
+    '<input id="tgDestination" required placeholder="یوزرنیم تلگرام بدون @" maxlength="320">'+
+    '<div class="tg-paychoices"><button type="submit" value="blupal" id="tgPayCard">🏦 دریافت اطلاعات کارت</button>'+
+    '<button type="button" id="tgPayWallet">💳 خرید با کیف پول</button></div></form>'+
+    '<div class="tg-order" id="tgOrder" style="display:none"></div><p id="tgFeedback" role="status"></p>';
+  const checkout=get('checkout');if(checkout)checkout.parentElement.insertBefore(section,checkout);
+  const categories=get('tgCategories'),items=get('tgItems'),feedback=get('tgFeedback');
+  let all=[],currentKind='stars',selected=null,loading=false;
+  const account=()=>window.Telegram?.WebApp?.initData||'';
+  async function load(kind){
+    currentKind=kind;selected=null;get('tgCheckout').style.display='none';
+    items.innerHTML='<p>در حال دریافت محصولات...</p>';
+    try{
+      const r=await fetch('/api/market/catalog?kind='+encodeURIComponent(kind),{cache:'no-store'}),d=await r.json();
+      if(!d.ok)throw Error(d.error);
+      all=d.products||[];
+      categories.innerHTML=d.kinds.map(x=>'<button data-kind="'+escape(x.kind)+'" class="'+(x.kind===kind?'selected':'')+'">'+escape(x.title)+'</button>').join('');
+      items.innerHTML=!d.enabled?'<p>این دسته فعلاً توسط مدیریت غیرفعال است.</p>':
+        all.length?all.map((x,i)=>'<article class="tg-item"><b>'+escape(x.title)+'</b><small>'+format(x.price_toman)+' تومان</small>'+
+        '<button data-index="'+i+'">انتخاب</button></article>').join(''):
+        '<p>قیمت معتبر یا محصول فعالی برای این دسته دریافت نشد.</p>';
+    }catch(e){items.textContent='دریافت محصولات ناموفق بود؛ دوباره تلاش کن.'}
+  }
+  categories.onclick=e=>{const b=e.target.closest('[data-kind]');if(b)load(b.dataset.kind)};
+  items.onclick=e=>{
+    const b=e.target.closest('[data-index]');if(!b)return;
+    selected=all[Number(b.dataset.index)];if(!selected)return;
+    get('tgChosen').textContent=selected.title+' | '+format(selected.price_toman)+' تومان';
+    get('tgDestination').required=selected.target_type!=='none';
+    get('tgDestination').value='';
+    get('tgDestination').placeholder=selected.target_type==='link'?'لینک https://...':
+      selected.target_type==='player'?'شناسه بازیکن':selected.target_type==='none'?'نیازی به مقصد نیست':'یوزرنیم تلگرام';
+    get('tgDestination').style.display=selected.target_type==='none'?'none':'block';
+    get('tgCheckout').style.display='flex';
+    get('tgCheckout').scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  async function submit(payment){
+    if(!selected||loading)return;
+    if(payment==='wallet'&&!account()){feedback.textContent='برای خرید با کیف پول، مینی‌اپ را داخل تلگرام باز کن.';return}
+    const target=get('tgDestination').value.trim();
+    if(selected.target_type!=='none'&&!target){feedback.textContent='مقصد را وارد کن.';return}
+    if(!confirm('ثبت سفارش '+selected.title+' با مبلغ '+format(selected.price_toman)+' تومان؟'))return;
+    loading=true;get('tgPayCard').disabled=true;get('tgPayWallet').disabled=true;
+    feedback.textContent='در حال ثبت سفارش و بررسی قیمت...';
+    try{
+      const headers={'Content-Type':'application/json'};
+      if(account())headers['X-Telegram-Init-Data']=account();
+      const r=await fetch('/api/market/orders',{method:'POST',headers,body:JSON.stringify({
+        kind:selected.kind,sku:selected.sku,target,payment
+      })});
+      const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'payment_unavailable');
+      const order=d.order;
+      localStorage.setItem('tg_market_order',JSON.stringify({code:order.code,token:order.token}));
+      render(order);
+      feedback.textContent='سفارش ثبت شد.';
+    }catch(e){feedback.textContent='خطا: '+e.message}
+    finally{loading=false;get('tgPayCard').disabled=false;get('tgPayWallet').disabled=false}
+  }
+  get('tgCheckout').onsubmit=e=>{e.preventDefault();submit('blupal')};
+  get('tgPayWallet').onclick=()=>submit('wallet');
+  function render(o){
+    const pane=get('tgOrder');pane.style.display='block';
+    const pay=o.payment_instructions;
+    pane.innerHTML='<b>'+escape(o.title)+'</b><div>شناسه: <code>'+escape(o.code)+'</code></div>'+
+      '<div>وضعیت: '+escape(o.status)+'</div>'+
+      (pay?'<div>شماره کارت مقصد: <b>'+escape(pay.card_number)+'</b> <button data-copy="'+escape(pay.card_number)+'">کپی</button></div>'+
+      '<div>مبلغ دقیق: <b>'+format(pay.amount_rial)+' ریال</b> <button data-copy="'+Number(pay.amount_rial)+'">کپی</button></div>':
+      '<p>سفارش با کیف پول ثبت شد یا در حال آماده‌سازی است.</p>')+
+      (o.delivery_code?'<div>کد تحویل: <code>'+escape(o.delivery_code)+'</code></div>':'')+
+      '<button id="tgCheckOrder">🔄 بررسی وضعیت سفارش</button>';
+    pane.onclick=async e=>{
+      const copy=e.target.closest('[data-copy]');
+      if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);feedback.textContent='کپی شد ✅'}catch(_){}return}
+      if(e.target.id==='tgCheckOrder')await check();
+    };
+    pane.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  async function check(){
+    try{
+      const saved=JSON.parse(localStorage.getItem('tg_market_order')||'null');if(!saved)return;
+      const r=await fetch('/api/market/orders/'+encodeURIComponent(saved.code)+'/check?token='+encodeURIComponent(saved.token),{cache:'no-store'});
+      const d=await r.json();if(d.ok)render(d.order);else feedback.textContent='سفارش پیدا نشد.';
+    }catch(e){feedback.textContent='بررسی مجدد ناموفق بود.'}
+  }
+  load('stars');
+  try{if(localStorage.getItem('tg_market_order'))check()}catch(_){}
+}
+function tgAdminClient(){
+  const id=x=>document.getElementById(x),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
+  const section=document.createElement('section');section.id='tgMarketAdmin';section.className='section';
+  section.innerHTML='<div class="grid"><article class="card"><h3>تنظیمات محصولات TG Tools</h3><p class="sub">درصد سود و وضعیت فروش برای هر دسته مستقل است. فعال‌سازی فقط برای دسته‌های دارای قیمت قابل استعلام انجام می‌شود.</p><div id="tgMarketSettings" class="plan-grid"></div></article>'+
+    '<article class="card"><div class="provider-head"><h3>سفارش‌های دیجیتال</h3><button class="btn secondary" id="tgMarketReload">بروزرسانی</button></div>'+
+    '<div class="orders"><table><thead><tr><th>کد</th><th>محصول</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody id="tgMarketOrders"></tbody></table></div></article></div>';
+  id('settings').insertAdjacentElement('beforebegin',section);
+  for(const selector of ['.side .nav','.mobilebar']){
+    const nav=document.querySelector(selector);if(!nav)continue;
+    const b=document.createElement('button');b.dataset.tab='tgMarketAdmin';
+    b.textContent='⭐ محصولات TG Tools';
+    b.onclick=()=>open();nav.appendChild(b);
+    if(selector==='.mobilebar')nav.style.overflowX='auto';
+  }
+  function open(){
+    document.querySelectorAll('.section').forEach(x=>x.classList.toggle('on',x.id==='tgMarketAdmin'));
+    document.querySelectorAll('.nav button,.mobilebar button').forEach(x=>x.classList.toggle('on',x.dataset.tab==='tgMarketAdmin'));
+    id('pageTitle').textContent='محصولات TG Tools';
+    id('pageSub').textContent='مدیریت قیمت، دسته‌ها و سفارش‌های دیجیتال';
+    load();
+  }
+  const H=()=>({'Content-Type':'application/json','Authorization':'Bearer '+(sessionStorage.getItem('bp_admin')||'')});
+  async function call(url,opts={}){
+    const r=await fetch(url,{...opts,headers:H(),cache:'no-store'}),d=await r.json();
+    if(!r.ok||!d.ok)throw Error(d.error||'request_failed');return d;
+  }
+  const labels={stars:'استارز',gift:'گیفت',smm:'خدمات SMM',catalog:'گیفت‌کارت/شارژ بازی',nft:'NFT',steam:'Steam'};
+  async function load(){
+    try{
+      const [configs,orders]=await Promise.all([call('/api/admin/market/settings'),call('/api/admin/market/orders')]);
+      id('tgMarketSettings').innerHTML=Object.entries(configs.settings).map(([kind,s])=>
+        '<div class="plan"><h4>'+labels[kind]+'</h4><div class="field"><label>درصد سود</label><input class="input" id="tgPercent_'+kind+'" type="number" min="0" max="500" value="'+Number(s.profit_percent)+'"></div>'+
+        '<div class="field"><label>فروش</label><select class="input" id="tgEnabled_'+kind+'"><option value="1" '+(s.enabled?'selected':'')+'>فعال</option>'+
+        '<option value="0" '+(!s.enabled?'selected':'')+'>غیرفعال</option></select></div>'+
+        '<button class="btn" data-save-kind="'+kind+'">ذخیره</button></div>').join('');
+      id('tgMarketOrders').innerHTML=(orders.orders||[]).map(x=>'<tr><td>'+esc(x.order_code)+'</td><td>'+esc(x.title)+'</td>'+
+        '<td>'+money(x.price_toman)+'</td><td>'+esc(x.status)+'</td><td>'+esc(x.created_at)+'</td></tr>').join('');
+    }catch(e){id('tgMarketSettings').textContent='خطا: '+e.message}
+  }
+  id('tgMarketSettings').onclick=async e=>{
+    const btn=e.target.closest('[data-save-kind]');if(!btn)return;
+    const kind=btn.dataset.saveKind;
+    const body={kind,enabled:id('tgEnabled_'+kind).value==='1',profit_percent:Number(id('tgPercent_'+kind).value)};
+    btn.disabled=true;
+    try{await call('/api/admin/market/settings',{method:'PATCH',body:JSON.stringify(body)});btn.textContent='ذخیره شد ✅'}
+    catch(e){alert('خطا در ذخیره: '+e.message)}
+    finally{btn.disabled=false}
+  };
+  id('tgMarketReload').onclick=load;
+}
