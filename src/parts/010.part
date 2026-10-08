@@ -28,6 +28,22 @@ function adminHtmlV2() {
   .mobilebar{height:68px;right:9px;left:9px;bottom:max(8px,env(safe-area-inset-bottom));padding:6px;border-radius:22px}.mobilebar button{font-size:7px}.mobilebar button .ico{width:19px;height:19px}
 }
 </style>
+<style id="bp-mobile-admin-20261008">
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media(max-width:980px){
+ .main{padding-bottom:calc(135px + env(safe-area-inset-bottom,0px))!important}
+ .mobilebar{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;
+   scroll-snap-type:x proximity;gap:4px;justify-content:flex-start}
+ .mobilebar::-webkit-scrollbar{display:none}
+ .mobilebar button{flex:0 0 71px!important;min-width:71px;scroll-snap-align:center}
+ .mobilebar button span{white-space:nowrap}
+ .orders{max-width:100%;overflow:auto}
+ .card{min-width:0}
+ .kpi{min-height:112px}
+ .kpi b{font-variant-numeric:tabular-nums}
+}
+@media(max-width:650px){.main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}}
+</style>
 </head>
 <body>
 <section id="loginWrap" class="loginwrap">
@@ -62,11 +78,11 @@ function adminHtmlV2() {
 <div class="grid">
   <article class="card kpi"><div class="sub">کل سفارش‌ها</div><b id="kOrders">0</b><span>تمام وضعیت‌ها</span></article>
   <article class="card kpi"><div class="sub">تحویل موفق</div><b id="kDelivered">0</b><span>فعال‌سازی تکمیل‌شده</span></article>
-  <article class="card kpi"><div class="sub">در انتظار / پردازش</div><b id="kPending">0</b><span>نیازمند پیگیری خودکار</span></article>
+  <article class="card kpi"><div class="sub">در انتظار رسیدگی</div><b id="kPending">0</b><span id="kPendingHint">پرداخت یا تحویل</span></article>
   <article class="card kpi"><div class="sub">فروش موفق</div><b id="kRevenue">0</b><span>تومان</span></article>
   <article class="card provider" id="dashTg"></article>
   <article class="card provider" id="dashBp"></article>
-  <article class="card"><div class="provider-head"><div><h3>آخرین سفارش‌ها</h3><div class="sub">نمای سریع ۱۰ سفارش اخیر</div></div><button class="btn secondary" onclick="tab('orders')">مشاهده همه</button></div><div class="orders"><table><thead><tr><th>کد</th><th>مقصد</th><th>پلن</th><th>مبلغ</th><th>وضعیت</th></tr></thead><tbody id="dashOrders"></tbody></table></div></article>
+  <article class="card"><div class="provider-head"><div><h3>آخرین سفارش‌ها</h3><div class="sub">پرمیوم، استارز و سایر محصولات دیجیتال</div></div><button class="btn secondary" onclick="tab('orders')">مشاهده همه</button></div><div class="orders"><table><thead><tr><th>کد</th><th>مقصد</th><th>محصول</th><th>مبلغ</th><th>وضعیت</th></tr></thead><tbody id="dashOrders"></tbody></table></div></article>
 </div>
 </section>
 
@@ -118,8 +134,15 @@ async function load(){if(!token)return;const r=await fetch('/api/admin/summary',
 function statusCount(name){const x=(summary.orders||[]).find(o=>o.status===name);return Number(x?.count||0)}
 function statusTotal(name){const x=(summary.orders||[]).find(o=>o.status===name);return Number(x?.total||0)}
 function renderSummary(){
-  const total=(summary.orders||[]).reduce((a,b)=>a+Number(b.count||0),0);const pending=['awaiting_payment','awaiting_bazaar_payment','paid','awaiting_approval','provider_submitting','provider_pending','provider_uncertain'].reduce((a,s)=>a+statusCount(s),0);
-  document.getElementById('kOrders').textContent=money(total);document.getElementById('kDelivered').textContent=money(statusCount('delivered'));document.getElementById('kPending').textContent=money(pending);document.getElementById('kRevenue').textContent=money(statusTotal('delivered'));
+  const total=(summary.orders||[]).reduce((a,b)=>a+Number(b.count||0),0);
+  const needsAttention=['paid','awaiting_approval','provider_submitting','provider_pending','provider_uncertain','refund_required']
+    .reduce((a,state)=>a+statusCount(state),0);
+  const unpaid=['awaiting_payment','awaiting_bazaar_payment','creating_payment'].reduce((a,state)=>a+statusCount(state),0);
+  document.getElementById('kOrders').textContent=money(total);
+  document.getElementById('kDelivered').textContent=money(statusCount('delivered'));
+  document.getElementById('kPending').textContent=money(needsAttention);
+  document.getElementById('kPendingHint').textContent=money(unpaid)+' فاکتور در انتظار پرداخت';
+  document.getElementById('kRevenue').textContent=money(statusTotal('delivered'));
   const tg=summary.providers.tgtools||{},bazaar=summary.providers.cafebazaar||{},bp=summary.providers.blupal||{},bot=summary.providers.telegram_bot||{};
   document.getElementById('dashTg').innerHTML=providerCard('TG Tools','فعال‌سازی Premium',tg.ok,tg.configured,(tg.balance_ton!=null?'موجودی: '+tg.balance_ton+' TON':''));
   document.getElementById('dashBp').innerHTML=providerCard('BluePal','درگاه مشترک اپ و ربات',bp.ok,bp.configured,bp.active?'درگاه پیش‌فرض':'غیرفعال');
@@ -158,7 +181,18 @@ async function loadOrders(){
   const action=o=>o.status==='awaiting_approval'?'<button class="approve-btn" data-code="'+o.order_code+'" onclick="approveOrder(this.dataset.code,this)">ارسال به TG Tools</button>':'—';
   const html=rows.map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td><td>'+String(o.created_at||'').replace('T',' ').slice(0,16)+'</td><td>'+action(o)+'</td></tr>').join('');
   document.getElementById('ordersBody').innerHTML=html||'<tr><td colspan="7">سفارشی ثبت نشده است.</td></tr>';
-  document.getElementById('dashOrders').innerHTML=rows.slice(0,10).map(o=>'<tr><td>'+o.order_code+'</td><td>@'+o.username+'</td><td>'+o.months+' ماه</td><td>'+money(o.price_toman)+'</td><td><span class="status '+o.status+'">'+statusLabel(o.status)+'</span></td></tr>').join('');
+  const recent=(summary?.recent_orders||[]).length?summary.recent_orders:rows.slice(0,10).map(o=>({
+    ...o,target:o.username,category:'premium'
+  }));
+  const labels={stars:'⭐ استارز',gift:'🎁 گیفت',catalog:'🎮 گیفت‌کارت',smm:'📣 خدمات',nft:'💎 NFT',steam:'🎮 Steam'};
+  const escapeText=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  document.getElementById('dashOrders').innerHTML=recent.map(o=>{
+    const product=o.category==='premium'?money(o.months)+' ماه پرمیوم':labels[o.category]||'محصول دیجیتال';
+    const destination=o.category==='premium'?'@'+String(o.target||'').replace(/^@/,''):o.target;
+    return '<tr><td>'+escapeText(o.order_code)+'</td><td>'+escapeText(destination)+'</td>'+
+      '<td>'+escapeText(product)+'</td><td>'+money(o.price_toman)+'</td>'+
+      '<td><span class="status '+escapeText(o.status)+'">'+escapeText(statusLabel(o.status))+'</span></td></tr>';
+  }).join('')||'<tr><td colspan="5">سفارشی ثبت نشده است.</td></tr>';
 }
 async function approveOrder(code,button){
   if(button)button.disabled=true;
