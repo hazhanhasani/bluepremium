@@ -423,7 +423,7 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
   const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
     amount: expectedRial,
   });
-  let details = blupalInvoiceFields(invoice.data || invoice.raw || {}, expectedRial);
+  let details = blupalInvoiceFields(invoice.raw || invoice.data || {}, expectedRial);
 
   if (!invoice.ok || !details.invoice_id) {
     await env.DB.prepare(`UPDATE orders SET status='payment_error',provider_error=?,updated_at=? WHERE order_code=?`)
@@ -434,7 +434,7 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
   if (!details.card_number || !details.final_amount_rial) {
     const fetched = await blupalRequest(blupalKey, 'GET', `/v1/invoices/${encodeURIComponent(details.invoice_id)}`);
     if (fetched.ok) {
-      const refreshed = blupalInvoiceFields(fetched.data || fetched.raw || {}, expectedRial);
+      const refreshed = blupalInvoiceFields(fetched.raw || fetched.data || {}, expectedRial);
       details = {
         ...details,
         ...refreshed,
@@ -449,7 +449,7 @@ async function createTelegramBotBlupalOrder(env, { chatId, userId, planId, usern
 
   if (
     !details.card_number ||
-    details.card_number.length < 16 ||
+    details.card_number.length !== 16 ||
     !details.final_amount_rial ||
     details.final_amount_rial < expectedRial ||
     details.final_amount_rial > expectedRial + 999
