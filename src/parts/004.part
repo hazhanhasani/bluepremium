@@ -53,6 +53,8 @@ async function providerHealth(env) {
     out.tgtools.balance_ton = firstNumber(d, ['balanceTon','tonBalance','availableTon','availableBalance','walletBalance','balance']);
     out.tgtools.wallet_address = firstString(d, ['depositAddress','walletAddress','tonAddress','address']);
   }
+  out.telegram_bot = await telegramBotHealth(env);
+  out.telegram_bot.webhook_url = String(await getSetting(env.DB, 'telegram_bot_webhook_url', ''));
   return out;
 }
 
