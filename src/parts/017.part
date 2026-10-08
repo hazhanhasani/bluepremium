@@ -1,0 +1,358 @@
+
+function telegramBotTokenLooksValid(value) {
+  return /^\d{6,12}:[A-Za-z0-9_-]{30,80}$/.test(String(value || '').trim());
+}
+
+function telegramAdminIdLooksValid(value) {
+  return /^-?\d{5,20}$/.test(String(value || '').trim());
+}
+
+function telegramEscapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+async function telegramBotApi(token, method, payload = {}) {
+  if (!telegramBotTokenLooksValid(token)) {
+    return { ok: false, error: 'invalid_bot_token', http_status: 0, result: null };
+  }
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    return {
+      ok: response.ok && data?.ok === true,
+      http_status: response.status,
+      result: data?.result ?? null,
+      description: String(data?.description || ''),
+      error: response.ok && data?.ok === true ? '' : String(data?.description || 'telegram_api_error'),
+    };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || 'network_error'), http_status: 0, result: null };
+  }
+}
+
+async function ensureTelegramWebhookSecret(env) {
+  let secret = await getSetting(env.DB, 'internal_telegram_webhook_secret', '');
+  if (secret) return secret;
+  secret = randomToken(32);
+  await setSetting(env.DB, 'internal_telegram_webhook_secret', secret);
+  return secret;
+}
+
+async function telegramBotHealth(env) {
+  const [enabled, adminId, username, token] = await Promise.all([
+    getSetting(env.DB, 'telegram_bot_enabled', '0'),
+    getSetting(env.DB, 'telegram_admin_id', ''),
+    getSetting(env.DB, 'telegram_bot_username', ''),
+    getProviderSecret(env, 'telegram_bot_token'),
+  ]);
+  const configured = !!token && telegramAdminIdLooksValid(adminId);
+  const out = {
+    enabled: String(enabled) === '1',
+    configured,
+    ok: false,
+    username: String(username || ''),
+    admin_id: String(adminId || ''),
+    webhook_url: '',
+    http_status: 0,
+    error: '',
+  };
+  if (!configured || String(enabled) !== '1') return out;
+  const me = await telegramBotApi(token, 'getMe');
+  out.ok = me.ok;
+  out.http_status = Number(me.http_status || 0);
+  out.error = me.ok ? '' : safeProviderMessage(me.error || me.description || 'telegram_bot_error');
+  if (me.ok && me.result?.username) {
+    out.username = String(me.result.username);
+    await setSetting(env.DB, 'telegram_bot_username', out.username);
+  }
+  return out;
+}
+
+async function configureTelegramBot(env, origin, { token = '', adminId = '', enabled = true } = {}) {
+  let currentToken = await getProviderSecret(env, 'telegram_bot_token');
+  const suppliedToken = String(token || '').trim();
+  if (suppliedToken) {
+    if (!telegramBotTokenLooksValid(suppliedToken)) return { ok: false, error: 'invalid_bot_token' };
+    const me = await telegramBotApi(suppliedToken, 'getMe');
+    if (!me.ok) return { ok: false, error: 'bot_token_rejected', message: me.description || me.error };
+    currentToken = suppliedToken;
+    await setProviderSecret(env, 'telegram_bot_token', suppliedToken);
+    await setSetting(env.DB, 'telegram_bot_username', String(me.result?.username || ''));
+  }
+
+  const finalAdminId = String(adminId || await getSetting(env.DB, 'telegram_admin_id', '')).trim();
+  if (!telegramAdminIdLooksValid(finalAdminId)) return { ok: false, error: 'invalid_admin_id' };
+  if (!currentToken) return { ok: false, error: 'bot_token_required' };
+
+  await setSetting(env.DB, 'telegram_admin_id', finalAdminId);
+  await setSetting(env.DB, 'telegram_bot_enabled', enabled ? '1' : '0');
+
+  if (!enabled) {
+    const removed = await telegramBotApi(currentToken, 'deleteWebhook', { drop_pending_updates: false });
+    return { ok: removed.ok, disabled: true, health: await telegramBotHealth(env), error: removed.ok ? '' : removed.error };
+  }
+
+  const secret = await ensureTelegramWebhookSecret(env);
+  const webhookUrl = String(origin || '').replace(/\/$/, '') + '/api/telegram/bot/webhook';
+
+  const hook = await telegramBotApi(currentToken, 'setWebhook', {
+    url: webhookUrl,
+    secret_token: secret,
+    allowed_updates: ['message', 'callback_query'],
+    drop_pending_updates: false,
+  });
+  if (!hook.ok) return { ok: false, error: 'set_webhook_failed', message: hook.description || hook.error };
+
+  await telegramBotApi(currentToken, 'setMyCommands', {
+    commands: [
+      { command: 'start', description: 'شروع و نمایش منوی بلوپرمیوم' },
+      { command: 'buy', description: 'خرید تلگرام پرمیوم' },
+      { command: 'status', description: 'پیگیری وضعیت سفارش' },
+      { command: 'support', description: 'پشتیبانی' },
+    ],
+  });
+
+  await telegramBotApi(currentToken, 'setChatMenuButton', {
+    menu_button: {
+      type: 'web_app',
+      text: 'خرید پرمیوم',
+      web_app: { url: String(origin || '').replace(/\/$/, '') + '/?from=telegram' },
+    },
+  });
+
+  await setSetting(env.DB, 'telegram_bot_webhook_url', webhookUrl);
+  const health = await telegramBotHealth(env);
+  health.webhook_url = webhookUrl;
+  return { ok: true, health };
+}
+
+function telegramSupportUrl(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  if (/^https:\/\/t\.me\/[A-Za-z0-9_]{4,}$/i.test(s)) return s;
+  if (/^@[A-Za-z0-9_]{4,}$/.test(s)) return 'https://t.me/' + s.slice(1);
+  if (/^[A-Za-z0-9_]{4,}$/.test(s)) return 'https://t.me/' + s;
+  return '';
+}
+
+async function telegramMainKeyboard(env, origin, senderId = '') {
+  const support = telegramSupportUrl(await getSetting(env.DB, 'support', ''));
+  const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
+  const rows = [
+    [{ text: '🛍 خرید تلگرام پرمیوم', web_app: { url: String(origin).replace(/\/$/, '') + '/?from=telegram' } }],
+    [{ text: '📦 پیگیری سفارش', callback_data: 'status_help' }],
+  ];
+  if (support) rows.push([{ text: '☎️ پشتیبانی', url: support }]);
+  if (String(senderId) === adminId) {
+    rows.push([{ text: '⚙️ مدیریت بلوپرمیوم', url: String(origin).replace(/\/$/, '') + '/admin' }]);
+  }
+  return { inline_keyboard: rows };
+}
+
+async function telegramSendMessage(env, chatId, text, extra = {}) {
+  const token = await getProviderSecret(env, 'telegram_bot_token');
+  if (!token) return { ok: false, error: 'not_configured' };
+  return telegramBotApi(token, 'sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...extra,
+  });
+}
+
+async function notifyTelegramAdmin(env, text, replyMarkup = null) {
+  const [enabled, adminId] = await Promise.all([
+    getSetting(env.DB, 'telegram_bot_enabled', '0'),
+    getSetting(env.DB, 'telegram_admin_id', ''),
+  ]);
+  if (String(enabled) !== '1' || !telegramAdminIdLooksValid(adminId)) return { ok: false, skipped: true };
+  return telegramSendMessage(env, adminId, text, replyMarkup ? { reply_markup: replyMarkup } : {});
+}
+
+async function notifyTelegramAdminForOrder(env, order, type = 'update') {
+  if (!order) return;
+  const code = telegramEscapeHtml(order.order_code);
+  const username = telegramEscapeHtml(order.username);
+  const months = Number(order.months || 0);
+  const amount = new Intl.NumberFormat('fa-IR').format(Number(order.price_toman || 0));
+
+  if (type === 'awaiting_approval') {
+    return notifyTelegramAdmin(
+      env,
+      `🟡 <b>سفارش آماده تأیید</b>\n\n🧾 <code>${code}</code>\n👤 @${username}\n📦 ${months} ماهه\n💳 ${amount} تومان\n\nپرداخت تأیید شده و سفارش منتظر ارسال به TG Tools است.`,
+      { inline_keyboard: [[{ text: '✅ ارسال به TG Tools', callback_data: `approve:${order.order_code}` }]] }
+    );
+  }
+
+  if (type === 'delivered') {
+    return notifyTelegramAdmin(
+      env,
+      `✅ <b>سفارش تحویل شد</b>\n\n🧾 <code>${code}</code>\n👤 @${username}\n📦 ${months} ماهه`
+    );
+  }
+
+  if (type === 'failed') {
+    return notifyTelegramAdmin(
+      env,
+      `🔴 <b>سفارش نیاز به بررسی دارد</b>\n\n🧾 <code>${code}</code>\n👤 @${username}\n📦 ${months} ماهه\n⚠️ ${telegramEscapeHtml(order.provider_error || order.status)}`
+    );
+  }
+}
+
+async function telegramOrderStatusText(env, code) {
+  const clean = String(code || '').trim().toUpperCase();
+  if (!/^BP-[A-Z0-9]{6,40}$/.test(clean)) return null;
+  const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(clean).first();
+  if (!order) return null;
+  return [
+    '📦 <b>وضعیت سفارش بلوپرمیوم</b>',
+    '',
+    `🧾 کد: <code>${telegramEscapeHtml(order.order_code)}</code>`,
+    `👤 مقصد: @${telegramEscapeHtml(order.username)}</code>`.replace('</code>', ''),
+    `📅 پلن: ${Number(order.months)} ماهه`,
+    `💳 مبلغ: ${new Intl.NumberFormat('fa-IR').format(Number(order.price_toman || 0))} تومان`,
+    `📍 وضعیت: <b>${telegramEscapeHtml(customerStatusMessage(order.status))}</b>`,
+  ].join('\n');
+}
+
+async function telegramAdminSummaryText(env) {
+  const result = await env.DB.prepare(`SELECT status,COUNT(*) count FROM orders GROUP BY status`).all();
+  const rows = result.results || [];
+  const count = status => Number(rows.find(r => r.status === status)?.count || 0);
+  const total = rows.reduce((a, r) => a + Number(r.count || 0), 0);
+  const waiting = count('awaiting_approval');
+  const delivered = count('delivered');
+  const issues = count('provider_uncertain') + count('failed') + count('payment_error') + count('payment_mismatch');
+  return `⚙️ <b>مدیریت بلوپرمیوم</b>\n\n📦 کل سفارش‌ها: ${total}\n🟡 منتظر تأیید: ${waiting}\n✅ تحویل‌شده: ${delivered}\n🔴 نیازمند بررسی: ${issues}`;
+}
+
+async function handleTelegramBotUpdate(env, update, origin, ctx) {
+  const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
+  if (!enabled) return;
+
+  const token = await getProviderSecret(env, 'telegram_bot_token');
+  if (!token) return;
+
+  const callback = update?.callback_query;
+  if (callback) {
+    const callbackId = String(callback.id || '');
+    const data = String(callback.data || '');
+    const chatId = callback.message?.chat?.id || callback.from?.id;
+    const fromId = String(callback.from?.id || '');
+    const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
+
+    if (callbackId) await telegramBotApi(token, 'answerCallbackQuery', { callback_query_id: callbackId });
+
+    if (data === 'status_help') {
+      await telegramSendMessage(env, chatId, '🔎 کد سفارش را به این شکل ارسال کن:\n<code>BP-XXXXXXXXXXXXXX</code>');
+      return;
+    }
+
+    if (data === 'admin' && fromId === adminId) {
+      await telegramSendMessage(env, chatId, await telegramAdminSummaryText(env), {
+        reply_markup: { inline_keyboard: [[{ text: '⚙️ باز کردن پنل', url: String(origin).replace(/\/$/, '') + '/admin' }]] }
+      });
+      return;
+    }
+
+    if (data.startsWith('approve:') && fromId === adminId) {
+      const code = data.slice('approve:'.length);
+      const order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(code).first();
+      if (!order) {
+        await telegramSendMessage(env, chatId, 'سفارش پیدا نشد.');
+        return;
+      }
+      if (order.status !== 'awaiting_approval') {
+        await telegramSendMessage(env, chatId, `این سفارش دیگر منتظر تأیید نیست.\nوضعیت: <b>${telegramEscapeHtml(customerStatusMessage(order.status))}</b>`);
+        return;
+      }
+      const claim = await env.DB.prepare(`UPDATE orders SET status='provider_submitting', provider_error=NULL, updated_at=? WHERE id=? AND status='awaiting_approval'`)
+        .bind(new Date().toISOString(), order.id).run();
+      if (!claim.meta?.changes) {
+        await telegramSendMessage(env, chatId, 'این سفارش قبلاً توسط فرآیند دیگری دریافت شده است.');
+        return;
+      }
+      const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first();
+      await telegramSendMessage(env, chatId, `🚀 سفارش <code>${telegramEscapeHtml(code)}</code> برای TG Tools ارسال شد.`);
+      ctx?.waitUntil?.(deliverPremium(env, fresh));
+      if (!ctx?.waitUntil) await deliverPremium(env, fresh);
+      return;
+    }
+    return;
+  }
+
+  const message = update?.message;
+  if (!message?.chat?.id) return;
+  const chatId = message.chat.id;
+  const fromId = String(message.from?.id || '');
+  const text = String(message.text || '').trim();
+  const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
+
+  if (/^\/start(?:@\w+)?(?:\s|$)/i.test(text)) {
+    const firstName = telegramEscapeHtml(message.from?.first_name || 'دوست عزیز');
+    await telegramSendMessage(
+      env,
+      chatId,
+      `👋 سلام <b>${firstName}</b>\n\nبه <b>بلوپرمیوم</b> خوش اومدی.\nاز اینجا می‌تونی تلگرام پرمیوم بخری و وضعیت سفارشت رو پیگیری کنی.`,
+      { reply_markup: await telegramMainKeyboard(env, origin, fromId) }
+    );
+    return;
+  }
+
+  if (/^\/buy(?:@\w+)?(?:\s|$)/i.test(text)) {
+    await telegramSendMessage(env, chatId, '🛍 برای انتخاب پلن و خرید پرمیوم روی دکمه زیر بزن.', {
+      reply_markup: { inline_keyboard: [[{ text: 'باز کردن فروشگاه بلوپرمیوم', web_app: { url: String(origin).replace(/\/$/, '') + '/?from=telegram' } }]] }
+    });
+    return;
+  }
+
+  if (/^\/support(?:@\w+)?(?:\s|$)/i.test(text)) {
+    const support = telegramSupportUrl(await getSetting(env.DB, 'support', ''));
+    if (support) {
+      await telegramSendMessage(env, chatId, '☎️ برای ارتباط با پشتیبانی روی دکمه زیر بزن.', {
+        reply_markup: { inline_keyboard: [[{ text: 'پشتیبانی بلوپرمیوم', url: support }]] }
+      });
+    } else {
+      await telegramSendMessage(env, chatId, 'پشتیبانی هنوز در پنل مدیریت تنظیم نشده است.');
+    }
+    return;
+  }
+
+  if (/^\/admin(?:@\w+)?(?:\s|$)/i.test(text) && fromId === adminId) {
+    await telegramSendMessage(env, chatId, await telegramAdminSummaryText(env), {
+      reply_markup: { inline_keyboard: [[{ text: '⚙️ باز کردن پنل مدیریت', url: String(origin).replace(/\/$/, '') + '/admin' }]] }
+    });
+    return;
+  }
+
+  const statusCommand = text.match(/^\/status(?:@\w+)?(?:\s+(.+))?$/i);
+  const orderCode = statusCommand ? String(statusCommand[1] || '').trim() : (/^BP-[A-Z0-9]{6,40}$/i.test(text) ? text : '');
+  if (statusCommand && !orderCode) {
+    await telegramSendMessage(env, chatId, 'کد سفارش را بعد از دستور وارد کن:\n<code>/status BP-XXXXXXXXXXXXXX</code>');
+    return;
+  }
+  if (orderCode) {
+    const statusText = await telegramOrderStatusText(env, orderCode);
+    if (!statusText) {
+      await telegramSendMessage(env, chatId, 'سفارشی با این کد پیدا نشد. کد را دقیق بررسی کن.');
+      return;
+    }
+    await telegramSendMessage(env, chatId, statusText, {
+      reply_markup: await telegramMainKeyboard(env, origin, fromId)
+    });
+    return;
+  }
+
+  await telegramSendMessage(env, chatId, 'یکی از گزینه‌های زیر را انتخاب کن 👇', {
+    reply_markup: await telegramMainKeyboard(env, origin, fromId)
+  });
+}
