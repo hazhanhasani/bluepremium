@@ -147,13 +147,30 @@
     if (!auth) return api({ ok: false, error: 'unauthorized' }, 401);
 
     if (path === '/api/admin/summary' && request.method === 'GET') {
-      const [orders, providers, settings, plans] = await Promise.all([
+      const [orders, marketOrders, recentOrders, providers, settings, plans] = await Promise.all([
         env.DB.prepare(`SELECT status, COUNT(*) count, COALESCE(SUM(price_toman),0) total FROM orders GROUP BY status`).all(),
+        env.DB.prepare(`SELECT status, COUNT(*) count, COALESCE(SUM(price_toman),0) total FROM bp_market_orders GROUP BY status`).all(),
+        env.DB.prepare(`
+          SELECT order_code, username AS target, 'premium' AS category, months, status, price_toman, created_at FROM orders
+          UNION ALL
+          SELECT order_code, target, kind AS category, NULL AS months, status, price_toman, created_at FROM bp_market_orders
+          ORDER BY created_at DESC LIMIT 10
+        `).all(),
         providerHealth(env),
         adminSettings(env.DB),
         env.DB.prepare(`SELECT * FROM plans ORDER BY months`).all(),
       ]);
-      return api({ ok: true, orders: orders.results || [], providers, settings, plans: plans.results || [] });
+      const grouped = new Map();
+      for (const row of [...(orders.results || []), ...(marketOrders.results || [])]) {
+        const key = String(row.status);
+        const entry = grouped.get(key) || { status: key, count: 0, total: 0 };
+        entry.count += Number(row.count || 0);
+        entry.total += Number(row.total || 0);
+        grouped.set(key, entry);
+      }
+      return api({ ok: true, orders: [...grouped.values()],
+        breakdown: { premium: orders.results || [], market: marketOrders.results || [] },
+        recent_orders: recentOrders.results || [], providers, settings, plans: plans.results || [] });
     }
 
     if (path === '/api/admin/orders' && request.method === 'GET') {
