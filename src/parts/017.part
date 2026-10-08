@@ -151,7 +151,7 @@ async function ensureTelegramBotPresentation(env, origin) {
   const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
   if (!enabled) return;
   const version = String(await getSetting(env.DB, 'telegram_bot_menu_version', ''));
-  if (version === '3') return;
+  if (version === '4') return;
   const token = await getProviderSecret(env, 'telegram_bot_token');
   if (!token) return;
 
@@ -162,6 +162,8 @@ async function ensureTelegramBotPresentation(env, origin) {
       { command: 'profile', description: 'حساب کاربری و کیف پول' },
       { command: 'wallet', description: 'موجودی و تراکنش‌ها' },
       { command: 'referrals', description: 'زیرمجموعه‌گیری' },
+      { command: 'stars', description: 'خرید استارز تلگرام' },
+      { command: 'products', description: 'محصولات و خدمات دیجیتال' },
       { command: 'status', description: 'پیگیری وضعیت سفارش' },
       { command: 'support', description: 'پشتیبانی' },
     ],
@@ -173,7 +175,7 @@ async function ensureTelegramBotPresentation(env, origin) {
       web_app: { url: String(origin || '').replace(/\/$/, '') + '/?from=telegram' },
     },
   });
-  if (commands.ok && menu.ok) await setSetting(env.DB, 'telegram_bot_menu_version', '3');
+  if (commands.ok && menu.ok) await setSetting(env.DB, 'telegram_bot_menu_version', '4');
 }
 
 async function telegramMainKeyboard(env, origin, senderId = '') {
@@ -181,6 +183,7 @@ async function telegramMainKeyboard(env, origin, senderId = '') {
   const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
   const rows = [
     [{ text: '🛍 خرید تلگرام پرمیوم', callback_data: 'buy' }],
+    [{ text: '⭐ استارز و محصولات دیجیتال', callback_data: 'tg_menu' }],
     [{ text: '📦 پیگیری سفارش', callback_data: 'status_help' }],
     [{ text: '👤 حساب کاربری', callback_data: 'bp_profile' }, { text: '💳 کیف پول', callback_data: 'bp_wallet' }],
     [{ text: '🎁 زیرمجموعه‌گیری', callback_data: 'bp_referrals' }],
@@ -584,6 +587,18 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
       return;
     }
 
+    if (data === 'tg_menu') { await tgBotMarketMenu(env,chatId); return; }
+    if (data.startsWith('tg_kind:')) {
+      await tgBotMarketKind(env,chatId,data.slice(8));return;
+    }
+    if (data.startsWith('tg_item:')) {
+      const item=data.slice(8),cut=item.indexOf(':');
+      if(cut!==-1)await tgBotMarketSelect(env,chatId,fromId,item.slice(0,cut),item.slice(cut+1));
+      return;
+    }
+    if (data==='tg_pay:wallet'||data==='tg_pay:blupal') {
+      await tgBotMarketPay(env,chatId,fromId,data.slice(7),ctx);return;
+    }
     if (data === 'buy') {
       await telegramBeginPurchase(env, chatId, fromId);
       return;
@@ -696,6 +711,18 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   if (/^\/wallet(?:@\w+)?$/i.test(text)) { await bpBotWallet(env,chatId,fromId); return; }
   if (/^\/referrals(?:@\w+)?$/i.test(text)) { await bpBotReferrals(env,chatId,fromId); return; }
 
+  if (/^\/products(?:@\w+)?$/i.test(text)) {await tgBotMarketMenu(env,chatId);return;}
+  if (/^\/stars(?:@\w+)?$/i.test(text)) {await tgBotMarketKind(env,chatId,'stars');return;}
+  const marketLookup=text.match(/^\/market_(BP-[A-Z0-9]{10,24})$/i);
+  if(marketLookup) {
+    const o=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE order_code=? AND telegram_user_id=?')
+      .bind(marketLookup[1].toUpperCase(),fromId).first();
+    if(!o){await telegramSendMessage(env,chatId,'سفارش پیدا نشد.');return}
+    await tgReconcileOrder(env,o);
+    const updated=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE id=?').bind(o.id).first();
+    await telegramSendMessage(env,chatId,'🧾 '+telegramEscapeHtml(updated.title)+'\nوضعیت: <b>'+telegramEscapeHtml(updated.status)+'</b>');
+    return;
+  }
   if (/^\/buy(?:@\w+)?(?:\s|$)/i.test(text)) {
     await telegramBeginPurchase(env, chatId, fromId);
     return;
@@ -733,6 +760,9 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   }
 
   const session = await telegramSessionGet(env, chatId);
+  if(session?.state==='tg_market_target') {
+    await tgBotMarketTarget(env,chatId,fromId,text,session);return;
+  }
   if (session?.state === 'awaiting_username') {
     const username = normalizeUsername(text);
     if (!username) {
