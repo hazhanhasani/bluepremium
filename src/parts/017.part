@@ -760,6 +760,16 @@ async function handleTelegramBotUpdate(env, update, origin, ctx) {
   }
 
   const session = await telegramSessionGet(env, chatId);
+  if(session?.state==='tg_nft_address'){
+    const sku=text.trim();
+    const item=await tgQuoteBySku(env,'nft',sku);
+    if(!item){
+      await telegramSendMessage(env,chatId,'قیمت معتبر برای این NFT دریافت نشد یا آیتم قابل خرید نیست؛ آدرس دیگری بفرست.');
+      return;
+    }
+    await tgBotMarketSelect(env,chatId,fromId,'nft',sku);
+    return;
+  }
   if(session?.state==='tg_market_target') {
     await tgBotMarketTarget(env,chatId,fromId,text,session);return;
   }
