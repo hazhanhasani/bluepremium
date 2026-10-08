@@ -103,29 +103,80 @@ async function blupalRequest(apiKey, method, path, payload = null) {
 
 function blupalInvoiceFields(payload, expectedRial = 0) {
   const root = payload && typeof payload === 'object' ? payload : {};
-  const data = root.data && typeof root.data === 'object' ? root.data : root;
-  const invoiceId = String(data.invoice_id ?? root.invoice_id ?? '').trim();
-  const paymentLink = String(data.payment_link ?? root.payment_link ?? data.url ?? root.url ?? '').trim();
-  const cardNumber = String(
-    data.card_number ?? data.cardNumber ?? data.card ??
-    root.card_number ?? root.cardNumber ?? root.card ?? ''
-  ).replace(/\D+/g, '').slice(0, 19);
-  const amountRial = Number(data.amount ?? root.amount ?? expectedRial ?? 0);
-  const finalAmountRial = Number(
-    data.final_amount ?? data.finalAmount ??
-    root.final_amount ?? root.finalAmount ??
-    amountRial ?? 0
-  );
-  const expiresAt = String(data.expires_at ?? data.expiresAt ?? root.expires_at ?? root.expiresAt ?? '').trim();
-  const status = String(data.status ?? root.status ?? '').trim().toUpperCase();
+  const objects = [];
+  const include = (value) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && !objects.includes(value)) {
+      objects.push(value);
+    }
+  };
+  // Blupal API response envelopes differ between invoice creation and lookup.
+  // Do not discard top-level fields when a nested data object exists.
+  include(root.data);
+  include(root);
+  for (const item of [...objects]) {
+    include(item.invoice);
+    include(item.payment);
+    include(item.payment_info);
+    include(item.payment_details);
+    include(item.bank_details);
+    include(item.card_details);
+    include(item.destination);
+    include(item.recipient);
+    include(item.bank_card);
+    include(item.card);
+  }
+  for (const item of [...objects]) {
+    include(item.invoice);
+    include(item.payment);
+    include(item.payment_info);
+    include(item.payment_details);
+    include(item.bank_details);
+    include(item.card_details);
+    include(item.destination);
+    include(item.recipient);
+    include(item.bank_card);
+    include(item.card);
+  }
+  const value = (...names) => {
+    for (const name of names) {
+      for (const item of objects) {
+        const candidate = item[name];
+        if (candidate !== undefined && candidate !== null && typeof candidate !== 'object' && String(candidate).trim() !== '') {
+          return String(candidate).trim();
+        }
+      }
+    }
+    return '';
+  };
+  const number = (raw) => {
+    if (typeof raw === 'number') return Number.isFinite(raw) ? Math.round(raw) : 0;
+    const translated = String(raw || '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    const cleaned = translated.replace(/[^0-9]/g, '');
+    return cleaned ? Number(cleaned) : 0;
+  };
+  const invoiceId = value('invoice_id', 'invoiceId') ||
+    String(root.data?.invoice?.id ?? root.invoice?.id ?? '').trim();
+  const paymentLink = value('payment_link', 'paymentLink', 'payment_url', 'paymentUrl', 'checkout_url', 'url');
+  const cardNumber = value('card_number', 'cardNumber', 'destination_card_number', 'destinationCardNumber',
+    'receiver_card_number', 'recipient_card_number', 'bank_card_number', 'bankCardNumber', 'bank_card', 'card');
+  // A nested card object often supplies its number in "number".
+  const nestedCard = objects.filter(item => item !== root && item !== root.data)
+    .map(item => item.number).find(item => typeof item === 'string' || typeof item === 'number');
+  const card = String(cardNumber || nestedCard || '').replace(/[^0-9]/g, '');
+  const amountRial = number(value('amount_rial', 'amountRial', 'amount'));
+  const exactFinal = number(value('final_amount_rial', 'finalAmountRial', 'final_amount', 'finalAmount',
+    'payable_amount_rial', 'payableAmountRial', 'payable_amount', 'payableAmount', 'total_amount'));
+  const expiresAt = value('expires_at', 'expiresAt', 'expiry', 'expire_at', 'expireAt');
   return {
     invoice_id: invoiceId,
     payment_link: paymentLink,
-    card_number: cardNumber,
-    amount_rial: Number.isFinite(amountRial) ? Math.round(amountRial) : 0,
-    final_amount_rial: Number.isFinite(finalAmountRial) ? Math.round(finalAmountRial) : 0,
+    card_number: card.length === 16 ? card : '',
+    amount_rial: amountRial || Number(expectedRial || 0),
+    // Never substitute the base amount for the exact amount that Blupal assigns.
+    final_amount_rial: exactFinal,
     expires_at: expiresAt,
-    status,
+    status: value('status', 'payment_status').toUpperCase(),
   };
 }
 
