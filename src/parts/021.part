@@ -9,6 +9,10 @@ async function tgMarketApi(request,env,url,ctx){
     const products=enabled?await tgProducts(env,selected):[];
     return api({ok:true,kinds,selected,enabled,products,last_price_sync:await getSetting(env.DB,'last_price_sync','')});
   }
+  if(path==='/api/market/nft-listings'&&method==='GET'){
+    const items=await tgNftBrowse(env);
+    return api({ok:true,items});
+  }
   if(path==='/api/market/quote'&&method==='GET'){
     const kind=String(url.searchParams.get('kind')||'');
     const sku=String(url.searchParams.get('sku')||'').trim();
