@@ -97,6 +97,23 @@
     return api({ ok: true, status: fresh?.status || order.status });
   }
 
+  if (path === '/api/telegram/bot/webhook' && request.method === 'POST') {
+    const enabled = String(await getSetting(env.DB, 'telegram_bot_enabled', '0')) === '1';
+    if (!enabled) return api({ ok: true, disabled: true });
+
+    const expectedSecret = await getSetting(env.DB, 'internal_telegram_webhook_secret', '');
+    const suppliedSecret = String(request.headers.get('x-telegram-bot-api-secret-token') || '');
+    if (!expectedSecret || !timingSafeEqual(suppliedSecret, expectedSecret)) {
+      return api({ ok: false, error: 'invalid_webhook_secret' }, 403);
+    }
+
+    const update = await readJson(request, 131072);
+    const task = handleTelegramBotUpdate(env, update, url.origin, ctx);
+    if (ctx?.waitUntil) ctx.waitUntil(task);
+    else await task;
+    return api({ ok: true });
+  }
+
   if (path === '/api/admin/login' && request.method === 'POST') {
     const body = await readJson(request);
     const password = String(body.password || '');
@@ -124,6 +141,27 @@
     if (path === '/api/admin/orders' && request.method === 'GET') {
       const result = await env.DB.prepare(`SELECT order_code, months, username, price_toman, status, payment_provider, bazaar_product_id, bazaar_order_id, bazaar_consumed, blupal_invoice_id, tg_transaction_id, provider_error, paid_at, created_at, updated_at FROM orders ORDER BY id DESC LIMIT 100`).all();
       return api({ ok: true, orders: result.results || [] });
+    }
+
+    if (path === '/api/admin/telegram-bot' && request.method === 'POST') {
+      const body = await readJson(request);
+      const result = await configureTelegramBot(env, url.origin, {
+        token: String(body.token || ''),
+        adminId: String(body.admin_id || ''),
+        enabled: body.enabled !== false,
+      });
+      if (!result.ok) {
+        const status = ['invalid_bot_token','invalid_admin_id','bot_token_required'].includes(result.error) ? 400 : 502;
+        return api({ ok: false, error: result.error, message: result.message || '' }, status);
+      }
+      return api({ ok: true, bot: result.health || await telegramBotHealth(env) });
+    }
+
+    if (path === '/api/admin/telegram-bot/test' && request.method === 'POST') {
+      const adminId = String(await getSetting(env.DB, 'telegram_admin_id', ''));
+      if (!telegramAdminIdLooksValid(adminId)) return api({ ok: false, error: 'invalid_admin_id' }, 400);
+      const sent = await telegramSendMessage(env, adminId, '✅ <b>اتصال ربات بلوپرمیوم سالم است.</b>\n\nاین پیام از پنل مدیریت ارسال شد.');
+      return api({ ok: !!sent.ok, result: sent }, sent.ok ? 200 : 502);
     }
 
     if (path === '/api/admin/providers' && request.method === 'POST') {
