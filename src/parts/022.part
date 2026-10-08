@@ -182,7 +182,11 @@ function tgAdminClient(){
   const id=x=>document.getElementById(x),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
   const section=document.createElement('section');section.id='tgMarketAdmin';section.className='section';
-  section.innerHTML='<div class="grid"><article class="card"><h3>تنظیمات محصولات TG Tools</h3><p class="sub">درصد سود و وضعیت فروش برای هر دسته مستقل است. فعال‌سازی فقط برای دسته‌های دارای قیمت قابل استعلام انجام می‌شود.</p><div id="tgMarketSettings" class="plan-grid"></div></article>'+
+  section.innerHTML='<div class="grid"><article class="card"><h3>وضعیت سرویس‌دهنده و سفارش‌ها</h3>'+
+    '<p class="sub">بررسی فقط‌خواندنی وضعیت API و سفارش‌های بلاتکلیف؛ خرید یا برداشت جدیدی ایجاد نمی‌کند.</p>'+
+    '<div id="tgMarketHealth" role="status" aria-live="polite">در انتظار بررسی...</div>'+
+    '<button class="btn secondary" id="tgHealthReload" style="margin-top:12px">بررسی مجدد سلامت</button></article>'+
+    '<article class="card"><h3>تنظیمات محصولات TG Tools</h3><p class="sub">درصد سود و وضعیت فروش برای هر دسته مستقل است. فعال‌سازی فقط برای دسته‌های دارای قیمت قابل استعلام انجام می‌شود.</p><div id="tgMarketSettings" class="plan-grid"></div></article>'+
     '<article class="card"><div class="provider-head"><h3>سفارش‌های دیجیتال</h3><button class="btn secondary" id="tgMarketReload">بروزرسانی</button></div>'+
     '<div class="orders"><table><thead><tr><th>کد</th><th>محصول</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody id="tgMarketOrders"></tbody></table></div></article></div>';
   id('settings').insertAdjacentElement('beforebegin',section);
@@ -208,7 +212,8 @@ function tgAdminClient(){
   const labels={stars:'استارز',gift:'گیفت',smm:'خدمات SMM',catalog:'گیفت‌کارت/شارژ بازی',nft:'NFT',steam:'Steam'};
   async function load(){
     try{
-      const [configs,orders]=await Promise.all([call('/api/admin/market/settings'),call('/api/admin/market/orders')]);
+      const [configs,orders,health]=await Promise.all([call('/api/admin/market/settings'),call('/api/admin/market/orders'),call('/api/admin/market/health')]);
+      renderHealth(health);
       id('tgMarketSettings').innerHTML=Object.entries(configs.settings).map(([kind,s])=>{
         const canEnable=s.can_enable!==false;
         const availability=canEnable
@@ -225,9 +230,29 @@ function tgAdminClient(){
           '<button class="btn" data-save-kind="'+kind+'">'+(canEnable?'ذخیره تنظیمات':'ذخیره درصد سود')+'</button>'+
           '<div class="sub" id="tgNotice_'+kind+'" role="status" aria-live="polite" style="min-height:20px;margin-top:8px"></div></div>';
       }).join('');
-      id('tgMarketOrders').innerHTML=(orders.orders||[]).map(x=>'<tr><td>'+esc(x.order_code)+'</td><td>'+esc(x.title)+'</td>'+
-        '<td>'+money(x.price_toman)+'</td><td>'+esc(x.status)+'</td><td>'+esc(x.created_at)+'</td></tr>').join('');
+      const statuses={
+        delivered:'✅ تحویل‌شده',refunded:'↩️ بازپرداخت‌شده',awaiting_payment:'در انتظار پرداخت',
+        paid:'پرداخت‌شده',provider_pending:'در انتظار تحویل',provider_submitting:'در حال ارسال',
+        provider_uncertain:'⚠️ نیازمند بررسی',refund_required:'⚠️ استرداد لازم',
+        failed:'❌ ناموفق',payment_error:'خطای ایجاد فاکتور'
+      };
+      id('tgMarketOrders').innerHTML=(orders.orders||[]).map(x=>'<tr><td><code>'+esc(x.order_code)+'</code></td><td>'+esc(x.title)+'</td>'+
+        '<td>'+money(x.price_toman)+'</td><td title="'+esc(x.provider_error||'')+'">'+esc(statuses[x.status]||x.status)+'</td><td>'+esc(x.created_at)+'</td></tr>').join('');
     }catch(e){id('tgMarketSettings').textContent='خطا: '+e.message}
+  }
+  function renderHealth(data){
+    const health=data?.provider?.smm||{},counts=data.orders||[];
+    const errorTotal=counts.filter(x=>(data.warning_states||[]).includes(x.status))
+      .reduce((total,x)=>total+Number(x.total||0),0);
+    const smmText=health.status==='reachable'
+      ?'اتصال برقرار · '+money(health.product_count)+' آیتم در پاسخ API':
+      health.status==='key_missing'?'کلید API وارد نشده':'خطای TG Tools · HTTP '+Number(health.http_status||0);
+    id('tgMarketHealth').innerHTML='<div style="line-height:2.2">'+
+      '<div>🔑 کلید سرویس: '+(data.provider?.configured?'تنظیم‌شده':'ثبت نشده')+'</div>'+
+      '<div>📣 کاتالوگ SMM: '+esc(smmText)+'</div>'+
+      '<div>⚠️ سفارش‌های نیازمند رسیدگی: <b>'+money(errorTotal)+'</b></div>'+
+      '<div class="sub">سفارش‌های نامشخص به‌صورت خودکار دوباره خرید نمی‌شوند. قبل از هر بازپرداخت، وضعیت تحویل در TG Tools بررسی شود.</div>'+
+      '</div>';
   }
   id('tgMarketSettings').onclick=async e=>{
     const btn=e.target.closest('[data-save-kind]');if(!btn)return;
@@ -255,4 +280,5 @@ function tgAdminClient(){
     }finally{btn.disabled=false}
   };
   id('tgMarketReload').onclick=load;
+  id('tgHealthReload').onclick=load;
 }
