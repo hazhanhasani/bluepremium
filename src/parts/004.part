@@ -101,6 +101,47 @@ async function blupalRequest(apiKey, method, path, payload = null) {
   }
 }
 
+function blupalInvoiceFields(payload, expectedRial = 0) {
+  const root = payload && typeof payload === 'object' ? payload : {};
+  const data = root.data && typeof root.data === 'object' ? root.data : root;
+  const invoiceId = String(data.invoice_id ?? root.invoice_id ?? '').trim();
+  const paymentLink = String(data.payment_link ?? root.payment_link ?? data.url ?? root.url ?? '').trim();
+  const cardNumber = String(
+    data.card_number ?? data.cardNumber ?? data.card ??
+    root.card_number ?? root.cardNumber ?? root.card ?? ''
+  ).replace(/\D+/g, '').slice(0, 19);
+  const amountRial = Number(data.amount ?? root.amount ?? expectedRial ?? 0);
+  const finalAmountRial = Number(
+    data.final_amount ?? data.finalAmount ??
+    root.final_amount ?? root.finalAmount ??
+    amountRial ?? 0
+  );
+  const expiresAt = String(data.expires_at ?? data.expiresAt ?? root.expires_at ?? root.expiresAt ?? '').trim();
+  const status = String(data.status ?? root.status ?? '').trim().toUpperCase();
+  return {
+    invoice_id: invoiceId,
+    payment_link: paymentLink,
+    card_number: cardNumber,
+    amount_rial: Number.isFinite(amountRial) ? Math.round(amountRial) : 0,
+    final_amount_rial: Number.isFinite(finalAmountRial) ? Math.round(finalAmountRial) : 0,
+    expires_at: expiresAt,
+    status,
+  };
+}
+
+function publicPaymentInstructions(order) {
+  if (!order || order.status !== 'awaiting_payment') return null;
+  const card = String(order.blupal_card_number || '').replace(/\D+/g, '');
+  const amountRial = Number(order.blupal_final_amount_rial || 0);
+  if (!card || !Number.isFinite(amountRial) || amountRial <= 0) return null;
+  return {
+    type: 'card_transfer',
+    card_number: card,
+    amount_rial: Math.round(amountRial),
+    expires_at: order.blupal_expires_at || null,
+  };
+}
+
 async function getAuthorizedOrder(db, code, token) {
   const order = await db.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(code).first();
   if (!order) return null;
@@ -109,6 +150,7 @@ async function getAuthorizedOrder(db, code, token) {
 }
 
 function publicOrder(order) {
+  const provider = String(order.payment_provider || (order.blupal_invoice_id ? 'blupal' : 'cafebazaar'));
   return {
     code: order.order_code,
     username: order.username,
@@ -118,8 +160,8 @@ function publicOrder(order) {
     created_at: order.created_at,
     updated_at: order.updated_at,
     delivered_at: order.delivered_at || null,
-    payment_method: order.payment_provider || (order.blupal_invoice_id ? 'blupal' : 'cafebazaar'),
-    payment_url: order.status === 'awaiting_payment' ? order.payment_url : null,
+    payment_method: provider === 'blupal' ? 'card_transfer' : provider,
+    payment_instructions: provider === 'blupal' ? publicPaymentInstructions(order) : null,
     bazaar_product_id: order.status === 'awaiting_bazaar_payment' ? String(order.bazaar_product_id || '') : null,
     bazaar_consumed: Number(order.bazaar_consumed || 0) === 1,
     message: customerStatusMessage(order.status),
@@ -128,7 +170,7 @@ function publicOrder(order) {
 
 function customerStatusMessage(status) {
   return ({
-    creating_payment: 'در حال ساخت لینک پرداخت',
+    creating_payment: 'در حال آماده‌سازی اطلاعات پرداخت',
     awaiting_payment: 'در انتظار پرداخت',
     awaiting_bazaar_payment: 'در انتظار پرداخت با کافه‌بازار',
     paid: 'پرداخت تایید شد',
