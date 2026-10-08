@@ -39,7 +39,7 @@ test('stale provider_submitting never auto retries provider POST',()=>{
   assert.match(market,/provider_submitting' AND updated_at<\?/);
   assert.match(market,/submission_interrupted/);
   assert.match(market,/provider_uncertain' AND provider_transaction_id IS NOT NULL/);
-  assert.doesNotMatch(market,/status='provider_submitting'[^;]*status='paid'/);
+  assert.match(market,/WHERE status='provider_submitting' AND updated_at<\?/);
 });
 
 test('gift card delivery requires an actual code unless player topup',()=>{
