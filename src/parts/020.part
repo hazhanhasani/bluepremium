@@ -245,7 +245,7 @@ async function tgReconcileOrder(env,order){
     order={...order,status:'paid'};
   }
   if(order.status==='paid'){await tgMarketDeliver(env,order);return}
-  if(order.status==='provider_pending'&&order.provider_transaction_id){
+  if(['provider_pending','provider_uncertain'].includes(order.status)&&order.provider_transaction_id){
     const key=await getProviderSecret(env,'tgtools_api_key');if(!key)return;
     const route=tgOrderDetailRoute(order);
     if(!route)return;
@@ -257,12 +257,20 @@ async function tgReconcileOrder(env,order){
     const delivery=order.kind==='catalog'?String(remote.data?.deliveryCode||remote.data?.code||'').slice(0,300):null;
     if(state==='completed'&&requiresCode&&!delivery)return;
     const status=state==='completed'?'delivered':'failed';
-    const change=await env.DB.prepare("UPDATE bp_market_orders SET status=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=? AND status='provider_pending'")
+    const change=await env.DB.prepare("UPDATE bp_market_orders SET status=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=? AND status IN ('provider_pending','provider_uncertain')")
       .bind(status,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
     if(change.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
   }
 }
 async function tgMarketMaintenance(env){
-  const r=await env.DB.prepare("SELECT * FROM bp_market_orders WHERE status IN ('awaiting_payment','paid','provider_pending') ORDER BY id ASC LIMIT 25").all();
+  // A Worker may terminate after the provider POST but before storing its result.
+  // Never auto-submit again: escalate such orders for manual reconciliation.
+  const threshold=new Date(Date.now()-15*60*1000).toISOString();
+  const stalled=await env.DB.prepare(
+    "UPDATE bp_market_orders SET status='provider_uncertain',provider_error=COALESCE(provider_error,'submission_interrupted'),updated_at=? "+
+    "WHERE status='provider_submitting' AND updated_at<?")
+    .bind(new Date().toISOString(),threshold).run();
+  if(stalled.meta?.changes)console.warn('tgtools_submissions_need_review',stalled.meta.changes);
+  const r=await env.DB.prepare("SELECT * FROM bp_market_orders WHERE status IN ('awaiting_payment','paid','provider_pending') OR (status='provider_uncertain' AND provider_transaction_id IS NOT NULL) ORDER BY id ASC LIMIT 25").all();
   for(const row of r.results||[])try{await tgReconcileOrder(env,row)}catch(e){console.error('market_cron',row.order_code,String(e?.message||e))}
 }
