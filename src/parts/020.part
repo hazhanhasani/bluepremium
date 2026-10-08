@@ -1,0 +1,201 @@
+
+const TG_TYPES=['stars','gift','smm','catalog','nft','steam'];
+const TG_LABELS={stars:'⭐ استارز',gift:'🎁 گیفت تلگرام',smm:'📣 خدمات شبکه‌های اجتماعی',catalog:'🎮 گیفت‌کارت و شارژ بازی',nft:'💎 گیفت NFT',steam:'💻 شارژ استیم'};
+const tgCache=new Map();
+function tgList(data){
+  if(Array.isArray(data))return data;
+  for(const v of [data?.packages,data?.items,data?.products,data?.gifts,data?.bundles,data?.data?.items,data?.data?.products,data?.results])if(Array.isArray(v))return v;
+  return [];
+}
+function tgTon(row){const n=Number(row?.ton??row?.totalPriceTon??row?.priceTon??row?.price_ton??row?.costTon??row?.quotedTotalTon);return Number.isFinite(n)&&n>0?n:0}
+function tgSku(row){const s=String(row?.productId??row?.giftId??row?.serviceId??row?.id??row?.key??'');return /^[a-z0-9:._-]{1,110}$/i.test(s)?s:''}
+async function tgPrice(env,kind,ton){
+  const exchange=Number(await getSetting(env.DB,'last_ton_toman','0'));
+  const percent=Number(await getSetting(env.DB,'market_'+kind+'_profit','15'));
+  const round=Number(await getSetting(env.DB,'rounding','1000'))||1000;
+  const n=Math.ceil(ton*exchange*(1+percent/100)/round)*round;
+  return exchange>0&&ton>0&&percent>=0&&percent<=500&&Number.isSafeInteger(n)&&n>=10000&&n<=1e9?n:0;
+}
+async function tgProducts(env,kind) {
+  if(!TG_TYPES.includes(kind)||['steam','nft'].includes(kind))return [];
+  if(String(await getSetting(env.DB,'market_'+kind+'_enabled',kind==='stars'?'1':'0'))!=='1')return [];
+  const cached=tgCache.get(kind);if(cached&&cached.exp>Date.now())return cached.items;
+  const source={stars:'/api/purchase/prices',gift:'/api/purchase/gifts?lang=fa',smm:'/api/purchase/smm/bundles?lang=fa',catalog:'/api/catalog?pageSize=100'}[kind];
+  const apiKey=await getProviderSecret(env,'tgtools_api_key');
+  const remote=await tgRequest(apiKey,'GET',source,null,false);
+  if(!remote.ok)return [];
+  const items=[];
+  for(const row of tgList(remote.data||{}).slice(0,100)){
+    const quantity=kind==='stars'?Number(row.qty??row.quantity??row.amount):kind==='smm'?Number(row.quantity??row.count??1):1;
+    const sku=kind==='stars'?String(quantity):tgSku(row);
+    const ton=tgTon(row);
+    if(!sku||!ton||!Number.isSafeInteger(quantity)||quantity<1||kind==='stars'&&(quantity<50||quantity>100000))continue;
+    const price=await tgPrice(env,kind,ton);if(!price)continue;
+    items.push({kind,sku,title:kind==='stars'?quantity+' استارز تلگرام':bpName(row.titleFa||row.nameFa||row.title||row.name||TG_LABELS[kind],110),
+      quantity,ton,price_toman:price,target_type:kind==='smm'?'link':kind==='catalog'?(row.requiresPlayerId?'player':'none'):'username'});
+  }
+  tgCache.set(kind,{exp:Date.now()+60000,items});
+  return items;
+}
+function tgDestination(kind,value){
+  const v=String(value||'').trim();
+  if(['stars','gift'].includes(kind))return normalizeUsername(v);
+  if(kind==='catalog')return v.length<=120&&/^[a-z0-9@_.+: -]*$/i.test(v)?v:'';
+  if(kind==='smm'){try{const u=new URL(v);return u.protocol==='https:'&&v.length<=320?v:''}catch(e){return ''}}
+  return '';
+}
+function tgPublic(order,token=''){
+  const obj={code:order.order_code,kind:order.kind,title:order.title,quantity:order.quantity,price_toman:order.price_toman,
+    status:order.status,target:order.target,delivery_code:order.status==='delivered'?order.delivery_code:null};
+  if(token)obj.token=token;
+  if(order.status==='awaiting_payment'&&/^\d{16}$/.test(order.blupal_card_number||'')&&Number(order.blupal_final_amount_rial)>0)
+    obj.payment_instructions={type:'card_transfer',card_number:order.blupal_card_number,amount_rial:order.blupal_final_amount_rial};
+  return obj;
+}
+async function tgCreateOrder(env,input,user,ctx){
+  const kind=String(input.kind||''),sku=String(input.sku||''),wallet=input.payment==='wallet';
+  if(!['stars','gift','smm','catalog'].includes(kind))return {ok:false,error:'product_unavailable',http:409};
+  if(wallet&&!user)return {ok:false,error:'telegram_auth_required',http:401};
+  if(user?.blocked)return {ok:false,error:'account_blocked',http:403};
+  const required=await env.DB.prepare('SELECT COUNT(*) AS count FROM bp_forced_channels WHERE enabled=1').first();
+  if(Number(required?.count||0)){
+    if(!user)return {ok:false,error:'telegram_auth_required',http:401};
+    if((await bpMissingChannels(env,user.telegram_id)).length)return {ok:false,error:'join_required',http:403};
+  }
+  const item=(await tgProducts(env,kind)).find(p=>p.sku===sku);
+  if(!item)return {ok:false,error:'price_unavailable',http:409};
+  const dest=tgDestination(kind,input.target);
+  if(!dest&&item.target_type!=='none')return {ok:false,error:'invalid_target',http:400};
+  if(item.target_type==='none'&&dest)return {ok:false,error:'invalid_target',http:400};
+  if(['stars','gift'].includes(kind)){
+    const key=await getProviderSecret(env,'tgtools_api_key');
+    if(!key)return {ok:false,error:'provider_not_configured',http:503};
+    const lookup=await tgRequest(key,'GET','/api/purchase/user/'+encodeURIComponent(dest));
+    if(!lookup.ok||lookup.data?.found===false)return {ok:false,error:'telegram_user_not_found',http:422};
+  }
+  const code='BP-'+crypto.randomUUID().replaceAll('-','').slice(0,14).toUpperCase();
+  const token=randomToken(24),hash=await sha256Hex(token),now=new Date().toISOString(),userId=user?.telegram_id||null;
+  const status=wallet?'paid':'creating_payment';
+  const sql="INSERT INTO bp_market_orders(order_code,public_token_hash,telegram_user_id,kind,sku,title,target,quantity,price_toman,quoted_ton,provider_payload,payment_provider,status,created_at,updated_at,paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+  const fields=[code,hash,userId,kind,sku,item.title,dest,item.quantity,item.price_toman,item.ton,
+    JSON.stringify({sku,kind,quantity:item.quantity,target:dest}),wallet?'wallet':'blupal',status,now,now,wallet?now:null];
+  if(wallet){
+    const balance=await env.DB.prepare('SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?').bind(userId).first();
+    if(Number(balance?.balance_toman||0)<item.price_toman)return {ok:false,error:'insufficient_wallet_balance',http:409};
+    const q="INSERT INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+      "SELECT ?,?,'purchase','system',?,?,? WHERE (SELECT balance_toman FROM bp_wallet_balances WHERE telegram_id=?)>=?";
+    const conditional=sql.replace("VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM bp_wallet_ledger WHERE idempotency_key=?)");
+    try{
+      const writes=await env.DB.batch([
+        env.DB.prepare(q).bind(userId,-item.price_toman,item.title,code,'purchase:'+code,userId,item.price_toman),
+        env.DB.prepare(conditional).bind(...fields,'purchase:'+code)
+      ]);
+      if(!writes[0].meta?.changes||!writes[1].meta?.changes)return {ok:false,error:'insufficient_wallet_balance',http:409};
+    }catch(e){return {ok:false,error:'wallet_purchase_failed',http:409}}
+  }else{
+    const key=await getProviderSecret(env,'blupal_api_key');
+    if(!key||String(await getSetting(env.DB,'blupal_enabled','1'))!=='1')return {ok:false,error:'payment_not_configured',http:503};
+    await env.DB.prepare(sql).bind(...fields).run();
+    const amount=item.price_toman*10;
+    const invoice=await blupalRequest(key,'POST','/v1/invoices/create',{amount});
+    let details=blupalInvoiceFields(invoice.raw||invoice.data||{},amount);
+    if(invoice.ok&&details.invoice_id&&(!details.card_number||!details.final_amount_rial)){
+      const fresh=await blupalRequest(key,'GET','/v1/invoices/'+encodeURIComponent(details.invoice_id));
+      if(fresh.ok){const p=blupalInvoiceFields(fresh.raw||fresh.data||{},amount);details={...details,...p,invoice_id:details.invoice_id,
+        payment_link:p.payment_link||details.payment_link,card_number:p.card_number||details.card_number,
+        final_amount_rial:p.final_amount_rial||details.final_amount_rial};}
+    }
+    if(invoice.ok&&details.invoice_id&&(!details.card_number||!details.final_amount_rial)&&details.payment_link){
+      const hosted=await blupalHostedPaymentDetails(details.payment_link,amount,details.final_amount_rial);
+      if(hosted)details={...details,...hosted};
+    }
+    if(!invoice.ok||!details.invoice_id||!/^\d{16}$/.test(details.card_number||'')||
+      !blupalAmountIsReasonable(amount,details.final_amount_rial)){
+      await env.DB.prepare("UPDATE bp_market_orders SET status='payment_error',updated_at=? WHERE order_code=?")
+        .bind(new Date().toISOString(),code).run();
+      return {ok:false,error:'payment_details_unavailable',http:502};
+    }
+    await env.DB.prepare("UPDATE bp_market_orders SET status='awaiting_payment',blupal_invoice_id=?,payment_url=?,blupal_card_number=?,blupal_final_amount_rial=?,updated_at=? WHERE order_code=?")
+      .bind(details.invoice_id,details.payment_link||null,details.card_number,details.final_amount_rial,new Date().toISOString(),code).run();
+  }
+  const order=await env.DB.prepare('SELECT * FROM bp_market_orders WHERE order_code=?').bind(code).first();
+  if(wallet){
+    const work=tgReconcileOrder(env,order);
+    if(ctx?.waitUntil)ctx.waitUntil(work);else await work;
+  }
+  return {ok:true,order:tgPublic(order,token)};
+}
+async function tgMarketNotify(env,order){
+  if(!order.telegram_user_id)return;
+  const text='✅ سفارش '+telegramEscapeHtml(order.title)+' تحویل شد.\nکد: <code>'+order.order_code+'</code>'+
+    (order.delivery_code?'\nکد تحویل: <code>'+telegramEscapeHtml(order.delivery_code)+'</code>':'');
+  await telegramSendMessage(env,order.telegram_user_id,text).catch(()=>{});
+}
+async function tgMarketDeliver(env,order){
+  if(order.status!=='paid')return;
+  const claimed=await env.DB.prepare("UPDATE bp_market_orders SET status='provider_submitting',updated_at=? WHERE id=? AND status='paid'")
+    .bind(new Date().toISOString(),order.id).run();
+  if(!claimed.meta?.changes)return;
+  const apiKey=await getProviderSecret(env,'tgtools_api_key');
+  if(!apiKey){await env.DB.prepare("UPDATE bp_market_orders SET status='failed',provider_error='provider_not_configured' WHERE id=?").bind(order.id).run();return}
+  const map={
+    stars:{path:'/api/purchase/stars',body:{recipientUsername:order.target,amount:order.quantity,paymentMethod:'ton',trackingCode:order.order_code}},
+    gift:{path:'/api/purchase/gift',body:{recipientUsername:order.target,giftId:order.sku,trackingCode:order.order_code}},
+    smm:{path:'/api/purchase/smm',body:{serviceId:Number(order.sku),link:order.target,quantity:order.quantity}},
+    catalog:{path:'/api/catalog/buy',body:{productId:Number(order.sku),quantity:order.quantity,...(order.target?{playerId:order.target}:{})}}
+  };
+  const action=map[order.kind];
+  if(!action ||(['smm','catalog'].includes(order.kind)&&!Number.isSafeInteger(Number(order.sku))))return;
+  const remote=await tgRequest(apiKey,'POST',action.path,action.body);
+  const data=remote.data||{},tx=String(data.transactionId??data.orderId??data.id??'');
+  if(!remote.ok){
+    const uncertain=remote.http_status===0||remote.http_status>=500||remote.http_status===409;
+    await env.DB.prepare("UPDATE bp_market_orders SET status=?,provider_error=?,updated_at=? WHERE id=?")
+      .bind(uncertain?'provider_uncertain':'failed',safeProviderMessage(remote.message||'provider_failed'),new Date().toISOString(),order.id).run();
+    return;
+  }
+  if(!/^\d{1,20}$/.test(tx)){
+    await env.DB.prepare("UPDATE bp_market_orders SET status='provider_uncertain',provider_error='missing_provider_id',updated_at=? WHERE id=?")
+      .bind(new Date().toISOString(),order.id).run();return;
+  }
+  const state=tgState(data),status=state==='completed'?'delivered':state==='failed'?'failed':'provider_pending';
+  const delivery=status==='delivered'&&order.kind==='catalog'?String(data.deliveryCode||'').slice(0,300):null;
+  const changed=await env.DB.prepare("UPDATE bp_market_orders SET status=?,provider_transaction_id=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=?")
+    .bind(status,tx,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
+  if(changed.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
+}
+async function tgReconcileOrder(env,order){
+  if(!order)return;
+  if(order.status==='awaiting_payment'){
+    const key=await getProviderSecret(env,'blupal_api_key');
+    if(!key||!order.blupal_invoice_id)return;
+    const remote=await blupalRequest(key,'GET','/v1/invoices/'+encodeURIComponent(order.blupal_invoice_id));
+    if(!remote.ok)return;
+    const detail=blupalInvoiceFields(remote.raw||remote.data||{},order.price_toman*10);
+    if(detail.status!=='PAID')return;
+    if(Number(detail.amount_rial)!==order.price_toman*10)return;
+    const update=await env.DB.prepare("UPDATE bp_market_orders SET status='paid',paid_at=?,updated_at=? WHERE id=? AND status='awaiting_payment'")
+      .bind(new Date().toISOString(),new Date().toISOString(),order.id).run();
+    if(!update.meta?.changes)return;
+    order={...order,status:'paid'};
+  }
+  if(order.status==='paid'){await tgMarketDeliver(env,order);return}
+  if(order.status==='provider_pending'&&order.provider_transaction_id){
+    const key=await getProviderSecret(env,'tgtools_api_key');if(!key)return;
+    const route=order.kind==='catalog'?'/api/catalog/orders/':'/api/transaction/';
+    const remote=await tgRequest(key,'GET',route+encodeURIComponent(order.provider_transaction_id));
+    if(!remote.ok)return;
+    const state=tgState(remote.data||{});
+    if(state!=='completed'&&state!=='failed')return;
+    const status=state==='completed'?'delivered':'failed';
+    const delivery=status==='delivered'&&order.kind==='catalog'?String(remote.data?.deliveryCode||'').slice(0,300):null;
+    const change=await env.DB.prepare("UPDATE bp_market_orders SET status=?,delivery_code=?,updated_at=?,delivered_at=? WHERE id=? AND status='provider_pending'")
+      .bind(status,delivery,new Date().toISOString(),status==='delivered'?new Date().toISOString():null,order.id).run();
+    if(change.meta?.changes&&status==='delivered')await tgMarketNotify(env,{...order,status,delivery_code:delivery});
+  }
+}
+async function tgMarketMaintenance(env){
+  const r=await env.DB.prepare("SELECT * FROM bp_market_orders WHERE status IN ('awaiting_payment','paid','provider_pending') ORDER BY id ASC LIMIT 25").all();
+  for(const row of r.results||[])try{await tgReconcileOrder(env,row)}catch(e){console.error('market_cron',row.order_code,String(e?.message||e))}
+}
