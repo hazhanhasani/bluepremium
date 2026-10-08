@@ -182,6 +182,31 @@ function tgAdminClient(){
   const id=x=>document.getElementById(x),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const money=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
   const section=document.createElement('section');section.id='tgMarketAdmin';section.className='section';
+  const visual=document.createElement('style');
+  visual.id='tg-admin-mobile-health-fix';
+  visual.textContent=`
+    #tgMarketAdmin .tg-health-report{font:500 12px/1.95 Tahoma,"Segoe UI",sans-serif;
+      color:#c3d3e8;word-break:normal;overflow-wrap:anywhere;direction:rtl;
+      -webkit-text-size-adjust:100%;text-size-adjust:100%}
+    #tgMarketAdmin .tg-health-report .tg-health-row{display:flex;gap:9px;
+      align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(150,185,225,.12)}
+    #tgMarketAdmin .tg-health-report .tg-health-row:last-of-type{border-bottom:0}
+    #tgMarketAdmin .tg-health-report .tg-health-icon{flex:0 0 22px;font-size:16px;line-height:1.5}
+    #tgMarketAdmin .tg-health-report .tg-health-copy{min-width:0;flex:1;
+      font-size:12px;line-height:1.9;overflow-wrap:anywhere}
+    #tgMarketAdmin .tg-health-report b{font-size:13px;color:#f3f8ff}
+    #tgMarketAdmin .tg-health-report .tg-health-note{font-size:11px;
+      line-height:1.9;color:#9dafc7;margin-top:12px}
+    #tgMarketAdmin .card{min-width:0}
+    @media(max-width:700px){
+      #tgMarketAdmin .grid{grid-template-columns:minmax(0,1fr)}
+      #tgMarketAdmin .card{padding:15px}
+      #tgMarketAdmin .provider-head{flex-wrap:wrap;align-items:flex-start}
+      #tgMarketAdmin .provider-head .btn{width:100%}
+      #tgMarketAdmin .tg-health-report .tg-health-copy{font-size:12px}
+    }
+    `;
+  document.head.appendChild(visual);
   section.innerHTML='<div class="grid"><article class="card"><h3>وضعیت سرویس‌دهنده و سفارش‌ها</h3>'+
     '<p class="sub">بررسی فقط‌خواندنی وضعیت API و سفارش‌های بلاتکلیف؛ خرید یا برداشت جدیدی ایجاد نمی‌کند.</p>'+
     '<div id="tgMarketHealth" role="status" aria-live="polite">در انتظار بررسی...</div>'+
@@ -249,11 +274,14 @@ function tgAdminClient(){
     const smmText=health.status==='reachable'
       ?'اتصال برقرار · '+money(health.product_count)+' آیتم در پاسخ API':
       health.status==='key_missing'?'کلید API وارد نشده':'خطای TG Tools · HTTP '+Number(health.http_status||0);
-    id('tgMarketHealth').innerHTML='<div style="line-height:2.2">'+
-      '<div>🔑 کلید سرویس: '+(data.provider?.configured?'تنظیم‌شده':'ثبت نشده')+'</div>'+
-      '<div>📣 کاتالوگ SMM: '+esc(smmText)+'</div>'+
-      '<div>⚠️ سفارش‌های نیازمند رسیدگی: <b>'+money(errorTotal)+'</b></div>'+
-      '<div class="sub">سفارش‌های نامشخص به‌صورت خودکار دوباره خرید نمی‌شوند. قبل از هر بازپرداخت، وضعیت تحویل در TG Tools بررسی شود.</div>'+
+    id('tgMarketHealth').innerHTML='<div class="tg-health-report">'+
+      '<div class="tg-health-row"><span class="tg-health-icon">🔑</span><div class="tg-health-copy">کلید سرویس: <b>'+
+        (data.provider?.configured?'تنظیم‌شده':'ثبت نشده')+'</b></div></div>'+
+      '<div class="tg-health-row"><span class="tg-health-icon">📣</span><div class="tg-health-copy">کاتالوگ SMM: <b>'+
+        esc(smmText)+'</b></div></div>'+
+      '<div class="tg-health-row"><span class="tg-health-icon">⚠️</span><div class="tg-health-copy">سفارش‌های نیازمند رسیدگی: <b>'+
+        money(errorTotal)+'</b></div></div>'+
+      '<div class="tg-health-note">تعداد آیتم‌های API به معنی قابل‌فروش‌بودن آن‌ها نیست. سفارش نامشخص نباید خودکار دوباره خرید شود؛ پیش از استرداد، وضعیت واقعی تحویل را بررسی کن.</div>'+
       '</div>';
   }
   id('tgMarketSettings').onclick=async e=>{
