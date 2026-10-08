@@ -66,6 +66,9 @@ async function tgCreateOrder(env,input,user,ctx){
   }
   const item=await tgQuoteBySku(env,kind,sku);
   if(!item)return {ok:false,error:'price_unavailable',http:409};
+  const customerQuoted=Number(input.expected_price_toman||0);
+  if(customerQuoted&&(!Number.isSafeInteger(customerQuoted)||customerQuoted!==item.price_toman))
+    return {ok:false,error:'price_changed',http:409};
   const dest=tgDestination(kind,input.target);
   if(!dest&&item.target_type!=='none')return {ok:false,error:'invalid_target',http:400};
   if(item.target_type==='none'&&dest)return {ok:false,error:'invalid_target',http:400};
