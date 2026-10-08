@@ -51,7 +51,7 @@ async function route(request, env, ctx) {
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
   }
-  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.7.0' });
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.8.0' });
 
   if (path === '/api/build/android-signing' && request.method === 'GET') {
     const claims = await verifyGitHubOidc(request);
@@ -87,7 +87,8 @@ async function route(request, env, ctx) {
       brand_fa: BRAND_FA,
       support: settings.support || '',
       currency: 'TOMAN',
-      payment_method: paymentMethod,
+      payment_method: paymentMethod === 'blupal' ? 'card_transfer' : paymentMethod,
+      card_payment_enabled: paymentMethod === 'blupal' && settings.blupal_enabled === '1',
       cafebazaar_enabled: settings.cafebazaar_enabled === '1',
       cafebazaar_configured: bazaarConfigured,
       cafebazaar: bazaarConfigured ? {
@@ -98,7 +99,6 @@ async function route(request, env, ctx) {
           12: settings.bazaar_sku_12,
         },
       } : null,
-      blupal_enabled: settings.blupal_enabled === '1',
     });
   }
 
@@ -184,38 +184,75 @@ async function route(request, env, ctx) {
       now
     ).run();
 
+    const expectedRial = Math.round(priceToman) * 10;
     const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
-      amount: Math.round(priceToman) * 10,
+      amount: expectedRial,
     });
-    const invoiceId = String(invoice.data?.invoice_id || invoice.raw?.invoice_id || invoice.raw?.data?.invoice_id || '').trim();
-    const paymentLink = String(invoice.data?.payment_link || invoice.raw?.payment_link || invoice.raw?.data?.payment_link || '').trim();
+    let details = blupalInvoiceFields(invoice.data || invoice.raw || {}, expectedRial);
 
-    if (!invoice.ok || !invoiceId || !isHttpsUrl(paymentLink)) {
+    if (!invoice.ok || !details.invoice_id) {
       await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error=?, updated_at=? WHERE order_code=?`)
         .bind(safeProviderMessage(invoice.message || 'invoice_create_failed'), new Date().toISOString(), orderCode).run();
       return api({ ok: false, error: 'invoice_create_failed' }, 502);
     }
 
+    if (!details.card_number || !details.final_amount_rial) {
+      const freshInvoice = await blupalRequest(blupalKey, 'GET', `/v1/invoices/${encodeURIComponent(details.invoice_id)}`);
+      if (freshInvoice.ok) {
+        const refreshed = blupalInvoiceFields(freshInvoice.data || freshInvoice.raw || {}, expectedRial);
+        details = {
+          ...details,
+          ...refreshed,
+          invoice_id: refreshed.invoice_id || details.invoice_id,
+          payment_link: refreshed.payment_link || details.payment_link,
+          card_number: refreshed.card_number || details.card_number,
+          final_amount_rial: refreshed.final_amount_rial || details.final_amount_rial,
+          expires_at: refreshed.expires_at || details.expires_at,
+        };
+      }
+    }
+
+    if (details.amount_rial && details.amount_rial !== expectedRial) {
+      await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error='invoice_amount_mismatch', updated_at=? WHERE order_code=?`)
+        .bind(new Date().toISOString(), orderCode).run();
+      return api({ ok: false, error: 'invoice_amount_mismatch' }, 502);
+    }
+
+    if (
+      !details.card_number ||
+      details.card_number.length < 16 ||
+      !details.final_amount_rial ||
+      details.final_amount_rial < expectedRial ||
+      details.final_amount_rial > expectedRial + 999
+    ) {
+      await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error='payment_details_unavailable', updated_at=? WHERE order_code=?`)
+        .bind(new Date().toISOString(), orderCode).run();
+      return api({ ok: false, error: 'payment_details_unavailable' }, 502);
+    }
+
     await env.DB.prepare(`
       UPDATE orders
-      SET status='awaiting_payment', blupal_invoice_id=?, payment_url=?, updated_at=?
+      SET status='awaiting_payment', blupal_invoice_id=?, payment_url=?,
+          blupal_final_amount_rial=?, blupal_card_number=?, blupal_expires_at=?, updated_at=?
       WHERE order_code=? AND status='creating_payment'
-    `).bind(invoiceId, paymentLink, new Date().toISOString(), orderCode).run();
+    `).bind(
+      details.invoice_id,
+      details.payment_link || null,
+      details.final_amount_rial,
+      details.card_number,
+      details.expires_at || null,
+      new Date().toISOString(),
+      orderCode
+    ).run();
 
+    const created = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
+    const publicCreated = publicOrder(created);
+    publicCreated.token = publicToken;
     return api({
       ok: true,
-      payment_method: 'blupal',
-      order: {
-        code: orderCode,
-        token: publicToken,
-        username,
-        months,
-        price_toman: Math.round(priceToman),
-        status: 'awaiting_payment',
-        payment_method: 'blupal',
-        payment_url: paymentLink,
-      },
-      payment_url: paymentLink,
+      payment_method: 'card_transfer',
+      order: publicCreated,
+      payment_instructions: publicCreated.payment_instructions,
     }, 201);
   }
 
