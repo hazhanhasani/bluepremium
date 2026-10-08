@@ -24,7 +24,7 @@ function setup() {
       return statements.map(()=>({success:true}));
     }
   }};
-  const make=new Function('api','requireAdmin','readJson','getSetting','TG_TYPES','tgCache',
+  const make=new Function('api','requireAdmin','readJson','getSetting','TG_TYPES','tgCache','getProviderSecret','tgLiveQuote',
     source+';return tgMarketApi;');
   const handler=make(
     (data,status=200)=>({status,...data}),
@@ -32,7 +32,9 @@ function setup() {
     async request=>request.payload,
     async(db,key,fallback)=>settings.get(key)??fallback,
     ['stars','gift','smm','catalog','nft','steam'],
-    new Map()
+    new Map(),
+    async()=>null,
+    async()=>null
   );
   const send=(method,payload)=>handler({method,payload},env,
     {pathname:'/api/admin/market/settings'},null);
@@ -44,7 +46,7 @@ test('unsupported Steam/NFT activation rejects without writing profit',async()=>
     const app=setup();
     const result=await app.send('PATCH',{kind,enabled:true,profit_percent:55});
     assert.equal(result.status,409);
-    assert.equal(result.error,'requires_live_quote_support');
+    assert.ok(['provider_not_configured','quote_unavailable'].includes(result.error));
     assert.equal(app.settings.get('market_'+kind+'_profit'),'15');
     assert.equal(app.batchCount,0);
   }
@@ -88,8 +90,8 @@ test('settings advertise unsupported quote categories',async()=>{
   const app=setup();
   const result=await app.send('GET');
   assert.equal(result.ok,true);
-  assert.equal(result.settings.nft.can_enable,false);
-  assert.equal(result.settings.steam.can_enable,false);
+  assert.equal(result.settings.nft.can_enable,true);
+  assert.equal(result.settings.steam.can_enable,true);
   assert.equal(result.settings.stars.can_enable,true);
 });
 
