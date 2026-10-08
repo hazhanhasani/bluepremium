@@ -6,8 +6,8 @@ The BluePremium Worker on Cloudflare includes a dedicated catalog and checkout f
 
 Current configuration and contracts:
 - **Stars:** enabled; dynamic package prices from `/api/purchase/prices` and successful delivered order observed.
-- **Telegram gifts:** enabled with sold-out filtering, confirmation-only failure refunding and TGTools purchase polling. A prior wallet purchase that returned "gift sold out" was refunded (52,000 Toman).
-- **Gift cards/game top-ups:** enabled; searches the provider's giftcards/topups catalog, shows exact denomination-level variants and re-quotes `/api/catalog/item?key=` by product ID before checkout. Provider delivery confirmation is still required before marking delivered.
+- **Telegram gifts:** enabled with sold-out filtering, confirmation-only failure refunding and TGTools purchase polling. The live list returned 11 currently sellable gifts. A prior wallet purchase that returned "gift sold out" was refunded (52,000 Toman).
+- **Gift cards/game top-ups:** enabled; searches provider giftcards/topups with brand search, lists individual denomination variants and re-quotes `/api/catalog/item?key=` by product ID before checkout. A live example (Amazon `productId=225`, `giftcards:amazon`) returned a matching wholesale TON quote. Provider delivery confirmation is still required before marking delivered.
 - **Steam direct top-up:** enabled following a successful live quote on `RUB:100`. Supported currencies and amounts are quoted against `/api/steam-topup/quote`; `/check-login` validates the destination before `/buy`. Order polling uses `/api/fazer/orders/{id}`.
 - **Collectible gift NFTs:** quote-on-demand enabled. A customer supplies the exact NFT address and receiving TON address; `/api/marketplace/quote` must return `canBuy:true` and `totalPriceTon`. The marketplace browse feed may be empty, in which case manual address quoting remains available. Purchase uses a deterministic `clientOrderId`.
 - **SMM:** enabled in configuration but live bundle discovery has not produced a verified sellable catalog; empty/invalid responses produce no purchasable items.
@@ -28,7 +28,7 @@ In `/admin` choose **محصولات TG Tools** to configure each category's marg
 - `GET/PATCH /api/admin/market/settings`
 - `GET /api/admin/market/orders`
 
-Public endpoints: `GET /api/market/catalog?kind=stars|gift|catalog|smm`, `GET /api/market/catalog?kind=catalog&q=Amazon`, `GET /api/market/quote?kind=steam&sku=RUB:100`, `GET /api/market/quote?kind=nft&sku=<address>`, and `GET /api/market/nft-listings`. Signed Telegram Mini App profile/history remains separate.
+Public endpoints: `GET /api/market/catalog?kind=stars|gift|catalog|smm`, `GET /api/market/catalog?kind=catalog&q=Amazon`, `GET /api/market/catalog/quote?sku=225&catalog_key=giftcards:amazon`, `GET /api/market/quote?kind=steam&sku=RUB:100`, `GET /api/market/quote?kind=nft&sku=<address>`, and `GET /api/market/nft-listings`. Signed Telegram Mini App profile/history remains separate.
 
 The price sync continues using the existing Cloudflare cron and TON/Toman setting.
 
