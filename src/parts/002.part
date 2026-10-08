@@ -65,7 +65,9 @@
       order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
     }
     if (!order) return blupalCallbackResponse(null, 'error', 404);
-    if (!await isTelegramBotBlupalOrderAllowed(env, order)) return api({ ok: false, error: 'blupal_disabled' }, 410);
+    if (String(await getSetting(env.DB, 'blupal_enabled', '1')) !== '1' || String(order.payment_provider || '') !== 'blupal') {
+      return api({ ok: false, error: 'blupal_disabled' }, 410);
+    }
 
     await reconcileOrder(env, order, ctx);
     const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first() || order;
@@ -89,7 +91,9 @@
     if (!invoiceId) return api({ ok: false, error: 'invalid_invoice' }, 400);
     const order = await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first();
     if (!order) return api({ ok: false, error: 'not_found' }, 404);
-    if (!await isTelegramBotBlupalOrderAllowed(env, order)) return api({ ok: false, error: 'blupal_disabled' }, 410);
+    if (String(await getSetting(env.DB, 'blupal_enabled', '1')) !== '1' || String(order.payment_provider || '') !== 'blupal') {
+      return api({ ok: false, error: 'blupal_disabled' }, 410);
+    }
 
     // Webhook data is only a trigger. Status and amount are always re-fetched from BluePal.
     await reconcileOrder(env, order, ctx);
@@ -145,11 +149,6 @@
 
     if (path === '/api/admin/telegram-bot' && request.method === 'POST') {
       const body = await readJson(request);
-      if (Object.prototype.hasOwnProperty.call(body, 'blupal_api_key')) {
-        const bluePalKey = String(body.blupal_api_key || '').trim();
-        if (bluePalKey) await setProviderSecret(env, 'blupal_api_key', bluePalKey);
-      }
-      await setSetting(env.DB, 'telegram_bot_blupal_enabled', '1');
       const result = await configureTelegramBot(env, url.origin, {
         token: String(body.token || ''),
         adminId: String(body.admin_id || ''),
@@ -203,9 +202,9 @@
           await setSetting(env.DB, key, value);
         }
       }
-      await setSetting(env.DB, 'payment_provider', 'cafebazaar');
-      await setSetting(env.DB, 'cafebazaar_enabled', '1');
-      await setSetting(env.DB, 'blupal_enabled', '0');
+      await setSetting(env.DB, 'payment_provider', 'blupal');
+      await setSetting(env.DB, 'cafebazaar_enabled', '0');
+      await setSetting(env.DB, 'blupal_enabled', '1');
       if (body.new_password != null) {
         const newPassword = String(body.new_password || '');
         if (newPassword.length < 10 || newPassword.length > 128) return api({ ok: false, error: 'weak_password' }, 400);
