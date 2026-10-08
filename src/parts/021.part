@@ -119,8 +119,10 @@ async function tgMarketApi(request,env,url,ctx){
       const remote=await tgRequest(key,'GET','/api/Purchase/smm/bundles?lang=fa',null,true);
       const body=remote.data||{};
       const list=tgList(body);
+      const sellable=remote.ok?await tgProducts(env,'smm').catch(()=>[]):[];
       smm={status:remote.ok?'reachable':'provider_error',http_status:remote.http_status||0,
-        product_count:list.length,shape:Array.isArray(body)?'array':Object.keys(body).slice(0,7),
+        product_count:list.length,sellable_count:sellable.length,
+        shape:Array.isArray(body)?'array':Object.keys(body).slice(0,7),
         error:remote.ok?'':bpName(remote.message||'unavailable',90)};
     }
     return api({ok:true,provider:{configured:!!key,smm},orders:counts.results||[],
