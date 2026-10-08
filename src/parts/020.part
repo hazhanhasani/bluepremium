@@ -185,8 +185,11 @@ async function tgMarketDeliver(env,order){
   const data=remote.data||{},tx=String(data.transactionId??data.orderId??data.purchaseId??data.id??'');
   if(!remote.ok){
     const uncertain=remote.http_status===0||remote.http_status>=500||remote.http_status===409;
+    const error=safeProviderMessage(remote.message||'provider_failed');
     await env.DB.prepare("UPDATE bp_market_orders SET status=?,provider_error=?,updated_at=? WHERE id=?")
-      .bind(uncertain?'provider_uncertain':'failed',safeProviderMessage(remote.message||'provider_failed'),new Date().toISOString(),order.id).run();
+      .bind(uncertain?'provider_uncertain':'failed',error,new Date().toISOString(),order.id).run();
+    if(!uncertain&&order.kind==='gift'&&/sold out/i.test(error))
+      await tgRefundSoldOutGift(env,{...order,status:'failed',provider_error:error});
     return;
   }
   if(!/^\d{1,20}$/.test(tx)){
