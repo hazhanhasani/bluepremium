@@ -188,7 +188,7 @@ async function route(request, env, ctx) {
     const invoice = await blupalRequest(blupalKey, 'POST', '/v1/invoices/create', {
       amount: expectedRial,
     });
-    let details = blupalInvoiceFields(invoice.data || invoice.raw || {}, expectedRial);
+    let details = blupalInvoiceFields(invoice.raw || invoice.data || {}, expectedRial);
 
     if (!invoice.ok || !details.invoice_id) {
       await env.DB.prepare(`UPDATE orders SET status='payment_error', provider_error=?, updated_at=? WHERE order_code=?`)
@@ -199,7 +199,7 @@ async function route(request, env, ctx) {
     if (!details.card_number || !details.final_amount_rial) {
       const freshInvoice = await blupalRequest(blupalKey, 'GET', `/v1/invoices/${encodeURIComponent(details.invoice_id)}`);
       if (freshInvoice.ok) {
-        const refreshed = blupalInvoiceFields(freshInvoice.data || freshInvoice.raw || {}, expectedRial);
+        const refreshed = blupalInvoiceFields(freshInvoice.raw || freshInvoice.data || {}, expectedRial);
         details = {
           ...details,
           ...refreshed,
@@ -220,7 +220,7 @@ async function route(request, env, ctx) {
 
     if (
       !details.card_number ||
-      details.card_number.length < 16 ||
+      details.card_number.length !== 16 ||
       !details.final_amount_rial ||
       details.final_amount_rial < expectedRial ||
       details.final_amount_rial > expectedRial + 999
