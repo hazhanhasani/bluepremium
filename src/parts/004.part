@@ -180,6 +180,51 @@ function blupalInvoiceFields(payload, expectedRial = 0) {
   };
 }
 
+function blupalAmountIsReasonable(expectedRial, finalAmountRial) {
+  const base = Number(expectedRial);
+  const final = Number(finalAmountRial);
+  // Blupal can add provider fees and an invoice-specific amount suffix.
+  // Keep an upper safety bound while allowing legitimate checkout fees.
+  return Number.isSafeInteger(base) && Number.isSafeInteger(final) && base > 0 &&
+    final >= base && final <= base + Math.ceil(base * 0.05) + 999;
+}
+
+async function blupalHostedPaymentDetails(paymentUrl, expectedRial, knownFinalRial = 0) {
+  try {
+    const url = new URL(String(paymentUrl || ''));
+    // Never allow arbitrary fetches based on values returned by a payment provider.
+    if (url.protocol !== 'https:' || url.username || url.password ||
+      !['blupal.top', 'www.blupal.top'].includes(url.hostname) ||
+      (url.port && url.port !== '443') || url.href.length > 2048) return null;
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      redirect: 'manual',
+      headers: { accept: 'text/html' },
+    });
+    if (!response.ok || !String(response.headers.get('content-type') || '').toLowerCase().includes('text/html')) return null;
+    const html = await response.text();
+    if (html.length > 120000) return null;
+
+    // The official hosted invoice presents card and exact amount as copy values.
+    // This server-side fallback keeps the third-party checkout hidden from users.
+    // It is display-only; a PAID status must still be verified through the API.
+    const result = {};
+    const regex = /copyToClipboard\(\s*['"]([0-9۰-۹٠-٩\s,-]+)['"]\s*,\s*['"](card|amount)['"]/gi;
+    for (const match of html.matchAll(regex)) {
+      const digits = String(match[1]).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/[^0-9]/g, '');
+      if (!result[match[2]]) result[match[2]] = digits;
+    }
+    const amountRial = Number(result.amount || 0);
+    if (!result.card || result.card.length !== 16 || !blupalAmountIsReasonable(expectedRial, amountRial)) return null;
+    if (knownFinalRial && Number(knownFinalRial) !== amountRial) return null;
+    return { card_number: result.card, final_amount_rial: amountRial };
+  } catch (_error) {
+    return null;
+  }
+}
+
 function publicPaymentInstructions(order) {
   if (!order || order.status !== 'awaiting_payment') return null;
   const card = String(order.blupal_card_number || '').replace(/\D+/g, '');
