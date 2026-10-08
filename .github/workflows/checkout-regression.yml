@@ -1,0 +1,33 @@
+name: Checkout Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/parts/**'
+      - 'scripts/build-worker.mjs'
+      - 'package.json'
+      - 'tests/checkout-contract.test.mjs'
+      - '.github/workflows/checkout-regression.yml'
+  pull_request:
+    paths:
+      - 'src/parts/**'
+      - 'scripts/build-worker.mjs'
+      - 'package.json'
+      - 'tests/checkout-contract.test.mjs'
+      - '.github/workflows/checkout-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Worker and checkout contracts
+        run: npm test
