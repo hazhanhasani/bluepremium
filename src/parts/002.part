@@ -42,7 +42,6 @@
   }
 
   if (path === '/payment/blupal/callback' && (request.method === 'GET' || request.method === 'POST')) {
-    if (String(await getSetting(env.DB, 'blupal_enabled', '0')) !== '1') return api({ ok: false, error: 'blupal_disabled' }, 410);
     const body = await readLoosePayload(request, 65536);
     const invoiceId = sanitizeToken(
       url.searchParams.get('invoice_id') ||
@@ -66,6 +65,7 @@
       order = await env.DB.prepare(`SELECT * FROM orders WHERE order_code=? LIMIT 1`).bind(orderCode).first();
     }
     if (!order) return blupalCallbackResponse(null, 'error', 404);
+    if (!await isTelegramBotBlupalOrderAllowed(env, order)) return api({ ok: false, error: 'blupal_disabled' }, 410);
 
     await reconcileOrder(env, order, ctx);
     const fresh = await env.DB.prepare(`SELECT * FROM orders WHERE id=?`).bind(order.id).first() || order;
@@ -79,7 +79,6 @@
   }
 
   if (path === '/api/webhooks/blupal' && request.method === 'POST') {
-    if (String(await getSetting(env.DB, 'blupal_enabled', '0')) !== '1') return api({ ok: false, error: 'blupal_disabled' }, 410);
     const body = await readJson(request, 65536);
     const event = String(body.event || '').trim();
     const remoteStatus = String(body.status || '').trim().toUpperCase();
@@ -90,6 +89,7 @@
     if (!invoiceId) return api({ ok: false, error: 'invalid_invoice' }, 400);
     const order = await env.DB.prepare(`SELECT * FROM orders WHERE blupal_invoice_id=? LIMIT 1`).bind(invoiceId).first();
     if (!order) return api({ ok: false, error: 'not_found' }, 404);
+    if (!await isTelegramBotBlupalOrderAllowed(env, order)) return api({ ok: false, error: 'blupal_disabled' }, 410);
 
     // Webhook data is only a trigger. Status and amount are always re-fetched from BluePal.
     await reconcileOrder(env, order, ctx);
@@ -145,6 +145,11 @@
 
     if (path === '/api/admin/telegram-bot' && request.method === 'POST') {
       const body = await readJson(request);
+      if (Object.prototype.hasOwnProperty.call(body, 'blupal_api_key')) {
+        const bluePalKey = String(body.blupal_api_key || '').trim();
+        if (bluePalKey) await setProviderSecret(env, 'blupal_api_key', bluePalKey);
+      }
+      await setSetting(env.DB, 'telegram_bot_blupal_enabled', '1');
       const result = await configureTelegramBot(env, url.origin, {
         token: String(body.token || ''),
         adminId: String(body.admin_id || ''),
