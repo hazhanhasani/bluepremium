@@ -322,3 +322,53 @@ async function bpBotReferrals(env,chatId,userId) {
     "🔗 لینک اختصاصی:\n"+telegramEscapeHtml(view.referral_link||"ربات هنوز نام کاربری ندارد.")+
     "\n\nپاداش پس از نخستین تحویل موفق سفارش زیرمجموعه پرداخت می‌شود.");
 }
+
+
+async function bpBotChoosePayment(env, chatId, fromId, payment, ctx) {
+  const session=await telegramSessionGet(env,chatId);
+  if (session?.state!=="bp_payment_choice" || !session.data?.plan_id || !session.data?.username) {
+    await telegramSendMessage(env,chatId,"سفارش قبلی منقضی شده است. دوباره از بخش خرید اقدام کن.");
+    return;
+  }
+  const {plan_id,username}=session.data;
+  if(payment==="wallet") {
+    const created=await bpWalletBuy(env,String(fromId),Number(plan_id),username,ctx);
+    if (!created.ok) {
+      const msg={
+        insufficient_wallet_balance:"موجودی کیف پول برای این خرید کافی نیست.",
+        join_required:"ابتدا در کانال‌های الزامی عضو شو.",
+        telegram_lookup_failed:"بررسی حساب مقصد با مشکل روبه‌رو شد.",
+        account_unavailable:"حساب کاربری در دسترس نیست."
+      };
+      await telegramSendMessage(env,chatId,"⚠️ "+(msg[created.error]||"خرید با کیف پول انجام نشد؛ دوباره تلاش کن."));
+      return;
+    }
+    await telegramSessionClear(env,chatId);
+    await telegramSendMessage(env,chatId,
+      "✅ <b>پرداخت از کیف پول انجام شد</b>\n\n"+
+      "🧾 کد سفارش: <code>"+telegramEscapeHtml(created.code)+"</code>\n"+
+      "📦 "+Number(created.order.months)+" ماهه\n"+
+      "وضعیت: "+telegramEscapeHtml(customerStatusMessage(created.order.status))+
+      "\n\nبرای پیگیری از /status استفاده کن.");
+    return;
+  }
+  await telegramSendMessage(env,chatId,"⏳ در حال دریافت اطلاعات پرداخت...");
+  const created=await createTelegramBotBlupalOrder(env,{
+    chatId,userId:fromId,planId:Number(plan_id),username
+  });
+  if (!created.ok) {
+    const msg={
+      payment_not_configured:"درگاه پرداخت هنوز آماده نیست.",
+      telegram_lookup_failed:"بررسی حساب تلگرام ناموفق بود.",
+      payment_details_unavailable:"اطلاعات کارت مقصد دریافت نشد؛ دوباره تلاش کن.",
+      invoice_create_failed:"ساخت فاکتور انجام نشد.",
+      plan_unavailable:"این پلن در دسترس نیست."
+    };
+    await telegramSendMessage(env,chatId,"⚠️ "+(msg[created.error]||"ساخت سفارش انجام نشد."));
+    return;
+  }
+  await telegramSessionClear(env,chatId);
+  await telegramSendMessage(env,chatId,telegramCardPaymentText(created.order),{
+    reply_markup:telegramCardPaymentKeyboard(created.order)
+  });
+}
