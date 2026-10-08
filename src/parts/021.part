@@ -135,6 +135,42 @@ async function tgMarketApi(request,env,url,ctx){
     const result=await tgAdminRefundFailedWallet(env,Number(refundPath[1]),body.reason);
     return api(result,result.ok?200:409);
   }
+  const refundMatch=path.match(/^\/api\/admin\/market\/orders\/(\d{1,12})\/refund$/);
+  if(refundMatch&&method==='POST'){
+    const body=await readJson(request),id=Number(refundMatch[1]);
+    const reason=bpName(body.reason,150),code=String(body.order_code||'').trim();
+    if(!Number.isSafeInteger(id)||!/^BP-[A-Z0-9]{10,24}$/.test(code)||reason.length<10)
+      return api({ok:false,error:'confirmation_required'},400);
+    const order=await env.DB.prepare(
+      'SELECT id,order_code,telegram_user_id,price_toman,status,payment_provider,provider_transaction_id FROM bp_market_orders WHERE id=?'
+    ).bind(id).first();
+    if(!order||order.order_code!==code)return api({ok:false,error:'order_not_found'},404);
+    if(order.payment_provider!=='wallet'||!order.telegram_user_id||
+      !['failed','refund_required'].includes(order.status)||order.provider_transaction_id)
+      return api({ok:false,error:'refund_requires_provider_review'},409);
+    const now=new Date().toISOString();
+    const writes=await env.DB.batch([
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO bp_wallet_ledger(telegram_id,delta_toman,kind,actor,reason,order_code,idempotency_key) "+
+        "SELECT o.telegram_user_id,o.price_toman,'refund','admin',?,o.order_code,'refund:'||o.order_code "+
+        "FROM bp_market_orders o WHERE o.id=? AND o.payment_provider='wallet' "+
+        "AND o.provider_transaction_id IS NULL AND o.status IN ('failed','refund_required') "+
+        "AND EXISTS(SELECT 1 FROM bp_wallet_ledger l WHERE l.idempotency_key='purchase:'||o.order_code)"
+      ).bind(reason,id),
+      env.DB.prepare(
+        "UPDATE bp_market_orders SET status='refunded',updated_at=? "+
+        "WHERE id=? AND status IN ('failed','refund_required') AND provider_transaction_id IS NULL "+
+        "AND EXISTS(SELECT 1 FROM bp_wallet_ledger l WHERE l.idempotency_key=?)"
+      ).bind(now,id,'refund:'+code)
+    ]);
+    if(!writes[0]?.meta?.changes||!writes[1]?.meta?.changes)
+      return api({ok:false,error:'already_refunded_or_ineligible'},409);
+    const notification=telegramSendMessage(env,order.telegram_user_id,
+      '↩️ مبلغ '+bpPrice(order.price_toman)+' تومان بابت سفارش <code>'+
+      telegramEscapeHtml(order.order_code)+'</code> به کیف پول شما برگشت داده شد.');
+    if(ctx?.waitUntil)ctx.waitUntil(notification.catch(()=>{}));else await notification.catch(()=>{});
+    return api({ok:true,order_code:code,status:'refunded',amount_toman:Number(order.price_toman)});
+  }
   if(path==='/api/admin/market/orders'&&method==='GET'){
     const result=await env.DB.prepare("SELECT id,order_code,telegram_user_id,kind,sku,title,target,quantity,price_toman,status,payment_provider,provider_error,provider_transaction_id,created_at,updated_at FROM bp_market_orders ORDER BY id DESC LIMIT 100").all();
     return api({ok:true,orders:result.results||[]});
