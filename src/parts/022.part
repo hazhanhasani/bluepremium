@@ -268,20 +268,30 @@ function tgAdminClient(){
     }catch(e){id('tgMarketSettings').textContent='خطا: '+e.message}
   }
   function renderHealth(data){
-    const health=data?.provider?.smm||{},counts=data.orders||[];
+    const provider=data?.provider||{},key=provider.tgtools||{},health=provider.smm||{},counts=data.orders||[];
     const errorTotal=counts.filter(x=>(data.warning_states||[]).includes(x.status))
       .reduce((total,x)=>total+Number(x.total||0),0);
+    const keyState=key.key_state||(provider.configured?'configured':'missing');
+    const keyText=keyState==='configured'?'ثبت‌شده · مشترک با پرمیوم':
+      keyState==='decryption_failed'?'ذخیره‌شده · مشکل در بازیابی کلید':'ثبت نشده';
+    const connText=keyState!=='configured'?'ابتدا وضعیت کلید را بررسی کن':
+      key.connected?'اتصال سالم به TG Tools':
+      [401,403].includes(Number(key.http_status))?'کلید ثبت شده، اما دسترسی آن رد شده (HTTP '+Number(key.http_status)+')':
+      'کلید ثبت شده؛ اتصال نیازمند بررسی است'+(key.http_status?' (HTTP '+Number(key.http_status)+')':'');
     const smmText=health.status==='reachable'
-      ?'اتصال برقرار · '+money(health.product_count)+' آیتم API · '+money(health.sellable_count||0)+' محصول قیمت‌دار':
-      health.status==='key_missing'?'کلید API وارد نشده':'خطای TG Tools · HTTP '+Number(health.http_status||0);
+      ?'پاسخ API: '+money(health.product_count)+' آیتم · آماده فروش: '+money(health.sellable_count||0)+' محصول قیمت‌دار':
+      health.status==='key_missing'?'نیازمند بازیابی اتصال مشترک TG Tools':
+        'اتصال اختصاصی SMM ناموفق · HTTP '+Number(health.http_status||0);
     id('tgMarketHealth').innerHTML='<div class="tg-health-report">'+
-      '<div class="tg-health-row"><span class="tg-health-icon">🔑</span><div class="tg-health-copy">کلید سرویس: <b>'+
-        (data.provider?.configured?'تنظیم‌شده':'ثبت نشده')+'</b></div></div>'+
+      '<div class="tg-health-row"><span class="tg-health-icon">🔑</span><div class="tg-health-copy">کلید مشترک TG Tools: <b>'+
+        esc(keyText)+'</b></div></div>'+
+      '<div class="tg-health-row"><span class="tg-health-icon">🔌</span><div class="tg-health-copy">وضعیت اتصال پرمیوم و محصولات: <b>'+
+        esc(connText)+'</b></div></div>'+
       '<div class="tg-health-row"><span class="tg-health-icon">📣</span><div class="tg-health-copy">کاتالوگ SMM: <b>'+
         esc(smmText)+'</b></div></div>'+
       '<div class="tg-health-row"><span class="tg-health-icon">⚠️</span><div class="tg-health-copy">سفارش‌های نیازمند رسیدگی: <b>'+
         money(errorTotal)+'</b></div></div>'+
-      '<div class="tg-health-note">تعداد آیتم‌های API به معنی قابل‌فروش‌بودن آن‌ها نیست. سفارش نامشخص نباید خودکار دوباره خرید شود؛ پیش از استرداد، وضعیت واقعی تحویل را بررسی کن.</div>'+
+      '<div class="tg-health-note">برای پرمیوم، استارز و محصولات دیجیتال از همان یک کلید TG Tools استفاده می‌شود. خطای کاتالوگ SMM به معنی ثبت‌نشدن کلید نیست. سفارش‌های نامشخص خودکار دوباره خرید نمی‌شوند.</div>'+
       '</div>';
   }
   id('tgMarketSettings').onclick=async e=>{
