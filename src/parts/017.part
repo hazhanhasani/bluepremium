@@ -47,11 +47,13 @@ async function ensureTelegramWebhookSecret(env) {
 }
 
 async function telegramBotHealth(env) {
-  const [enabled, adminId, username, token] = await Promise.all([
+  const [enabled, adminId, username, token, bluePalKey, bluePalEnabled] = await Promise.all([
     getSetting(env.DB, 'telegram_bot_enabled', '0'),
     getSetting(env.DB, 'telegram_admin_id', ''),
     getSetting(env.DB, 'telegram_bot_username', ''),
     getProviderSecret(env, 'telegram_bot_token'),
+    getProviderSecret(env, 'blupal_api_key'),
+    getSetting(env.DB, 'telegram_bot_blupal_enabled', '1'),
   ]);
   const configured = !!token && telegramAdminIdLooksValid(adminId);
   const out = {
@@ -63,6 +65,8 @@ async function telegramBotHealth(env) {
     webhook_url: '',
     http_status: 0,
     error: '',
+    blupal_enabled: String(bluePalEnabled) === '1',
+    blupal_configured: !!bluePalKey,
   };
   if (!configured || String(enabled) !== '1') return out;
   const me = await telegramBotApi(token, 'getMe');
