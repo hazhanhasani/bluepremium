@@ -19,9 +19,9 @@ async function providerHealth(env) {
   const [tgKey, blupalKey, paymentProvider, bazaarEnabled, blupalEnabled, rsaKey, sku3, sku6, sku12] = await Promise.all([
     getProviderSecret(env, 'tgtools_api_key'),
     getProviderSecret(env, 'blupal_api_key'),
-    getSetting(env.DB, 'payment_provider', 'cafebazaar'),
-    getSetting(env.DB, 'cafebazaar_enabled', '1'),
-    getSetting(env.DB, 'blupal_enabled', '0'),
+    getSetting(env.DB, 'payment_provider', 'blupal'),
+    getSetting(env.DB, 'cafebazaar_enabled', '0'),
+    getSetting(env.DB, 'blupal_enabled', '1'),
     getSetting(env.DB, 'bazaar_rsa_public_key', ''),
     getSetting(env.DB, 'bazaar_sku_3', ''),
     getSetting(env.DB, 'bazaar_sku_6', ''),
@@ -40,7 +40,7 @@ async function providerHealth(env) {
     },
     blupal: {
       configured: !!blupalKey,
-      ok: false,
+      ok: !!blupalKey && String(blupalEnabled) === '1' && String(paymentProvider) === 'blupal',
       active: String(blupalEnabled) === '1' && String(paymentProvider) === 'blupal',
     },
   };
