@@ -175,6 +175,7 @@ function tgStoreClient(){
       const d=await r.json();if(d.ok)render(d.order);else feedback.textContent='سفارش پیدا نشد.';
     }catch(e){feedback.textContent='بررسی مجدد ناموفق بود.'}
   }
+  window.bpSelectMarketKind=kind=>load(kind);
   load('stars');
   try{if(localStorage.getItem('tg_market_order'))check()}catch(_){}
 }
