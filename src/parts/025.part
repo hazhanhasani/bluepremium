@@ -1,0 +1,256 @@
+function bpPhaseOneDecorate(html){return html.replace('</head>','<style id="bp-phase-one-style">'+bpPhaseOneCss()+'</style></head>').replace('</body>','<script>('+bpPhaseOneClient.toString()+')()</script></body>');}
+
+function bpPhaseOneCss(){return "\n/* Phase One — warm editorial home, wallet and orders. Pure presentation. */\n.bp-phase-one .bp-overview{margin:17px 0 8px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:12px}\n.bp-phase-one .bp-overview-card{position:relative;overflow:hidden;min-height:119px;border:1px solid #E4D8CB;border-radius:21px;padding:16px;text-align:right;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:8px;background:#FFFDF8;color:#362F2D}\n.bp-phase-one .bp-overview-card.wallet{background:#E6EDE4;border-color:#D3E2D2}\n.bp-phase-one .bp-overview-card.orders{background:#F7E6D9;border-color:#EAD2C3}\n.bp-phase-one .bp-overview-card:after{content:\"\";width:100px;height:100px;border:1px solid #6A5F5621;border-radius:50%;position:absolute;left:-42px;top:-42px;box-shadow:0 0 0 18px #5A4C4010}\n.bp-phase-one .bp-overview-kicker{font:750 11px/1.7 \"Vazirmatn\",Tahoma,sans-serif;color:#695D56;display:flex;align-items:center;gap:7px}\n.bp-phase-one .bp-overview-kicker svg{width:18px;height:18px}\n.bp-phase-one .bp-overview-number{font:900 clamp(17px,2.5vw,25px)/1.6 \"Vazirmatn\",Tahoma,sans-serif;letter-spacing:-.7px;direction:rtl}\n.bp-phase-one .bp-overview-card.orders .bp-overview-number{color:#A4523E}\n.bp-phase-one .bp-overview-action{font:750 10px/1.7 \"Vazirmatn\",Tahoma,sans-serif;border:0;background:transparent;text-align:right;padding:0;color:#775444;cursor:pointer}\n.bp-phase-one .bp-overview-status{margin:8px 0 0;border:1px dashed #DDD0C2;border-radius:15px;padding:11px 13px;color:#82756B;background:#FFFCF7;font-size:11px;line-height:1.9}\n.bp-phase-one .bp-panel{background:#FFFDF9;border:1px solid #E8DED3;border-radius:23px;padding:17px;margin:15px 0;box-shadow:0 6px 20px #6A51400C;color:#3A302D}\n.bp-phase-one .bp-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}\n.bp-phase-one .bp-panel-head h2{font-size:15px;font-weight:900;line-height:1.7;margin:0;color:#342D2B}\n.bp-phase-one .bp-panel-head p{font-size:10px;color:#897C70;line-height:1.9;margin:2px 0 0}\n.bp-phase-one .bp-panel-head .bp-panel-action{border:1px solid #E5D8CB;background:#F6EEE5;color:#674A3E;border-radius:11px;padding:8px 10px;font:700 10px \"Vazirmatn\",Tahoma,sans-serif;cursor:pointer;white-space:nowrap}\n.bp-phase-one .bp-panel-head .bp-panel-action:focus-visible,.bp-phase-one .bp-chip:focus-visible{outline:2px solid #CA7158;outline-offset:2px}\n.bp-phase-one .bp-profile-top{display:flex;align-items:center;gap:13px;margin:0 0 12px}\n.bp-phase-one .bp-profile-avatar{height:57px;width:57px;flex:0 0 57px;display:grid;place-items:center;background:#F1D5C7;color:#663C33;border:1px solid #E7BEAC;border-radius:19px;font-size:24px;font-weight:900}\n.bp-phase-one .bp-profile-copy{min-width:0}\n.bp-phase-one .bp-profile-copy strong{display:block;font-size:16px;font-weight:900;color:#362E2B;overflow-wrap:anywhere}\n.bp-phase-one .bp-profile-copy small{display:block;font-size:11px;line-height:1.9;color:#887B73;direction:rtl}\n.bp-phase-one .bp-persona-foot{font-size:11px;line-height:1.95;color:#846F60}\n.bp-phase-one .bp-account-actions{display:flex;gap:7px;margin-top:13px;flex-wrap:wrap}\n.bp-phase-one .bp-account-actions button{background:#342931;color:#FFF7E9;border:0;border-radius:12px;font:750 11px \"Vazirmatn\",Tahoma,sans-serif;min-height:42px;padding:10px 13px;cursor:pointer}\n.bp-phase-one .bp-account-actions button.secondary{background:#F4E9DC;color:#6A4B40}\n.bp-phase-one .bp-timeline{display:flex;flex-direction:column;gap:2px}\n.bp-phase-one .bp-timeline-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 1px;border-bottom:1px solid #EEE5DA}\n.bp-phase-one .bp-timeline-row:last-child{border-bottom:0}\n.bp-phase-one .bp-timeline-main{display:flex;align-items:center;gap:10px;min-width:0}\n.bp-phase-one .bp-timeline-icon{flex:0 0 34px;height:34px;width:34px;display:grid;place-items:center;border-radius:11px;background:#F3E9DF;color:#9F6655}\n.bp-phase-one .bp-timeline-icon.positive{background:#E4EFE4;color:#507B62}\n.bp-phase-one .bp-timeline-icon svg{height:18px;width:18px}\n.bp-phase-one .bp-timeline-text{min-width:0;display:flex;flex-direction:column;gap:3px}\n.bp-phase-one .bp-timeline-text strong{font-size:11px;color:#403631;font-weight:800;line-height:1.75;overflow-wrap:anywhere}\n.bp-phase-one .bp-timeline-text small{font-size:10px;color:#90847C;line-height:1.5}\n.bp-phase-one .bp-timeline-amount{font:850 11px/1.7 \"Vazirmatn\",Tahoma,sans-serif;color:#A05748;white-space:nowrap;text-align:left;direction:rtl}\n.bp-phase-one .bp-timeline-amount.positive{color:#538066}\n.bp-phase-one .bp-empty-state{text-align:center;padding:25px 12px;border:1px dashed #DFD2C3;border-radius:17px;background:#FCF8F3}\n.bp-phase-one .bp-empty-state svg{height:35px;width:35px;color:#BE937E}\n.bp-phase-one .bp-empty-state strong{display:block;margin:8px 0 4px;font-size:13px;color:#4D3E36}\n.bp-phase-one .bp-empty-state p{color:#887A70;font-size:11px;line-height:2;margin:0}\n.bp-phase-one .bp-order-controls{display:flex;gap:7px;overflow-x:auto;padding:2px 0 13px;scrollbar-width:none}\n.bp-phase-one .bp-order-controls::-webkit-scrollbar{display:none}\n.bp-phase-one .bp-chip{flex:0 0 auto;padding:9px 12px;min-height:35px;background:#F5ECE3;border:1px solid #E7D6C8;border-radius:13px;color:#79685D;font:750 11px \"Vazirmatn\",Tahoma,sans-serif;cursor:pointer}\n.bp-phase-one .bp-chip[aria-pressed=true]{background:#382C31;color:#FFF8EB;border-color:#382C31}\n.bp-phase-one .bp-order-row{border:1px solid #E9DDCF;border-radius:17px;background:#FFFCF8;padding:14px;margin-bottom:9px;display:grid;gap:10px}\n.bp-phase-one .bp-order-row-top{display:flex;justify-content:space-between;align-items:center;gap:9px}\n.bp-phase-one .bp-order-category{display:flex;align-items:center;gap:9px;min-width:0}\n.bp-phase-one .bp-order-category-icon{flex:0 0 35px;display:grid;place-items:center;height:35px;width:35px;border-radius:11px;background:#EFE6DD;color:#9B6251}\n.bp-phase-one .bp-order-category-icon svg{width:19px;height:19px}\n.bp-phase-one .bp-order-category strong{font-size:12px;line-height:1.7;overflow-wrap:anywhere;color:#362D2A}\n.bp-phase-one .bp-order-category small{display:block;font-size:10px;color:#887B6F;margin-top:1px}\n.bp-phase-one .bp-status-pill{flex:0 0 auto;border-radius:10px;padding:6px 8px;background:#F1E7D7;color:#896C4C;font-size:10px;line-height:1.6;font-weight:800}\n.bp-phase-one .bp-status-pill.done{background:#E5F0E6;color:#477557}\n.bp-phase-one .bp-status-pill.issue{background:#F8E3DF;color:#A34F4C}\n.bp-phase-one .bp-order-row-bottom{display:flex;justify-content:space-between;align-items:center;gap:7px;padding-top:9px;border-top:1px solid #EEE4D9}\n.bp-phase-one .bp-order-row-bottom small{font-size:10px;color:#998B7D;overflow-wrap:anywhere}\n.bp-phase-one .bp-order-row-bottom b{font-size:12px;color:#402E2A;white-space:nowrap}\n.bp-phase-one .bp-order-row-code{font:600 10px/1.65 ui-monospace,monospace;color:#98867A;direction:ltr;white-space:nowrap}\n.bp-phase-one .bp-refresh-note{min-height:1em;color:#948478;font-size:10px;margin:9px 0}\n.bp-phase-one #bpHistory,.bp-phase-one #bpMyOrders{display:none!important}\n.bp-phase-one .bp-account-view .bp-account-widget{margin-bottom:15px}\n@media(max-width:650px){\n  .bp-phase-one .bp-overview{gap:9px}\n  .bp-phase-one .bp-overview-card{border-radius:17px;min-height:113px;padding:13px 12px}\n  .bp-phase-one .bp-overview-kicker{font-size:10px}\n  .bp-phase-one .bp-overview-number{font-size:17px}\n  .bp-phase-one .bp-panel{padding:14px;border-radius:19px}\n  .bp-phase-one .bp-order-row{padding:11px;border-radius:15px}\n  .bp-phase-one .bp-profile-avatar{height:49px;width:49px;flex-basis:49px}\n}\n@media(prefers-reduced-motion:reduce){.bp-phase-one .bp-panel,.bp-phase-one .bp-order-row{animation:none;transition:none}}\n";}
+
+function bpPhaseOneClient(){
+  if(document.body.classList.contains('bp-phase-one'))return;
+  const home=document.querySelector('.bp-tab-view[data-bp-view="home"]');
+  const account=document.querySelector('.bp-tab-view[data-bp-view="account"]');
+  const orders=document.querySelector('.bp-tab-view[data-bp-view="orders"]');
+  if(!home||!account||!orders)return;
+  document.body.classList.add('bp-phase-one');
+  const $=(selector,parent=document)=>parent.querySelector(selector);
+  const create=(tag,className,text)=>{
+    const el=document.createElement(tag);if(className)el.className=className;
+    if(text!==undefined)el.textContent=text;return el;
+  };
+  const money=value=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:0}).format(Number(value)||0);
+  const dateText=value=>{
+    if(!value)return 'زمان ثبت نامشخص';
+    const d=new Date(value);
+    if(!Number.isFinite(d.getTime()))return 'زمان ثبت نامشخص';
+    try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
+    catch(_){return 'زمان ثبت نامشخص'}
+  };
+  const iconPaths={
+    wallet:'<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M16 15h2"/>',
+    orders:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
+    arrow:'<path d="m15 18-6-6 6-6"/>',
+    up:'<path d="m5 15 7-7 7 7"/><path d="M12 8v12"/>',
+    down:'<path d="m5 9 7 7 7-7"/><path d="M12 4v12"/>',
+    box:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4h10v3M3 12h18"/>',
+    premium:'<path d="m2 8 5 4 5-7 5 7 5-4-2 12H4L2 8Z"/>',
+    star:'<path d="m12 2 3 6.5 7 1-5 5 1 7-6-3.5-6 3.5 1-7-5-5 7-1Z"/>',
+    gift:'<rect x="4" y="10" width="16" height="12" rx="2"/><path d="M2 6h20v4H2zM12 6v16M12 6C8 6 6 4 7 2s5-1 5 4ZM12 6c4 0 6-2 5-4s-5-1-5 4Z"/>',
+    account:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    warning:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>'
+  };
+  const icon=(name)=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    el.setAttribute('viewBox','0 0 24 24');el.setAttribute('fill','none');
+    el.setAttribute('stroke','currentColor');el.setAttribute('stroke-width','1.8');
+    el.setAttribute('stroke-linecap','round');el.setAttribute('stroke-linejoin','round');
+    el.setAttribute('aria-hidden','true');el.innerHTML=iconPaths[name]||iconPaths.box;return el;
+  };
+  const state={user:null,market:[],filter:'all',loading:true,guest:false,error:''};
+  const lang={stars:'استارز',gift:'گیفت تلگرام',catalog:'گیفت‌کارت',nft:'کلکسیون NFT',steam:'شارژ Steam',smm:'خدمات دیجیتال',premium:'پرمیوم'};
+  const statuses={
+    delivered:['تحویل‌شده','done'],refunded:['بازپرداخت‌شده','done'],
+    awaiting_payment:['در انتظار پرداخت','waiting'],awaiting_bazaar_payment:['در انتظار پرداخت','waiting'],
+    creating_payment:['صدور فاکتور','waiting'],paid:['پرداخت‌شده','waiting'],
+    awaiting_approval:['در انتظار تأیید','waiting'],
+    provider_pending:['در حال پردازش','waiting'],provider_submitting:['در حال ارسال','waiting'],
+    provider_uncertain:['نیازمند بررسی','issue'],refund_required:['بررسی استرداد','issue'],
+    failed:['ناموفق','issue'],payment_error:['خطای پرداخت','issue'],payment_mismatch:['مغایرت پرداخت','issue']
+  };
+  const allOrders=()=>{
+    const premium=(state.user?.orders||[]).map(o=>({
+      code:o.order_code||'',category:'premium',title:(Number(o.months)||0)+' ماه پرمیوم',
+      status:o.status||'',price:Number(o.price_toman)||0,created:o.created_at||''
+    }));
+    const digital=state.market.map(o=>({
+      code:o.code||'',category:o.kind||'catalog',title:o.title||lang[o.kind]||'محصول دیجیتال',
+      status:o.status||'',price:Number(o.price_toman)||0,created:o.created_at||''
+    }));
+    return premium.concat(digital).sort((a,b)=>new Date(b.created||0).getTime()-new Date(a.created||0).getTime()).slice(0,55);
+  };
+  function button(label,className,onClick){
+    const el=create('button',className,label);el.type='button';el.addEventListener('click',onClick);return el;
+  }
+  function header(title,description,action){
+    const head=create('div','bp-panel-head'),meta=create('div');
+    meta.append(create('h2','',title),create('p','',description));head.appendChild(meta);
+    if(action)head.appendChild(action);
+    return head;
+  }
+  function placeholder(title,message,iconName='box'){
+    const el=create('div','bp-empty-state'),strong=create('strong','',title),p=create('p','',message);
+    el.append(icon(iconName),strong,p);return el;
+  }
+  function navigate(tab){if(typeof window.bpOpenTab==='function')window.bpOpenTab(tab)}
+  // Home metrics: never show private values without a verified Telegram session.
+  const overview=create('section','bp-overview');
+  overview.setAttribute('aria-label','خلاصه حساب');
+  const wallet=create('article','bp-overview-card wallet'),history=create('article','bp-overview-card orders');
+  const walletHead=create('span','bp-overview-kicker'),historyHead=create('span','bp-overview-kicker');
+  walletHead.append(icon('wallet'),document.createTextNode('موجودی کیف پول'));
+  historyHead.append(icon('orders'),document.createTextNode('سفارش‌های من'));
+  const walletNumber=create('strong','bp-overview-number','در حال بررسی');
+  const ordersNumber=create('strong','bp-overview-number','در حال بررسی');
+  wallet.append(walletHead,walletNumber,button('مشاهده کیف پول','bp-overview-action',()=>navigate('account')));
+  history.append(historyHead,ordersNumber,button('تاریخچه و پیگیری','bp-overview-action',()=>navigate('orders')));
+  overview.append(wallet,history);
+  const hint=create('p','bp-overview-status','اطلاعات حساب در حال بارگذاری است.');
+  const hero=$('.bp-hero',home);
+  if(hero){hero.insertAdjacentElement('afterend',overview);overview.insertAdjacentElement('afterend',hint)}
+  else home.prepend(overview,hint);
+  const newest=create('section','bp-panel');
+  newest.append(header('آخرین فعالیت','نمای سریع آخرین سفارش ثبت‌شده',button('همه سفارش‌ها','bp-panel-action',()=>navigate('orders'))));
+  const latestBody=create('div');newest.appendChild(latestBody);home.appendChild(newest);
+  // Profile: keep the existing real balance, referral and wallet buttons; only
+  // enrich their layout with an authenticated name and an accessible timeline.
+  const oldWidget=$('#bp_account',account);
+  const identityPanel=create('section','bp-panel');
+  const identityHead=create('div','bp-profile-top');
+  const avatar=create('span','bp-profile-avatar','B');
+  const profileCopy=create('div','bp-profile-copy');
+  const displayName=create('strong','','حساب بلوپرمیوم');
+  const handle=create('small','','ورود از طریق ربات تلگرام');
+  profileCopy.append(displayName,handle);identityHead.append(avatar,profileCopy);
+  const profileHint=create('p','bp-persona-foot','موجودی، تراکنش‌ها و لینک دعوت خودت را اینجا مدیریت کن.');
+  const profileActions=create('div','bp-account-actions');
+  profileActions.append(
+    button('خرید پرمیوم','',()=>navigate('premium')),
+    button('خرید استارز','secondary',()=>navigate('stars'))
+  );
+  identityPanel.append(identityHead,profileHint,profileActions);
+  if(oldWidget)account.insertBefore(identityPanel,oldWidget);else account.append(identityPanel);
+  const transactions=create('section','bp-panel');
+  const timeline=create('div','bp-timeline');
+  transactions.append(header('گردش کیف پول','آخرین واریزها، خریدها و بازپرداخت‌ها',button('بروزرسانی','bp-panel-action',refresh)),timeline);
+  account.appendChild(transactions);
+  // Unified authenticated history; existing current-order checkout details
+  // remain rendered in the same tab by the original trusted scripts.
+  const orderPanel=create('section','bp-panel');
+  const filterHead=header('تاریخچه خریدها','پرمیوم، استارز و سایر محصولات در یک فهرست',
+    button('بروزرسانی','bp-panel-action',refresh));
+  const filters=create('div','bp-order-controls'),orderItems=create('div');
+  const options=[['all','همه'],['delivered','تحویل‌شده'],['pending','در جریان'],['issue','نیازمند بررسی']];
+  for(const [key,label]of options){
+    const b=button(label,'bp-chip',()=>{state.filter=key;renderOrders()});
+    b.dataset.filter=key;b.setAttribute('aria-pressed',String(key==='all'));filters.appendChild(b);
+  }
+  const note=create('p','bp-refresh-note','');
+  orderPanel.append(filterHead,filters,orderItems,note);
+  const ordersHeader=$('.bp-tab-heading',orders);
+  if(ordersHeader)ordersHeader.insertAdjacentElement('afterend',orderPanel);else orders.prepend(orderPanel);
+  function makeOrderRow(o){
+    const status=statuses[o.status]||['در حال بررسی','waiting'];
+    const card=create('article','bp-order-row');
+    const top=create('div','bp-order-row-top'),cat=create('div','bp-order-category');
+    const art=create('span','bp-order-category-icon');
+    art.appendChild(icon(o.category==='premium'?'premium':o.category==='stars'?'star':o.category==='gift'?'gift':'box'));
+    const copy=create('div'),name=create('strong','',o.title||lang[o.category]||'محصول دیجیتال');
+    const when=create('small','',dateText(o.created));copy.append(name,when);cat.append(art,copy);
+    const statusPill=create('span','bp-status-pill'+(status[1]==='done'?' done':status[1]==='issue'?' issue':''),status[0]);
+    top.append(cat,statusPill);
+    const bottom=create('div','bp-order-row-bottom');
+    const id=create('span','bp-order-row-code',o.code?('#'+o.code):'');
+    const amount=create('b','',money(o.price)+' تومان');bottom.append(id,amount);
+    card.append(top,bottom);return card;
+  }
+  function renderOrders(){
+    filters.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.filter===state.filter)));
+    orderItems.replaceChildren();
+    if(state.guest){orderItems.append(placeholder('ورود به حساب لازم است','سفارش‌های شخصی فقط داخل مینی‌اپ تلگرام قابل مشاهده هستند.','account'));return}
+    if(state.loading&&!state.user){orderItems.append(placeholder('در حال بارگذاری','اطلاعات سفارش‌ها از سرور دریافت می‌شود.'));return}
+    const items=allOrders().filter(o=>{
+      const stage=(statuses[o.status]||['','waiting'])[1];
+      return state.filter==='all'||state.filter==='delivered'&&stage==='done'||
+        state.filter==='issue'&&stage==='issue'||state.filter==='pending'&&stage==='waiting';
+    });
+    if(!items.length){orderItems.append(placeholder('سفارشی در این دسته نیست','سفارش‌های جدید پس از ثبت در این بخش نمایش داده می‌شوند.'));return}
+    const fragment=document.createDocumentFragment();items.forEach(o=>fragment.appendChild(makeOrderRow(o)));
+    orderItems.append(fragment);
+  }
+  function renderWallet(){
+    timeline.replaceChildren();
+    if(state.guest){timeline.append(placeholder('مینی‌اپ تلگرام','برای مشاهده کیف پول وارد ربات شو.','wallet'));return}
+    if(!state.user){timeline.append(placeholder('در انتظار اطلاعات','در حال دریافت گردش حساب.','wallet'));return}
+    const items=(state.user.transactions||[]).slice(0,12);
+    if(!items.length){timeline.append(placeholder('هنوز تراکنشی نداری','پس از اولین خرید یا افزایش موجودی، تاریخچه اینجا دیده می‌شود.','wallet'));return}
+    for(const tx of items){
+      const positive=Number(tx.delta_toman)>0;
+      const row=create('div','bp-timeline-row'),main=create('div','bp-timeline-main');
+      const deco=create('span','bp-timeline-icon'+(positive?' positive':''));deco.append(icon(positive?'down':'up'));
+      const desc=create('div','bp-timeline-text'),title=create('strong','',String(tx.reason|| (positive?'افزایش موجودی':'خرید')));
+      desc.append(title,create('small','',dateText(tx.created_at)));main.append(deco,desc);
+      const amt=create('span','bp-timeline-amount'+(positive?' positive':''),(positive?'+':'')+money(tx.delta_toman)+' تومان');
+      row.append(main,amt);timeline.append(row);
+    }
+  }
+  function renderHome(){
+    const count=allOrders().length;
+    if(state.user){
+      walletNumber.textContent=money(state.user.balance_toman)+' تومان';
+      ordersNumber.textContent=money(count)+' سفارش';
+      hint.textContent=state.error?'سفارش‌های دیجیتال ممکن است با تأخیر بروزرسانی شوند.':'موجودی و تاریخچه حساب از سرور دریافت شده‌اند.';
+      displayName.textContent=state.user.display_name||state.user.username||'دوست بلوپرمیوم';
+      handle.textContent=state.user.username?'@'+String(state.user.username).replace(/^@/,''):'حساب تلگرام تأیید‌شده';
+      avatar.textContent=(String(state.user.display_name||state.user.username||'B').trim().slice(0,1)||'B').toUpperCase();
+    }else if(state.guest){
+      walletNumber.textContent='ورود با تلگرام';ordersNumber.textContent='ورود لازم است';
+      hint.textContent='برای نمایش امن موجودی و سفارش‌ها، مینی‌اپ را داخل تلگرام باز کن.';
+    }else{
+      walletNumber.textContent='در حال بررسی';ordersNumber.textContent='در حال بررسی';
+      hint.textContent=state.error?'اتصال حساب برقرار نشد؛ صفحه را دوباره بررسی کن.':'اطلاعات حساب در حال دریافت است.';
+    }
+    latestBody.replaceChildren();
+    if(state.guest){latestBody.append(placeholder('حساب خصوصی','برای نمایش فعالیت‌های شخصی از داخل تلگرام وارد شو.','account'));return}
+    const latest=allOrders()[0];
+    if(latest)latestBody.append(makeOrderRow(latest));
+    else latestBody.append(placeholder('اینجا شروع ماجراست','هنوز سفارشی ثبت نشده؛ از خرید پرمیوم یا استارز شروع کن.'));
+  }
+  function render(){
+    renderHome();renderWallet();renderOrders();
+  }
+  async function fetchJSON(path,token){
+    const r=await fetch(path,{method:'GET',headers:{'X-Telegram-Init-Data':token},cache:'no-store'});
+    const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'request_failed');
+    return data;
+  }
+  let refreshId=0;
+  async function refresh(){
+    const token=String(window.Telegram?.WebApp?.initData||'');
+    if(!token){state.guest=true;state.loading=false;state.user=null;state.market=[];render();return}
+    const id=++refreshId;state.guest=false;note.textContent='در حال بروزرسانی...';
+    try{
+      const [profile,market]=await Promise.allSettled([
+        fetchJSON('/api/me',token),fetchJSON('/api/market/my-orders',token)
+      ]);
+      if(id!==refreshId)return;
+      if(profile.status==='fulfilled'){
+        state.user=profile.value.user||null;
+        const pending=profile.value.required_channels||[];
+        if(pending.length){
+          // Do not surface wallet and order history before forced join verification.
+          state.user=null;state.market=[];state.error='join_required';state.guest=true;
+          hint.textContent='ابتدا عضویت کانال‌های الزامی را از داخل ربات تأیید کن.';
+        }
+      }else{
+        state.user=null;state.error='profile_unavailable';
+      }
+      if(market.status==='fulfilled'&&state.user)state.market=Array.isArray(market.value.orders)?market.value.orders:[];
+      if(market.status==='rejected')state.error='market_unavailable';
+      if(!state.error)note.textContent='اطلاعات بروز شد.';
+      else note.textContent=state.error==='join_required'?'عضویت الزامی تأیید نشده است.':'بخشی از اطلاعات در دسترس نیست؛ دوباره تلاش کن.';
+    }catch(_){if(id===refreshId){state.error='network_error';note.textContent='خطا در دریافت اطلاعات.'}}
+    finally{if(id===refreshId){state.loading=false;render()}}
+  }
+  window.addEventListener('bp:account-updated',e=>{
+    if(!e.detail?.user)return;
+    if((e.detail.required_channels||[]).length){
+      state.user=null;state.market=[];state.guest=true;state.error='join_required';
+    }else{state.user=e.detail.user;state.guest=false;state.error=''}
+    render();
+  });
+  window.addEventListener('bp:market-order-created',()=>{refresh()});
+  window.addEventListener('bp:account-failed',()=>{state.error='profile_unavailable';render()});
+  const snapshot=window.bpAccountSnapshot;
+  if(snapshot?.user){
+    state.user=(snapshot.required_channels||[]).length?null:snapshot.user;
+    state.guest=Boolean((snapshot.required_channels||[]).length);
+  }
+  render();
+  refresh();
+}
