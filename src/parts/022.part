@@ -72,6 +72,8 @@ function tgStoreClient(){
         '<div class="bp-market-state bp-market-disabled-state"><strong>این دسته فعلاً فعال نیست</strong><p>فروش این محصولات توسط مدیریت موقتاً غیرفعال شده است.</p></div>':
         all.length?all.map((x,i)=>'<article class="tg-item bp-market-product" data-product-kind="'+escape(kind)+'">'+
           '<span class="bp-market-product-label">'+escape(({stars:'TELEGRAM STARS',gift:'TELEGRAM GIFT',catalog:'DIGITAL CARD',smm:'DIGITAL SERVICE'})[kind]||'DIGITAL')+'</span>'+
+          (kind==='stars'&&Number.isFinite(Number(x.quantity))&&Number(x.quantity)>0?
+            '<span class="bp-product-denomination">'+format(x.quantity)+' <small>ستاره</small></span>':'')+
           '<b>'+escape(x.title)+'</b><div class="bp-product-price"><span>قیمت نهایی</span><strong>'+format(x.price_toman)+' <small>تومان</small></strong></div>'+
           '<button type="button" data-index="'+i+'">انتخاب و ادامه <span aria-hidden="true">←</span></button></article>').join(''):
         '<div class="bp-market-state bp-market-empty-state"><strong>محصول قابل‌فروشی پیدا نشد</strong><p>هنوز قیمت معتبر برای این دسته دریافت نشده؛ دسته دیگری را امتحان کن.</p><button type="button" data-market-retry>بررسی دوباره</button></div>';
