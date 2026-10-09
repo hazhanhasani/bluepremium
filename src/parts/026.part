@@ -1,0 +1,101 @@
+function bpMarketPolishDecorate(html){return html.replace('</head>','<style id="bp-market-polish-v1">'+bpMarketPolishCss()+'</style></head>').replace('</body>','<script>('+bpMarketPolishClient.toString()+')()</script></body>');}
+
+function bpMarketPolishCss(){return "\n/* BluePremium editorial commerce — TG Tools visual system */\n.bp-shell-v3 .bp-market-view .tg-store.bp-market-polished{padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}\n.bp-market-polished .bp-market-feature{position:relative;isolation:isolate;overflow:hidden;padding:22px 21px 17px;border-radius:25px;\n  background:#32282E;color:#F9F1EA;margin:0 0 18px;min-height:151px;display:flex;flex-direction:column;gap:11px}\n.bp-market-polished .bp-market-feature:after{content:\"\";position:absolute;left:-55px;top:-65px;width:200px;height:200px;pointer-events:none;\n border:1px solid #FFFFFF29;border-radius:50%;box-shadow:0 0 0 30px #FFFFFF0A,0 0 0 62px #FFFFFF08;z-index:-1}\n.bp-market-polished .bp-market-feature-art{position:absolute;left:9px;top:6px;width:119px;height:119px;color:#F9CF9F;opacity:.8;transform:rotate(-11deg)}\n.bp-market-polished .bp-market-feature-art svg{width:100%;height:100%}\n.bp-market-polished .bp-market-feature-eyebrow{font:700 9px/1.8 Georgia,serif;letter-spacing:2.4px;color:#E9B39F;direction:ltr;text-align:right}\n.bp-market-polished .bp-market-feature strong{font-size:20px;line-height:1.7;color:#FFF6EE;letter-spacing:-.3px;max-width:76%}\n.bp-market-polished .bp-market-feature p{font-size:11px!important;line-height:2!important;color:#DFCFCC!important;max-width:76%;margin:0}\n.bp-market-polished .bp-market-guarantees{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:2px}\n.bp-market-polished .bp-market-guarantees span{font:650 10px/1.8 \"Vazirmatn\",sans-serif;border:1px solid #FFFFFF2B;\n  border-radius:100px;padding:5px 10px;background:#FFFFFF0C;color:#F8E9DF;white-space:nowrap}\n.bp-market-polished .bp-market-category-heading{display:flex;justify-content:space-between;align-items:flex-end;margin:4px 0 10px;gap:10px}\n.bp-market-polished .bp-market-category-heading strong{font-size:16px;color:#322A29}\n.bp-market-polished .bp-market-category-heading small{color:#918276;font-size:10px}\n.bp-market-polished .tg-categories{padding:1px 1px 12px!important;gap:8px!important;scroll-snap-type:x proximity;scrollbar-width:none}\n.bp-market-polished .tg-categories button{flex:0 0 auto;display:flex;align-items:center;gap:7px;border-radius:15px!important;\n  border:1px solid #E6DCCE!important;background:#FFFCF7!important;color:#67584E!important;\n  min-height:49px;padding:10px 13px!important;box-shadow:0 3px 11px #6550440A;\n  font-size:11px!important;font-weight:800!important;scroll-snap-align:start;transition:background .14s,color .14s}\n.bp-market-polished .tg-categories button svg{width:18px;height:18px;flex:0 0 18px;stroke-width:1.8}\n.bp-market-polished .tg-categories button.selected,\n.bp-market-polished .tg-categories button[aria-pressed=true]{background:#392E32!important;color:#FFF8F0!important;border-color:#392E32!important;box-shadow:0 6px 15px #392E3224}\n.bp-market-polished .tg-categories button:focus-visible{outline:2px solid #C56651!important;outline-offset:2px}\n.bp-market-polished .bp-market-results-head{display:flex;align-items:center;justify-content:space-between;margin:14px 0 9px;gap:10px}\n.bp-market-polished .bp-market-results-head strong{font-size:14px;color:#3E3430;font-weight:850}\n.bp-market-polished .bp-market-results-head small{font-size:10px;color:#998B81;text-align:left}\n.bp-market-polished #tgCatalogSearchArea{background:#FFFDFA;border:1px solid #E5D9C9;border-radius:17px;\n padding:8px!important;margin:12px 0 4px!important;align-items:stretch;min-width:0}\n.bp-market-polished #tgCatalogSearch{flex:1;min-width:0;width:100%;background:#F8F3EC!important;color:#39312B!important;\n border:1px solid #E8DDD0!important;border-radius:12px!important;padding:12px!important;font:600 12px \"Vazirmatn\",Tahoma,sans-serif!important}\n.bp-market-polished #tgCatalogSearch::placeholder{color:#A29890}\n.bp-market-polished #tgCatalogSearchButton{flex:0 0 auto;min-width:83px;background:#382C31!important;border:0!important;color:#FFF8EB!important;\n border-radius:12px!important;font-size:11px!important;padding:9px 12px!important}\n.bp-market-polished .tg-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important;\n margin:8px 0 19px!important;align-items:stretch}\n.bp-market-polished .tg-item.bp-market-product{min-width:0;min-height:241px;padding:13px!important;\n border:1px solid #E5D7CA!important;border-radius:21px!important;\n display:flex;flex-direction:column;gap:6px;position:relative;text-align:right;overflow:hidden;\n background:#F7E5D9!important;box-shadow:0 8px 18px #77605313!important;color:#332A27!important}\n.bp-market-polished .tg-item.bp-market-product:nth-child(4n+2){background:#E7EFE5!important;border-color:#D7E5D5!important}\n.bp-market-polished .tg-item.bp-market-product:nth-child(4n+3){background:#F1E8F3!important;border-color:#E6DAEB!important}\n.bp-market-polished .tg-item.bp-market-product:nth-child(4n+4){background:#F8EDDA!important;border-color:#EDDFC6!important}\n.bp-market-polished .tg-item.bp-market-product:focus-within{outline:2px solid #9D695A;outline-offset:2px}\n.bp-market-polished .tg-item.bp-market-product.is-selected{outline:2px solid #BF6D57;outline-offset:1px}\n.bp-market-polished .tg-item .bp-market-product-label{font:750 9px/1.5 Georgia,serif;direction:ltr;text-align:right;letter-spacing:1.2px;color:#A46D59;white-space:normal}\n.bp-market-polished .tg-item:nth-child(4n+2) .bp-market-product-label{color:#62826C}\n.bp-market-polished .tg-item .tg-item-art{display:flex!important;align-items:center;justify-content:center;height:91px!important;\n margin:0!important;width:100%;order:1}\n.bp-market-polished .tg-item .tg-item-art svg{height:94px!important;width:94px!important;\n filter:drop-shadow(0 7px 7px #66534724)}\n.bp-market-polished .tg-item.bp-market-product>b{color:#362D2A!important;font-size:12px!important;line-height:1.7!important;\n display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em;order:2}\n.bp-market-polished .tg-item.bp-market-product>small{order:3;color:#7A655D!important;font-size:10px!important;line-height:1.8!important}\n.bp-market-polished .bp-product-price{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;\n order:3;margin-top:auto;padding:6px 0 3px;border-top:1px solid #775C4E23}\n.bp-market-polished .bp-product-price span{font-size:9px;color:#887266}\n.bp-market-polished .bp-product-price strong{font-size:15px!important;color:#47312B!important;letter-spacing:-.25px;white-space:nowrap}\n.bp-market-polished .bp-product-price small{font-size:9px!important;color:#79675E!important;font-weight:600}\n.bp-market-polished .tg-item.bp-market-product>button{order:4;min-height:40px;border:0!important;background:#3A2E32!important;\n color:#FFFAF5!important;border-radius:13px!important;font-size:11px!important;font-weight:850!important;\n margin:6px 0 0;padding:9px!important;display:flex;justify-content:center;align-items:center;gap:5px}\n.bp-market-polished .tg-item.bp-market-product>button span{font-size:16px}\n.bp-market-polished .tg-item.bp-market-product button:focus-visible{outline:2px solid #CF7862;outline-offset:2px}\n.bp-market-polished .bp-product-skeleton{min-height:234px;border-radius:21px;background:#F2EBE2;border:1px solid #E5D9CB;\n display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px;padding:16px;position:relative;overflow:hidden}\n.bp-market-polished .bp-product-skeleton:nth-child(2n){background:#EAF0E7}\n.bp-market-polished .bp-product-skeleton span{height:90px;width:90px;border-radius:50%;background:#E5DACD}\n.bp-market-polished .bp-product-skeleton i{height:12px;width:90%;border-radius:10px;background:#E3D7CA}\n.bp-market-polished .bp-product-skeleton i:nth-of-type(2){width:65%}\n.bp-market-polished .bp-product-skeleton i:last-child{height:35px;background:#DED0C2}\n.bp-market-polished .bp-product-skeleton:after{content:\"\";position:absolute;inset:0;transform:translateX(-120%);\n background:linear-gradient(95deg,transparent 20%,#FFFFFF81 50%,transparent 80%);animation:bpSkeleton 1.35s ease-in-out infinite}\n@keyframes bpSkeleton{to{transform:translateX(120%)}}\n.bp-market-polished .bp-loading-message{grid-column:1/-1;color:#948579;text-align:center;padding:5px;font-size:11px}\n.bp-market-polished .bp-market-state{grid-column:1/-1;min-height:174px;border:1px dashed #DFCDBD;border-radius:19px;\n background:#FCF7F0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;\n padding:21px 15px;gap:8px;color:#44352F}\n.bp-market-polished .bp-market-state .bp-state-art{height:40px;width:40px;border-radius:13px;background:#F2DFD1;\n color:#9F6653;display:grid;place-items:center}\n.bp-market-polished .bp-market-state .bp-state-art svg{width:23px;height:23px}\n.bp-market-polished .bp-market-state strong{color:#3E332D;font-size:14px;font-weight:850}\n.bp-market-polished .bp-market-state p{max-width:320px;margin:0;color:#89766A!important;font-size:11px!important;line-height:2}\n.bp-market-polished .bp-market-state button{background:#403137!important;color:#FFF7EE!important;border:0!important;\n padding:10px 17px!important;border-radius:12px!important;min-height:39px;font-size:11px!important;margin-top:5px}\n.bp-market-polished .bp-market-error-state{background:#FBEFEB;border-color:#DABDB6}\n.bp-market-polished #tgLiveQuote{background:#FFFDF7!important;border:1px solid #E7D9C9!important;\n border-radius:20px!important;padding:17px!important;color:#423832!important}\n.bp-market-polished #tgQuoteFields{display:grid;gap:8px}\n.bp-market-polished #tgQuoteFields label{font-size:11px!important;font-weight:750;color:#6A554A!important}\n.bp-market-polished #tgQuoteFields :is(input,select){width:100%;min-height:44px;border-radius:12px!important;\n background:#F8F1E8!important;color:#3F312B!important;border:1px solid #D9C7B7!important;padding:10px!important}\n.bp-market-polished #tgQuoteButton{background:#392D32!important;color:#FFF6EF!important;border-radius:12px!important;\n min-height:44px;font-size:12px!important}\n.bp-market-polished #tgCheckout{background:#FFFDF9!important;color:#3C302C!important;\n border:1px solid #E5D6C5!important;border-radius:23px!important;padding:20px!important;\n box-shadow:0 15px 30px #765C4C15!important;max-width:100%;gap:12px!important}\n.bp-market-polished #tgCheckout:before{content:\"03 / CHECKOUT\";font:700 9px Georgia,serif;letter-spacing:2px;color:#AD745E;direction:ltr;text-align:right}\n.bp-market-polished #tgChosen{font-size:15px!important;line-height:1.9;color:#3A302C}\n.bp-market-polished #tgDestination{background:#F8F2EA!important;color:#342B27!important;border:1px solid #E2D6C9!important;\n min-height:46px;border-radius:13px!important;font:650 13px \"Vazirmatn\",Tahoma,sans-serif!important}\n.bp-market-polished .tg-paychoices{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important}\n.bp-market-polished .tg-paychoices button{margin:0!important;min-height:49px!important;border-radius:14px!important;\n background:#392B32!important;color:#FFF7EC!important;font:800 11px \"Vazirmatn\",Tahoma,sans-serif!important;\n padding:11px 8px!important}\n.bp-market-polished .tg-paychoices #tgPayWallet{background:#E5EFE3!important;color:#41644E!important;border:1px solid #C6DBC8!important}\n.bp-market-polished .tg-paychoices button:disabled{opacity:.48}\n.bp-market-polished #tgFeedback{border-radius:13px;font-size:11px;line-height:1.85;margin-top:9px;color:#716256!important;padding:0}\n.bp-market-polished #tgFeedback[data-tone=error]{border:1px solid #E8BEB4;background:#F9E9E5;padding:12px;color:#9C4A43!important}\n.bp-market-polished #tgFeedback[data-tone=success]{border:1px solid #CEDFCC;background:#EFF5EB;padding:12px;color:#49785A!important}\n.bp-market-polished #tgFeedback[data-tone=loading]{border:1px solid #E5D9CB;background:#F7F0E6;padding:12px}\n@media(max-width:600px){\n .bp-market-polished .bp-market-feature{padding:20px 16px 15px;min-height:143px;border-radius:21px}\n .bp-market-polished .bp-market-feature strong{font-size:17px;max-width:73%}\n .bp-market-polished .bp-market-feature p{font-size:10px!important;max-width:74%}\n .bp-market-polished .bp-market-feature-art{width:98px;height:98px;left:-12px;top:13px}\n .bp-market-polished .bp-market-feature-eyebrow{font-size:8px}\n .bp-market-polished .bp-market-guarantees span{font-size:9px;padding:4px 8px}\n .bp-market-polished .tg-categories button{padding:9px 11px!important;min-height:45px;font-size:10px!important}\n .bp-market-polished .tg-categories button svg{height:17px;width:17px}\n .bp-market-polished .tg-items{gap:9px!important}\n .bp-market-polished .tg-item.bp-market-product{padding:11px!important;min-height:228px;border-radius:18px!important}\n .bp-market-polished .tg-item .tg-item-art{height:81px!important}\n .bp-market-polished .tg-item .tg-item-art svg{height:79px!important;width:79px!important}\n .bp-market-polished .tg-item.bp-market-product>b{font-size:11px!important}\n .bp-market-polished .bp-product-price strong{font-size:13px!important}\n .bp-market-polished .tg-paychoices button{font-size:10px!important;padding:9px 5px!important}\n}\n@media(max-width:350px){\n .bp-market-polished .tg-items{grid-template-columns:minmax(0,1fr)!important}\n .bp-market-polished .tg-item.bp-market-product{min-height:190px}\n}\n@media(prefers-reduced-motion:reduce){\n .bp-market-polished .bp-product-skeleton:after{animation:none}\n .bp-market-polished .tg-categories button{transition:none}\n}\n";}
+
+function bpMarketPolishClient(){
+  const shop=document.getElementById('tg-digital-shop');
+  if(!shop||shop.classList.contains('bp-market-polished'))return;
+  shop.classList.add('bp-market-polished');
+  const categories=shop.querySelector('#tgCategories'),items=shop.querySelector('#tgItems');
+  const feedback=shop.querySelector('#tgFeedback');
+  if(!categories||!items||!feedback)return;
+  const paths={
+    stars:'<path d="m12 2 3.1 6.4 7 1-5.05 4.9 1.2 7-6.25-3.3-6.25 3.3 1.2-7L2 9.4l7-1L12 2Z"/>',
+    gift:'<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 5h20v4H2zM12 5v16M12 5C7 5 7 1 10 2c2 .5 2 3 2 3ZM12 5c5 0 5-4 2-3-2 .5-2 3-2 3Z"/>',
+    catalog:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/>',
+    smm:'<path d="M4 20V11m5 9V6m5 14v-5m5 5V3"/><path d="M2 21h20"/>',
+    nft:'<path d="m12 2 9 9-9 11L3 11 12 2Z"/><path d="M3 11h18M12 2l4 9-4 11-4-11 4-9Z"/>',
+    steam:'<rect x="2" y="8" width="20" height="12" rx="5"/><path d="M7 11v6m-3-3h6"/><circle cx="16" cy="12" r="1"/><circle cx="19" cy="15" r="1"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/>'
+  };
+  const svg=(type)=>{
+    const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    s.setAttribute('viewBox','0 0 24 24');s.setAttribute('fill','none');
+    s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.8');s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');
+    s.setAttribute('aria-hidden','true');s.innerHTML=paths[type]||paths.info;return s;
+  };
+  const make=(tag,className,text)=>{
+    const el=document.createElement(tag);if(className)el.className=className;
+    if(text!==undefined)el.textContent=text;return el;
+  };
+  const hero=make('section','bp-market-feature');
+  hero.setAttribute('aria-label','بازار محصولات دیجیتال');
+  const brow=make('span','bp-market-feature-eyebrow','BLUE PREMIUM / MARKETPLACE');
+  const title=make('strong','','یک فروشگاه، دنیایی از انتخاب');
+  const sub=make('p','','قیمت نهایی رو شفاف ببین و محصول دلخواهت رو بدون مسیرهای اضافه انتخاب کن.');
+  const sculpture=make('span','bp-market-feature-art');
+  sculpture.setAttribute('aria-hidden','true');
+  const pic=svg('gift');pic.style.stroke='#F3BE9D';pic.style.strokeWidth='1.1';sculpture.appendChild(pic);
+  const secure=make('div','bp-market-guarantees');
+  for(const label of ['قیمت معتبر','ثبت سفارش امن','پیگیری وضعیت'])
+    secure.appendChild(make('span','',label));
+  hero.append(brow,title,sub,secure,sculpture);
+  shop.insertBefore(hero,categories);
+  const heading=make('div','bp-market-category-heading');
+  heading.append(make('strong','','دسته‌بندی محصولات'),make('small','','سریع‌تر پیدا کن'));
+  shop.insertBefore(heading,categories);
+  const resultHead=make('div','bp-market-results-head');
+  const resultTitle=make('strong','','محصولات استارز'),count=make('small','','در حال دریافت...');
+  resultHead.append(resultTitle,count);
+  shop.insertBefore(resultHead,shop.querySelector('#tgCatalogSearchArea'));
+  // Observe existing dynamic elements without taking ownership of provider
+  // products or checkout. No requests or pricing calculations are performed.
+  function updateCategories(){
+    for(const button of categories.querySelectorAll('button[data-kind]')){
+      if(button.dataset.bpEnhanced==='1')continue;
+      button.dataset.bpEnhanced='1';
+      button.prepend(svg(button.dataset.kind));
+    }
+    const selected=categories.querySelector('button.selected');
+    if(selected){
+      const titleText=selected.textContent?.trim()||'محصولات دیجیتال';
+      resultTitle.textContent=titleText;
+      hero.setAttribute('data-category',selected.dataset.kind||'stars');
+    }
+  }
+  let productsCount=-1;
+  function updateItems(){
+    const currentCount=items.querySelectorAll('.tg-item').length;
+    const skeleton=items.querySelector('.bp-product-skeleton');
+    const state=items.querySelector('.bp-market-state');
+    count.textContent=skeleton?'در حال بارگذاری…':
+      state?(state.classList.contains('bp-market-error-state')?'خطا در دریافت':'وضعیت دسته'):
+        currentCount?new Intl.NumberFormat('fa-IR').format(currentCount)+' محصول':'';
+    if(currentCount===productsCount&&!state&&!skeleton)return;
+    productsCount=currentCount;
+    for(const el of items.querySelectorAll('.bp-market-state:not([data-bp-state-icon])')){
+      el.dataset.bpStateIcon='1';
+      const illustration=make('div','bp-state-art');illustration.append(svg(el.classList.contains('bp-market-error-state')?'info':'catalog'));el.prepend(illustration);
+    }
+  }
+  const catObserver=new MutationObserver(updateCategories);
+  catObserver.observe(categories,{childList:true});
+  const productObserver=new MutationObserver(updateItems);
+  productObserver.observe(items,{childList:true});
+  items.addEventListener('click',event=>{
+    const btn=event.target.closest('[data-index],[data-nft-address]');
+    if(!btn)return;
+    for(const card of items.querySelectorAll('.tg-item.is-selected'))card.classList.remove('is-selected');
+    btn.closest('.tg-item')?.classList.add('is-selected');
+  });
+  const tone=()=>{
+    const value=feedback.textContent||'';
+    const error=/ناموفق|نشد|خطا|نیست|دریافت نشد|نامعتبر|غیرفعال/i.test(value);
+    const success=/ثبت شد|کپی شد|دریافت شد|موفق/i.test(value);
+    const loading=/در حال|لطفاً صبر/i.test(value);
+    feedback.dataset.tone=error?'error':success?'success':loading?'loading':'';
+  };
+  const msgObserver=new MutationObserver(tone);
+  msgObserver.observe(feedback,{characterData:true,childList:true,subtree:true});
+  updateCategories();updateItems();tone();
+}
