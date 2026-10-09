@@ -27,19 +27,25 @@ function tgStoreClient(){
     '<div class="tg-order" id="tgOrder" style="display:none"></div><p id="tgFeedback" role="status"></p>';
   const checkout=get('checkout');if(checkout)checkout.parentElement.insertBefore(section,checkout);
   const categories=get('tgCategories'),items=get('tgItems'),feedback=get('tgFeedback');
-  let all=[],currentKind='stars',selected=null,loading=false;
+  let all=[],currentKind='stars',selected=null,loading=false,catalogRequest=0;
   const account=()=>window.Telegram?.WebApp?.initData||'';
   async function load(kind){
-    currentKind=kind;selected=null;get('tgCheckout').style.display='none';
-    items.innerHTML='<p>در حال دریافت محصولات...</p>';
+    currentKind=kind;selected=null;
+    const thisRequest=++catalogRequest;
+    get('tgCheckout').style.display='none';
+    items.setAttribute('aria-busy','true');
+    items.setAttribute('aria-live','polite');
+    items.innerHTML=Array.from({length:4},()=>'<div class="bp-product-skeleton" aria-hidden="true"><span></span><i></i><i></i><i></i></div>').join('')+
+      '<span class="bp-loading-message" role="status">در حال دریافت محصولات و قیمت‌های به‌روز…</span>';
     get('tgLiveQuote').style.display='none';
     get('tgCatalogSearchArea').style.display=kind==='catalog'?'flex':'none';
     try{
       const q=kind==='catalog'?get('tgCatalogSearch').value.trim():'';
       const r=await fetch('/api/market/catalog?kind='+encodeURIComponent(kind)+(q?'&q='+encodeURIComponent(q):''),{cache:'no-store'}),d=await r.json();
+      if(thisRequest!==catalogRequest)return;
       if(!d.ok)throw Error(d.error);
-      all=d.products||[];
-      categories.innerHTML=d.kinds.map(x=>'<button data-kind="'+escape(x.kind)+'" class="'+(x.kind===kind?'selected':'')+'">'+escape(x.title)+'</button>').join('');
+      all=Array.isArray(d.products)?d.products:[];
+      categories.innerHTML=(Array.isArray(d.kinds)?d.kinds:[]).map(x=>'<button type="button" data-kind="'+escape(x.kind)+'" aria-pressed="'+(x.kind===kind?'true':'false')+'" class="'+(x.kind===kind?'selected':'')+'">'+escape(x.title)+'</button>').join('');
       if(d.enabled&&['nft','steam'].includes(kind)){
         get('tgLiveQuote').style.display='block';
         get('tgQuoteFields').innerHTML=kind==='nft'?
@@ -50,26 +56,35 @@ function tgStoreClient(){
           ['RUB','USD','EUR','TRY','KZT','UAH','ARS'].map(c=>'<option value="'+c+'">'+c+'</option>').join('')+'</select>'+
           '<label for="tgSteamAmount">مقدار شارژ به ارز انتخابی</label>'+
           '<input id="tgSteamAmount" type="number" min="10" max="10000" step="1" value="100">';
-        items.innerHTML='<p>قیمت محصول به‌صورت اختصاصی استعلام می‌شود؛ قبل از پرداخت مبلغ نهایی را می‌بینی.</p>';
+        items.innerHTML='<div class="bp-market-state bp-market-quote-state"><strong>قیمت اختصاصی، بدون تخمین</strong><p>مشخصات محصول را وارد کن و استعلام بگیر؛ تا دریافت قیمت معتبر امکان ثبت سفارش وجود ندارد.</p></div>';
         if(kind==='nft'){
           try{
             const browse=await fetch('/api/market/nft-listings',{cache:'no-store'}).then(r=>r.json());
-            if(currentKind==='nft'&&browse.ok&&Array.isArray(browse.items)&&browse.items.length){
+            if(thisRequest===catalogRequest&&currentKind==='nft'&&browse.ok&&Array.isArray(browse.items)&&browse.items.length){
               items.innerHTML=browse.items.slice(0,30).map(x=>
-                '<article class="tg-item"><b>'+escape(x.title)+'</b><small>قیمت لحظه‌ای پس از انتخاب</small>'+
+                '<article class="tg-item bp-market-product"><span class="bp-market-product-label">NFT COLLECTIBLE</span><b>'+escape(x.title)+'</b><small>قیمت پس از استعلام اختصاصی</small>'+
                 '<button type="button" data-nft-address="'+escape(x.sku)+'">استعلام NFT</button></article>').join('');
             }
           }catch(_){}
         }
       }else
-      items.innerHTML=!d.enabled?'<p>این دسته فعلاً توسط مدیریت غیرفعال است.</p>':
-        all.length?all.map((x,i)=>'<article class="tg-item"><b>'+escape(x.title)+'</b><small>'+format(x.price_toman)+' تومان</small>'+
-        '<button data-index="'+i+'">انتخاب</button></article>').join(''):
-        '<p>قیمت معتبر یا محصول فعالی برای این دسته دریافت نشد.</p>';
-    }catch(e){items.textContent='دریافت محصولات ناموفق بود؛ دوباره تلاش کن.'}
+      items.innerHTML=!d.enabled?
+        '<div class="bp-market-state bp-market-disabled-state"><strong>این دسته فعلاً فعال نیست</strong><p>فروش این محصولات توسط مدیریت موقتاً غیرفعال شده است.</p></div>':
+        all.length?all.map((x,i)=>'<article class="tg-item bp-market-product" data-product-kind="'+escape(kind)+'">'+
+          '<span class="bp-market-product-label">'+escape(({stars:'TELEGRAM STARS',gift:'TELEGRAM GIFT',catalog:'DIGITAL CARD',smm:'DIGITAL SERVICE'})[kind]||'DIGITAL')+'</span>'+
+          '<b>'+escape(x.title)+'</b><div class="bp-product-price"><span>قیمت نهایی</span><strong>'+format(x.price_toman)+' <small>تومان</small></strong></div>'+
+          '<button type="button" data-index="'+i+'">انتخاب و ادامه <span aria-hidden="true">←</span></button></article>').join(''):
+        '<div class="bp-market-state bp-market-empty-state"><strong>محصول قابل‌فروشی پیدا نشد</strong><p>هنوز قیمت معتبر برای این دسته دریافت نشده؛ دسته دیگری را امتحان کن.</p><button type="button" data-market-retry>بررسی دوباره</button></div>';
+    }catch(e){
+      if(thisRequest!==catalogRequest)return;
+      items.innerHTML='<div class="bp-market-state bp-market-error-state"><strong>دریافت محصولات ممکن نشد</strong><p>اتصال سرویس یا قیمت‌گذاری پاسخ نداد. بدون قیمت معتبر خریدی انجام نمی‌شود.</p><button type="button" data-market-retry>تلاش مجدد</button></div>';
+    }finally{
+      if(thisRequest===catalogRequest)items.setAttribute('aria-busy','false');
+    }
   }
   categories.onclick=e=>{const b=e.target.closest('[data-kind]');if(b)load(b.dataset.kind)};
   items.onclick=e=>{
+    if(e.target.closest('[data-market-retry]')){load(currentKind);return}
     const nft=e.target.closest('[data-nft-address]');
     if(nft){
       if(get('tgNftAddress')){
@@ -87,6 +102,7 @@ function tgStoreClient(){
       selected.target_type==='player'?'شناسه بازیکن':selected.target_type==='none'?'نیازی به مقصد نیست':'یوزرنیم تلگرام';
     get('tgDestination').style.display=selected.target_type==='none'?'none':'block';
     get('tgCheckout').style.display='flex';
+    get('tgCheckout').setAttribute('data-product-ready','true');
     get('tgCheckout').scrollIntoView({behavior:'smooth',block:'center'});
   };
   async function submit(payment){
