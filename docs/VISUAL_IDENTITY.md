@@ -120,3 +120,35 @@ construct a provider checkout URL.
    and destination requirements. No payment is triggered.
 5. Wallet and card options remain original; the new decorator never writes
    authenticated order data or changes payment state.
+
+## Phase three: interaction polish and accessible motion
+
+`src/parts/027.part` provides presentation-only microinteractions on top of
+the existing six-tab storefront. It **does not** modify checkout, ledger,
+provider quotes, callback verification or payment state machines.
+
+- Tab changes use a restrained short vertical reveal and an active dock
+  indicator. Product cards and plan selection have tactile but subtle
+  press responses.
+- The current Premium plan is keyboard-operable using Enter or Space; each
+  plan has a button role, focus order, and accurate `aria-pressed` state.
+  Focus returns to the selected plan after its underlying DOM is re-created.
+- Where supported, Telegram's `HapticFeedback.selectionChanged()` handles
+  selections; `impactOccurred('light')` is reserved for navigation.
+  These calls are optional and caught when unavailable.
+- A visual order update is triggered only when the text representing its
+  status changes, not on every status polling response.
+- Any copy-success toast is sourced from confirmed visible feedback; it
+  never asserts payment success or bypasses the original clipboard handler.
+- Refresher loading indicators and motion respect
+  `prefers-reduced-motion: reduce`: animations and transitions are disabled
+  for users who request reduced motion.
+
+### Verification
+
+1. Real device browser at 390px: all six tabs remain independently visible
+   and no horizontal overflow occurs.
+2. Enter/Space activates a Premium plan and `aria-pressed` is updated.
+3. Product and Premium checkout forms remain intact with unchanged prices.
+4. Polling the same order status does not create repeated notifications.
+5. Android Telegram haptic hooks are guarded and never required for purchase.
