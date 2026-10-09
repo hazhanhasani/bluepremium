@@ -207,7 +207,14 @@ function bpStoreClient() {
         p.appendChild(a);join.appendChild(p);
       }
       walletButton.style.display=d.required_channels?.length?"none":"inline-flex";
-    }catch(e){$("bpIdentityState").textContent="حساب در دسترس نیست: "+e.message}
+      // Emit an in-memory snapshot for the modern home/account/orders views.
+      // Never persist Telegram initData, balance or order history in localStorage.
+      window.bpAccountSnapshot={user:u,required_channels:d.required_channels||[]};
+      window.dispatchEvent(new CustomEvent("bp:account-updated",{detail:window.bpAccountSnapshot}));
+    }catch(e){
+      $("bpIdentityState").textContent="حساب در دسترس نیست: "+e.message;
+      window.dispatchEvent(new CustomEvent("bp:account-failed",{detail:{message:e.message}}));
+    }
   }
   $("bpReloadAccount").onclick=loadAccount;
   $("bpCopyReferral").onclick=async()=>{
