@@ -159,7 +159,7 @@ function bpStoreClient() {
   $("checkout").insertAdjacentHTML("beforebegin",
     '<section id="bp_account" class="bp-account-widget"><h3>حساب کاربری و کیف پول</h3>'+
     '<div id="bpIdentityState">در حال بررسی حساب تلگرام...</div>'+
-    '<div id="bpUserContent" style="display:none"><div class="bp-flex"><div>💰 موجودی کیف پول<div class="bp-value" id="bpBalance">۰ تومان</div></div><div>👥 زیرمجموعه‌ها<div id="bpReferralCount">۰</div></div></div>'+
+    '<div id="bpUserContent" style="display:none"><div class="bp-flex"><div>موجودی کیف پول<div class="bp-value" id="bpBalance">۰ تومان</div></div><div>زیرمجموعه‌ها<div id="bpReferralCount">۰</div></div></div>'+
     '<div class="bp-links"><button id="bpReloadAccount">بروزرسانی</button><button id="bpCopyReferral">کپی لینک دعوت</button></div>'+
     '<input id="bpReferralLink" readonly aria-label="لینک اختصاصی دعوت">'+
     '<div id="bpJoinWarning" class="bp-missing"></div>'+
