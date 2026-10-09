@@ -84,3 +84,39 @@ metadata in these dashboard summaries. Private histories are not stored in
 - API error: explicit retry guidance, never an endless loading indicator.
 - Mobile: one active tab, accessible filter controls and no horizontal overflow.
 - Existing wallet purchase and BluePal flows remain unchanged.
+
+## Phase two: TG Tools commerce gallery
+
+The TG Tools product views use `src/parts/022.part` for the existing authenticated
+checkout state machine and `src/parts/026.part` for a presentation-only
+editorial skin. `src/parts/024.part` still supplies the category-specific SVG
+artwork. The new visual layer must **never** create a wallet debit or
+construct a provider checkout URL.
+
+- Category buttons include keyboard focus, accessible pressed states and
+  scalable vector pictograms.
+- Individual offers show their original catalog title, quoted amount in Toman
+  and an explicit selection action; Stars additionally show the actual provider
+  quantity, never a made-up discount or sale badge.
+- A four-card skeleton indicates in-progress loading. Empty, management-disabled,
+  quote-only and network-error states have distinct explanatory copy.
+- Failed product fetches can be retried. An incrementing request ID prevents a
+  slow response from replacing the products of a more recently chosen category.
+- Steam and NFT continue to require a provider-backed *per-item* quote before
+  activating checkout. Product lists alone do not imply availability.
+- The original `/api/market/orders` and payment handlers remain responsible
+  for fresh price checks and secure order creation. No product can be ordered
+  from a skeleton, a disabled category, or an unpriced/failed quote.
+- Status messages are visually distinguished without replacing the existing
+  `role="status"` text. Reduced-motion users do not receive shimmer animation.
+
+### Acceptance checks
+
+1. 390px mobile viewport: no horizontal overflow, category artwork visible.
+2. Stars category: product cards show the exact provider denomination and price.
+3. Switching categories during active fetches: only the latest chosen category
+   can replace the product list.
+4. Selecting an item: the original form shows the correct title, Toman amount
+   and destination requirements. No payment is triggered.
+5. Wallet and card options remain original; the new decorator never writes
+   authenticated order data or changes payment state.
