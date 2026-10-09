@@ -157,17 +157,17 @@ function bpStoreClient() {
   css.textContent='.bp-account-widget{border:1px solid rgba(122,168,240,.22);background:linear-gradient(155deg,#11233d,#07111e);border-radius:24px;padding:18px;margin:18px 0;color:#e6f3ff}.bp-account-widget h3{font-size:16px;margin:0 0 10px}.bp-account-widget .bp-flex{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.bp-account-widget .bp-value{font-size:22px;font-weight:900;color:#9fcaff}.bp-account-widget button{background:#167cfe;color:white;border:none;border-radius:12px;padding:12px;cursor:pointer;font:700 12px Tahoma}.bp-account-widget input{width:100%;border:1px solid #2a476d;background:#08182a;color:white;padding:11px;border-radius:11px;margin-top:8px}.bp-account-widget .bp-history{margin-top:12px;font-size:11px;line-height:2;color:#9db6d2}.bp-account-widget a{color:#80c5ff}.bp-account-widget .bp-links{margin-top:12px}.bp-account-widget .bp-links button{margin:3px}.bp-account-widget .bp-missing{margin:10px 0}';
   document.head.appendChild(css);
   $("checkout").insertAdjacentHTML("beforebegin",
-    '<section id="bp_account" class="bp-account-widget"><h3>👤 حساب کاربری و کیف پول</h3>'+
+    '<section id="bp_account" class="bp-account-widget"><h3>حساب کاربری و کیف پول</h3>'+
     '<div id="bpIdentityState">در حال بررسی حساب تلگرام...</div>'+
     '<div id="bpUserContent" style="display:none"><div class="bp-flex"><div>💰 موجودی کیف پول<div class="bp-value" id="bpBalance">۰ تومان</div></div><div>👥 زیرمجموعه‌ها<div id="bpReferralCount">۰</div></div></div>'+
-    '<div class="bp-links"><button id="bpReloadAccount">🔄 بروزرسانی</button><button id="bpCopyReferral">🎁 کپی لینک دعوت</button></div>'+
+    '<div class="bp-links"><button id="bpReloadAccount">بروزرسانی</button><button id="bpCopyReferral">کپی لینک دعوت</button></div>'+
     '<input id="bpReferralLink" readonly aria-label="لینک اختصاصی دعوت">'+
     '<div id="bpJoinWarning" class="bp-missing"></div>'+
     '<div class="bp-history" id="bpHistory"></div><div class="bp-history" id="bpMyOrders"></div></div></section>'
   );
   const walletButton=document.createElement("button");
   walletButton.id="bpWalletPurchase";walletButton.className="btn primary";
-  walletButton.textContent="💳 خرید با کیف پول";
+  walletButton.textContent="خرید با کیف پول";
   walletButton.style.display="none";
   const actions=document.querySelector("#checkout .actions");
   if(actions) actions.appendChild(walletButton);
@@ -196,7 +196,7 @@ function bpStoreClient() {
         "هنوز تراکنشی در کیف پول ثبت نشده است.";
       $("bpHistory").style.whiteSpace="pre-line";
       $("bpMyOrders").textContent=(u.orders||[]).length?
-        "📦 سفارش‌های اخیر:\n"+u.orders.slice(0,6).map(o=>o.months+" ماهه · "+o.status+" · "+money(o.price_toman)+" تومان").join("\n") :
+        "سفارش‌های اخیر:\n"+u.orders.slice(0,6).map(o=>o.months+" ماهه · "+o.status+" · "+money(o.price_toman)+" تومان").join("\n") :
         "هنوز سفارش ثبت‌شده‌ای وجود ندارد.";
       $("bpMyOrders").style.whiteSpace="pre-line";
       const join=$("bpJoinWarning");
@@ -231,7 +231,7 @@ function bpStoreClient() {
       await loadAccount();
       location.reload();
     }catch(e){$("bpIdentityState").textContent="خطای خرید: "+e.message}
-    finally{walletButton.disabled=false;walletButton.textContent="💳 خرید با کیف پول"}
+    finally{walletButton.disabled=false;walletButton.textContent="خرید با کیف پول"}
   };
   loadAccount();
 }
