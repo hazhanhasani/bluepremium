@@ -10,7 +10,7 @@ test('new app shell decorates storefront and preserves existing payment DOM',()=
     '<section id="plans"></section><section id="checkout"><button id="buy">Buy</button></section></main>'+
     '<nav class="app-nav"></nav></body></html>';
   const rendered=decorator(input);
-  assert.match(rendered,/bp-experience-v3/);
+  assert.match(rendered,/bp-experience-v4/);
   assert.match(rendered,/bpExperienceClient/);
   assert.match(rendered,/id="checkout"/);
   assert.match(rendered,/id="buy"/);
