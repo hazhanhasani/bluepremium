@@ -101,6 +101,25 @@ function bpExperienceClient(){
   const checkout=document.getElementById('checkout');if(checkout)panel.premium.appendChild(checkout);
   const market=document.getElementById('tg-digital-shop');
   if(market)panel.market.appendChild(market);
+  // Artwork for provider-loaded product cards is DOM-only and does not alter pricing.
+  const marketGrid=market?.querySelector('#tgItems');
+  if(marketGrid){
+    const drawProducts=()=>{
+      const selected=market.querySelector('#tgCategories .selected')?.dataset.kind||'stars';
+      const kind=({stars:'stars',gift:'gift',catalog:'catalog',smm:'catalog',nft:'nft',steam:'steam'})[selected]||'catalog';
+      marketGrid.querySelectorAll('.tg-item:not([data-bp-art])').forEach(card=>{
+        card.dataset.bpArt='1';
+        const wrapper=document.createElement('span');
+        wrapper.className='tg-item-art';
+        wrapper.setAttribute('aria-hidden','true');
+        wrapper.innerHTML=art(kind);
+        card.prepend(wrapper);
+      });
+    };
+    const observer=new MutationObserver(drawProducts);
+    observer.observe(marketGrid,{childList:true});
+    drawProducts();
+  }
   const account=document.getElementById('bp_account');
   if(account)panel.account.appendChild(account);
   panel.account.prepend(heading('account'));
