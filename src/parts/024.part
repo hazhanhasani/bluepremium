@@ -8,13 +8,57 @@ function bpExperienceClient(){
   if(!root||!header||document.body.classList.contains('bp-shell-v3'))return;
   document.body.classList.add('bp-shell-v3');
   document.body.dataset.bpActive='home';
+  // Vector illustrations created for BluePremium; no platform emojis or stock icons.
+  const art=(type,variant='full')=>{
+    const svg=(inner,view='0 0 160 160')=>'<svg class="bp-art bp-art-'+type+'" xmlns="http://www.w3.org/2000/svg" viewBox="'+view+'" fill="none" aria-hidden="true" focusable="false">'+inner+'</svg>';
+    if(type==='premium')return svg('<defs><linearGradient id="bpCrownMetal" x1="26" y1="18" x2="130" y2="141"><stop stop-color="#FFF5C7"/><stop offset=".48" stop-color="#E6B768"/><stop offset="1" stop-color="#9B5839"/></linearGradient></defs>'+
+      '<circle cx="80" cy="80" r="72" stroke="#FFF2D3" stroke-opacity=".36"/><circle cx="80" cy="80" r="54" stroke="#FFF2D3" stroke-opacity=".18"/>'+
+      '<path d="m30 64 26 21 24-40 26 40 24-21-8 54H38L30 64Z" fill="url(#bpCrownMetal)" stroke="#FFE6A9" stroke-width="3" stroke-linejoin="round"/>'+
+      '<path d="M44 102h72M50 112h60" stroke="#935534" stroke-opacity=".7" stroke-width="4" stroke-linecap="round"/>'+
+      '<path d="M80 49 88 62 80 75 72 62 80 49Z" fill="#FFFBE8"/>'+
+      '<circle cx="29" cy="62" r="5" fill="#FFEAC3"/><circle cx="80" cy="44" r="5" fill="#FFF5D9"/><circle cx="131" cy="62" r="5" fill="#FFEAC3"/>'+
+      '<path d="M118 23v15M110 31h16" stroke="#FFF3DC" stroke-opacity=".9" stroke-width="3" stroke-linecap="round"/>');
+    if(type==='stars')return svg('<defs><linearGradient id="bpStarMetal" x1="28" y1="10" x2="134" y2="148"><stop stop-color="#FFF8BB"/><stop offset=".48" stop-color="#FECF60"/><stop offset="1" stop-color="#DA813D"/></linearGradient></defs>'+
+      '<circle cx="80" cy="82" r="65" fill="#A84B4B" fill-opacity=".18" stroke="#FFE9B1" stroke-opacity=".25" stroke-width="2"/>'+
+      '<circle cx="80" cy="82" r="52" fill="#FFF2C5" fill-opacity=".10" stroke="#FFFFFF" stroke-opacity=".4" stroke-width="2"/>'+
+      '<path d="M80 36 94.5 65.5 127 70 103.5 93 109 126 80 110.5 51 126 56.5 93 33 70 65.5 65.5 80 36Z" fill="url(#bpStarMetal)" stroke="#FFF3CF" stroke-width="3" stroke-linejoin="round"/>'+
+      '<path d="m80 50 9 20 21 3-16 15 4 23-18-10-18 10 4-23-16-15 21-3 9-20Z" fill="#FFF5CA" fill-opacity=".28"/>'+
+      '<path d="M129 25v22M118 36h22M24 113v16M16 121h16" stroke="#FFF8DD" stroke-width="3" stroke-linecap="round"/>');
+    if(type==='gift')return svg('<ellipse cx="81" cy="139" rx="55" ry="12" fill="#713765" fill-opacity=".16"/>'+
+      '<rect x="36" y="70" width="88" height="61" rx="9" fill="#D1A6F0" stroke="#633C83" stroke-width="3"/>'+
+      '<rect x="28" y="58" width="104" height="24" rx="7" fill="#EEDAFF" stroke="#633C83" stroke-width="3"/>'+
+      '<path d="M72 58h16v73H72z" fill="#8557A8"/><path d="M73 57c-24-1-30-10-25-22 7-17 32 0 32 22-1-26 25-38 33-22 7 15-7 23-33 22" stroke="#633C83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+      '<path d="M112 13v17M103 22h18" stroke="#7C4B92" stroke-width="3" stroke-linecap="round"/>');
+    if(type==='catalog')return svg('<rect x="29" y="46" width="102" height="67" rx="17" fill="#F0C792" stroke="#754A37" stroke-width="3"/>'+
+      '<rect x="35" y="54" width="90" height="54" rx="12" fill="#FFF1D7"/>'+
+      '<path d="M29 70h102" stroke="#DAA572" stroke-width="13"/><circle cx="77" cy="84" r="16" fill="#F6B87C"/>'+
+      '<path d="m69 85 6 6 14-16" stroke="#764737" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'+
+      '<rect x="56" y="34" width="87" height="59" rx="11" transform="rotate(-11 56 34)" fill="#B7D6BD" stroke="#537968" stroke-width="3"/>'+
+      '<path d="m119 17 5 14M112 23l14-5" stroke="#6F9675" stroke-width="3" stroke-linecap="round"/>');
+    if(type==='nft')return svg('<path d="m80 20 50 49-50 72-50-72 50-49Z" fill="#DCCAF0" stroke="#6B517E" stroke-width="3"/>'+
+      '<path d="m80 20 17 48-17 73-17-73 17-48Z" fill="#F5E7FF"/>'+
+      '<path d="M30 69h100L80 141 30 69Z" fill="#A987CB" fill-opacity=".33" stroke="#6B517E" stroke-width="2"/>'+
+      '<path d="M30 69h100L80 20 30 69Z" stroke="#71558A" stroke-width="3" stroke-linejoin="round"/>'+
+      '<path d="M130 29v17M121 37h18" stroke="#725783" stroke-width="3" stroke-linecap="round"/>');
+    if(type==='steam')return svg('<rect x="20" y="49" width="120" height="72" rx="34" fill="#A8BCBA" stroke="#435F5C" stroke-width="4"/>'+
+      '<path d="M50 72v32M34 88h32" stroke="#284B49" stroke-width="9" stroke-linecap="round"/>'+
+      '<circle cx="102" cy="79" r="9" fill="#F4EEE4" stroke="#284B49" stroke-width="3"/>'+
+      '<circle cx="119" cy="96" r="9" fill="#E8B5A1" stroke="#284B49" stroke-width="3"/>'+
+      '<path d="M48 49 57 34h46l9 15" stroke="#607F7B" stroke-width="5" stroke-linecap="round"/>'+
+      '<circle cx="25" cy="35" r="5" fill="#E5A98F"/><circle cx="133" cy="25" r="4" fill="#6D8E89"/>');
+    const strokes={
+      orders:'<rect x="40" y="20" width="80" height="120" rx="13" fill="#F9EBD5" stroke="#4F3D36" stroke-width="5"/><path d="M58 55h43M58 75h43M58 95h24" stroke="#BF7464" stroke-width="6" stroke-linecap="round"/><circle cx="102" cy="111" r="13" fill="#E4BE71"/>',
+      account:'<circle cx="80" cy="56" r="27" fill="#F1C69B" stroke="#6E5145" stroke-width="4"/><path d="M32 139c0-28 17-47 48-47s48 19 48 47" fill="#B9D3A9" stroke="#537259" stroke-width="4"/>'
+    };
+    return svg(strokes[type]||strokes.account);
+  };
   const mk=(tag,cls,html)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(html!==undefined)el.innerHTML=html;return el};
   const headings={
-    premium:['خرید تلگرام پرمیوم','انتخاب پلن، حساب مقصد و پرداخت امن','👑'],
-    stars:['خرید استارز تلگرام','بسته دلخواه رو انتخاب کن و مقصد رو وارد کن','⭐'],
-    catalog:['محصولات دیجیتال','گیفت، گیفت‌کارت، NFT و شارژ بازی','🛍'],
-    orders:['سفارش‌های من','پرداخت، وضعیت تحویل و کدهای سفارش','📦'],
-    account:['حساب کاربری','کیف پول، تراکنش‌ها و معرفی دوستان','👤']
+    premium:['خرید پرمیوم','انتخاب پلن و فعال‌سازی مستقیم'],
+    stars:['خرید استارز','بسته موردنظر رو انتخاب کن'],
+    catalog:['دنیای دیجیتال','از گیفت‌کارت تا شارژ بازی'],
+    orders:['سفارش‌ها','همه خریدها و مراحل تحویل'],
+    account:['حساب من','کیف پول، تراکنش‌ها و دعوت دوستان']
   };
   const panel={};
   for(const name of ['home','premium','market','orders','account']){
@@ -22,26 +66,33 @@ function bpExperienceClient(){
     el.dataset.bpView=name;el.id='bp-view-'+name;el.hidden=name!=='home';el.setAttribute('aria-label',name);
     el.setAttribute('tabindex','-1');panel[name]=el;root.appendChild(el);
   }
-  function heading(name){const [title,description,icon]=headings[name];return mk('div','bp-tab-heading','<div><h1>'+title+'</h1><p>'+description+'</p></div><span class="bp-tab-symbol" aria-hidden="true">'+icon+'</span>')}
+  function heading(name){const [title,description]=headings[name];return mk('div','bp-tab-heading','<div><span class="bp-overline">BLUE PREMIUM / '+name.toUpperCase()+'</span><h1>'+title+'</h1><p>'+description+'</p></div><span class="bp-tab-symbol" aria-hidden="true">'+art(name==='catalog'?'catalog':name==='stars'?'stars':name)+'</span>')}
   const home=panel.home;
   home.appendChild(mk('div','bp-hero',[
-    '<span class="bp-eyebrow">بلوپرمیوم | BLUE PREMIUM</span>',
-    '<h1>پرمیوم و استارز،<br><em>ساده‌تر از همیشه</em></h1>',
-    '<p>محصولت رو انتخاب کن، قیمت نهایی رو ببین و با خیال راحت سفارش بده.</p>',
+    '<div class="bp-hero-art" aria-hidden="true">'+art('stars')+'</div>',
+    '<div class="bp-editorial-tag"><span class="bp-led"></span>BLUE PREMIUM <span class="bp-tag-divider"></span> DIGITAL GOODS</div>',
+    '<h1>فروشگاهت،<br><em>با یک حس متفاوت.</em></h1>',
+    '<p>پرمیوم، استارز و هدیه‌های دیجیتال. انتخاب ساده، قیمت شفاف، تجربه‌ای که به‌یاد می‌مونه.</p>',
+    '<div class="bp-hero-foot"><span>DISCOVER THE DIFFERENCE</span><span class="bp-hero-arrow" aria-hidden="true">↗</span></div>'
+  ].join('')));
+  home.appendChild(mk('section','bp-featured',[
+    '<div class="bp-section-head"><div><span class="bp-overline">01 / TOP PICKS</span><h2>از اینجا شروع کن</h2></div><span class="bp-section-note">محصولات محبوب</span></div>',
     '<div class="bp-quick-grid">',
-    '<button type="button" class="bp-quick-card premium" data-bp-go="premium"><span class="bp-quick-icon" aria-hidden="true">👑</span>',
-    '<strong>تلگرام پرمیوم</strong><small>انتخاب پلن و فعال‌سازی</small><span class="bp-inline-arrow">مشاهده پلن‌ها ←</span></button>',
-    '<button type="button" class="bp-quick-card stars" data-bp-go="stars"><span class="bp-quick-icon" aria-hidden="true">⭐</span>',
-    '<strong>استارز تلگرام</strong><small>بسته‌های استارز به‌روز</small><span class="bp-inline-arrow">خرید استارز ←</span></button>',
+    '<button type="button" class="bp-quick-card premium" data-bp-go="premium">',
+    '<span class="bp-card-label">PREMIUM / 01</span><span class="bp-quick-icon" aria-hidden="true">'+art('premium')+'</span>',
+    '<strong>تلگرام پرمیوم</strong><small>اشتراک ویژه برای تجربه‌ای کامل‌تر</small><span class="bp-inline-arrow">انتخاب اشتراک <span aria-hidden="true">↗</span></span></button>',
+    '<button type="button" class="bp-quick-card stars" data-bp-go="stars">',
+    '<span class="bp-card-label">STARS / 02</span><span class="bp-quick-icon" aria-hidden="true">'+art('stars')+'</span>',
+    '<strong>استارز تلگرام</strong><small>بسته‌های مختلف، قیمت لحظه‌ای</small><span class="bp-inline-arrow">دیدن بسته‌ها <span aria-hidden="true">↗</span></span></button>',
     '</div>'
   ].join('')));
   home.appendChild(mk('section','bp-discover',[
-    '<h2>سایر محصولات</h2><p>انتخاب کن تا وارد بخش مخصوص همون محصول بشی</p>',
+    '<div class="bp-section-head"><div><span class="bp-overline">02 / COLLECTION</span><h2>بیشتر کشف کن</h2></div><span class="bp-section-note">چهار دسته متفاوت</span></div>',
     '<div class="bp-discover-grid">',
-    '<button type="button" class="bp-category" data-bp-kind="gift"><span aria-hidden="true">🎁</span>گیفت تلگرام</button>',
-    '<button type="button" class="bp-category" data-bp-kind="catalog"><span aria-hidden="true">🎮</span>گیفت‌کارت</button>',
-    '<button type="button" class="bp-category" data-bp-kind="nft"><span aria-hidden="true">💎</span>گیفت NFT</button>',
-    '<button type="button" class="bp-category" data-bp-kind="steam"><span aria-hidden="true">💻</span>شارژ Steam</button>',
+    '<button type="button" class="bp-category" data-bp-kind="gift"><span aria-hidden="true">'+art('gift')+'</span><strong>هدیه تلگرام</strong><small>TELEGRAM GIFTS</small></button>',
+    '<button type="button" class="bp-category" data-bp-kind="catalog"><span aria-hidden="true">'+art('catalog')+'</span><strong>گیفت‌کارت</strong><small>DIGITAL CARDS</small></button>',
+    '<button type="button" class="bp-category" data-bp-kind="nft"><span aria-hidden="true">'+art('nft')+'</span><strong>کلکسیون NFT</strong><small>DIGITAL COLLECTIBLES</small></button>',
+    '<button type="button" class="bp-category" data-bp-kind="steam"><span aria-hidden="true">'+art('steam')+'</span><strong>شارژ Steam</strong><small>GAMING CREDIT</small></button>',
     '</div>'
   ].join('')));
   const pTitle=root.querySelector('.section-title');
@@ -56,13 +107,13 @@ function bpExperienceClient(){
   panel.market.prepend(heading('stars'));
   panel.premium.prepend(heading('premium'));
   panel.orders.prepend(heading('orders'));
-  const premiumOrder=mk('article','bp-orders-card','<h2>👑 سفارش پرمیوم</h2><p>جزئیات سفارش پرمیوم و وضعیت پرداخت اینجا نمایش داده می‌شه.</p>');
+  const premiumOrder=mk('article','bp-orders-card','<h2>سفارش پرمیوم</h2><p>جزئیات سفارش پرمیوم و وضعیت پرداخت اینجا نمایش داده می‌شه.</p>');
   const legacy=document.getElementById('order');
   if(legacy)premiumOrder.appendChild(legacy);
   const premiumEmpty=mk('div','bp-empty','هنوز سفارش پرمیوم فعالی روی این دستگاه ثبت نشده.');
   premiumOrder.appendChild(premiumEmpty);
   panel.orders.appendChild(premiumOrder);
-  const marketOrder=mk('article','bp-orders-card','<h2>⭐ سفارش محصولات دیجیتال</h2><p>سفارش استارز، گیفت و محصولات دیگه رو اینجا پیگیری کن.</p>');
+  const marketOrder=mk('article','bp-orders-card','<h2>سفارش محصولات دیجیتال</h2><p>سفارش استارز، گیفت و محصولات دیگه رو اینجا پیگیری کن.</p>');
   const marketDetails=document.getElementById('tgOrder');
   if(marketDetails)marketOrder.appendChild(marketDetails);
   const marketEmpty=mk('div','bp-empty','هنوز سفارش دیجیتالی روی این دستگاه ثبت نشده.');
