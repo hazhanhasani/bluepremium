@@ -1,0 +1,117 @@
+function bpMotionDecorate(html){return html.replace('</head>','<style id="bp-motion-v1-style">'+bpMotionCss()+'</style></head>').replace('</body>','<script>('+bpMotionClient.toString()+')()</script></body>');}
+
+function bpMotionCss(){return "\n/* BluePremium interaction system · phase three · editorial motion */\n.bp-shell-v3.bp-motion-v1{--bp-ease:cubic-bezier(.22,1,.36,1);--bp-quick:170ms;--bp-regular:320ms;}\n.bp-motion-v1 .bp-app-nav{isolation:isolate}\n.bp-motion-v1 .bp-app-nav button{position:relative;transition:color var(--bp-quick) ease,background-color var(--bp-regular) var(--bp-ease),transform var(--bp-quick) ease;will-change:auto}\n.bp-motion-v1 .bp-app-nav button .bp-nav-icon{transition:transform var(--bp-regular) var(--bp-ease)}\n.bp-motion-v1 .bp-app-nav button[aria-current=\"page\"] .bp-nav-icon{transform:translateY(-2px) scale(1.08)}\n.bp-motion-v1 .bp-app-nav button[aria-current=\"page\"]::after{content:\"\";position:absolute;width:16px;height:2px;border-radius:20px;background:#BF715C;bottom:3px;right:calc(50% - 8px)}\n.bp-motion-v1 .bp-app-nav button:active{transform:scale(.94)}\n.bp-motion-v1 .bp-quick-card,.bp-motion-v1 .bp-category,.bp-motion-v1 .bp-overview-card,.bp-motion-v1 .bp-market-product{\n transition:transform var(--bp-regular) var(--bp-ease),box-shadow var(--bp-regular) var(--bp-ease),border-color var(--bp-quick) ease!important}\n.bp-motion-v1 .bp-quick-card:active,.bp-motion-v1 .bp-category:active{transform:scale(.98)!important}\n.bp-motion-v1 .bp-market-product:active{transform:scale(.99)}\n.bp-motion-v1 .bp-market-product.is-selected{outline:2px solid #B86B57;outline-offset:2px}\n.bp-motion-v1 #plans .plan[data-id]{cursor:pointer;transform:translateY(0);transition:transform .25s var(--bp-ease),box-shadow .25s var(--bp-ease),border-color .25s ease}\n.bp-motion-v1 #plans .plan[data-id]:is(:hover,:focus-visible){transform:translateY(-2px)}\n.bp-motion-v1 #plans .plan[data-id]:focus-visible{outline:3px solid #CE836A;outline-offset:3px}\n.bp-motion-v1 #plans .plan[data-id].active{transform:translateY(-3px);box-shadow:inset 0 0 0 1px #B86955,0 13px 25px #794B3A24!important}\n.bp-motion-v1 #plans .plan[data-id].active .selector{animation:bpSelectPop .25s var(--bp-ease)}\n@keyframes bpSelectPop{0%{transform:scale(.7)}60%{transform:scale(1.13)}100%{transform:scale(1)}}\n.bp-motion-v1 .bp-tab-view:not([hidden]){animation:bpEnterScreen .3s var(--bp-ease) both}\n@keyframes bpEnterScreen{from{opacity:.55;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}\n.bp-motion-v1 .checkout .box,.bp-motion-v1 .bp-orders-card,.bp-motion-v1 .bp-panel,.bp-motion-v1 .tg-store .tg-checkout{transition:border-color var(--bp-quick) ease,box-shadow var(--bp-regular) ease}\n.bp-motion-v1 :is(#tgDestination,#username,#tgCatalogSearch,#bpReferralLink):focus-visible{outline:2px solid #BC7961;outline-offset:2px}\n.bp-motion-v1 button:focus-visible{outline:2px solid #BE7A64;outline-offset:2px}\n.bp-motion-v1 :is(#tgPayCard,#tgPayWallet,#tgQuoteButton,#tgCatalogSearchButton,.checkout .btn.primary){transition:transform var(--bp-quick) ease,filter var(--bp-quick) ease,background-color var(--bp-regular) ease}\n.bp-motion-v1 :is(#tgPayCard,#tgPayWallet,#tgQuoteButton,#tgCatalogSearchButton,.checkout .btn.primary):not(:disabled):active{transform:scale(.977);filter:brightness(.96)}\n.bp-motion-v1 button:disabled{cursor:not-allowed}\n.bp-motion-v1 .bp-chip{transition:background-color var(--bp-quick) ease,color var(--bp-quick) ease,transform var(--bp-quick) ease}\n.bp-motion-v1 .bp-chip:active{transform:scale(.96)}\n.bp-motion-v1 #tgFeedback[data-tone=\"loading\"],.bp-motion-v1 .bp-refresh-note[data-bp-loading=\"true\"]{position:relative;overflow:hidden}\n.bp-motion-v1 .bp-refresh-note[data-bp-loading=\"true\"]{color:#9A7061}\n.bp-motion-v1 .bp-refresh-note[data-bp-loading=\"true\"]::before{content:\"\";display:inline-block;width:8px;height:8px;margin-inline-end:7px;border-radius:50%;background:#C7745F;animation:bpSoftPulse 1.15s ease-in-out infinite}\n@keyframes bpSoftPulse{50%{opacity:.32;transform:scale(.76)}}\n.bp-motion-v1 .bp-order-row{transition:transform var(--bp-regular) var(--bp-ease),border-color var(--bp-quick) ease}\n.bp-motion-v1 .bp-order-row:is(:hover,:focus-within){border-color:#CCAA99;transform:translateY(-1px)}\n.bp-motion-v1 .bp-order-row.bp-order-fresh{animation:bpRowArrive .34s var(--bp-ease)}\n@keyframes bpRowArrive{from{opacity:.5;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}\n.bp-motion-v1 :is(#order,#tgOrder).bp-status-changed{animation:bpOrderUpdate .4s var(--bp-ease)}\n@keyframes bpOrderUpdate{0%{box-shadow:0 0 0 0 #D9A58C55}65%{box-shadow:0 0 0 8px #D9A58C0B}100%{box-shadow:none}}\n.bp-motion-v1 .bp-toast{position:fixed;z-index:90;left:50%;bottom:calc(94px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);\n background:#382B32;color:#FFF8F0;border:1px solid #705351;border-radius:14px;padding:11px 17px;box-shadow:0 14px 38px #271D2B44;\n width:max-content;max-width:calc(100vw - 32px);font:700 11px/1.85 \"Vazirmatn\",Tahoma,sans-serif;text-align:center;pointer-events:none;animation:bpToastIn .22s var(--bp-ease)}\n.bp-motion-v1 .bp-toast[hidden]{display:none}\n@keyframes bpToastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}\n.bp-motion-v1 .bp-toast[data-tone=\"error\"]{background:#693C3D;border-color:#AD6863}\n.bp-motion-v1 .bp-toast[data-tone=\"success\"]{background:#355E4B;border-color:#75A18A}\n.bp-motion-v1 .bp-loading-message{font-size:11px;line-height:1.9}\n.bp-motion-v1 :is(input,select,textarea){transition:border-color .18s ease,box-shadow .18s ease}\n.bp-motion-v1 .bp-quick-icon .bp-art{transition:transform .38s var(--bp-ease)}\n@media(hover:hover){.bp-motion-v1 .bp-quick-card:hover .bp-quick-icon .bp-art{transform:rotate(-4deg) scale(1.04)}}\n@media(max-width:700px){\n .bp-motion-v1 .bp-app-nav button[aria-current=\"page\"]::after{bottom:3px;width:13px;right:calc(50% - 6.5px)}\n .bp-motion-v1 #plans .plan[data-id].active{transform:translateY(-2px)}\n .bp-motion-v1 .bp-toast{bottom:calc(91px + env(safe-area-inset-bottom,0px))}\n}\n@media(prefers-reduced-motion:reduce){\n .bp-motion-v1 *, .bp-motion-v1 *::before, .bp-motion-v1 *::after{\n   animation-duration:.01ms!important;animation-iteration-count:1!important;\n   transition-duration:.01ms!important;scroll-behavior:auto!important\n }\n .bp-motion-v1 .bp-tab-view:not([hidden]),.bp-motion-v1 .bp-order-row.bp-order-fresh,\n .bp-motion-v1 :is(#order,#tgOrder).bp-status-changed{animation:none!important}\n .bp-motion-v1 .bp-app-nav button[aria-current=\"page\"] .bp-nav-icon,.bp-motion-v1 #plans .plan[data-id].active{transform:none!important}\n}\n";}
+
+function bpMotionClient(){
+  if(document.body.classList.contains('bp-motion-v1'))return;
+  const nav=document.querySelector('.bp-app-nav'),plans=document.getElementById('plans');
+  if(!nav||!plans)return;
+  document.body.classList.add('bp-motion-v1');
+  const reduce=()=>window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pulse=(style)=>{
+    try{
+      const h=window.Telegram?.WebApp?.HapticFeedback;
+      if(h&&typeof h.impactOccurred==='function')h.impactOccurred(style);
+    }catch(_){}
+  };
+  const announce=(text,tone='success')=>{
+    const message=String(text||'').trim();
+    if(!message)return;
+    let toast=document.querySelector('.bp-toast');
+    if(!toast){
+      toast=document.createElement('div');toast.className='bp-toast';
+      toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');
+      toast.hidden=true;document.body.appendChild(toast);
+    }
+    toast.textContent=message;toast.dataset.tone=tone;toast.hidden=false;
+    clearTimeout(announce.timer);
+    announce.timer=setTimeout(()=>{toast.hidden=true},2900);
+  };
+  // Dynamic Premium prices rerender the plan cards. Make each card operable
+  // by keyboard without replacing the existing purchase/selection handler.
+  const enhancePlans=()=>{
+    for(const plan of plans.querySelectorAll('.plan[data-id]')){
+      plan.setAttribute('role','button');
+      plan.setAttribute('tabindex','0');
+      plan.setAttribute('aria-label',plan.textContent.trim().replace(/\s+/g,' '));
+      plan.setAttribute('aria-pressed',String(plan.classList.contains('active')));
+    }
+  };
+  plans.addEventListener('keydown',event=>{
+    const plan=event.target.closest('.plan[data-id]');
+    if(!plan||!(event.key==='Enter'||event.key===' '))return;
+    event.preventDefault();
+    const id=plan.dataset.id;
+    plan.click();
+    const replacement=[...plans.querySelectorAll('.plan[data-id]')].find(p=>p.dataset.id===id);
+    replacement?.focus({preventScroll:true});
+    pulse('selection');
+  });
+  plans.addEventListener('click',event=>{
+    if(event.target.closest('.plan[data-id]'))pulse('selection');
+  });
+  const observer=new MutationObserver(enhancePlans);
+  observer.observe(plans,{childList:true,subtree:true});
+  enhancePlans();
+  // One restrained click response for the navigation and product selection.
+  nav.addEventListener('click',event=>{
+    if(event.target.closest('button[data-bp-tab]'))pulse('light');
+  });
+  document.getElementById('tgItems')?.addEventListener('click',event=>{
+    if(event.target.closest('[data-index],[data-nft-address]'))pulse('selection');
+  });
+  // Only surface an unobtrusive toast for explicit user-initiated copy, not
+  // for ongoing payment polling or automatic state updates.
+  document.addEventListener('click',event=>{
+    const el=event.target.closest('button');
+    if(!el)return;
+    if(el.id==='bpCopyReferral'){
+      // The original handler still performs clipboard operations.
+      // Avoid showing a success toast until it actually reports success.
+      return;
+    }
+  },true);
+  // Live orders may refresh often. Animate only actual status changes, not
+  // every response, without touching order tokens or payment instructions.
+  const statusCache=new WeakMap();
+  for(const target of [document.getElementById('order'),document.getElementById('tgOrder')]){
+    if(!target)continue;
+    const readStatus=()=>{
+      const text=target.querySelector('.order-state b')?.textContent||
+        [...target.querySelectorAll('div')].find(x=>x.textContent?.startsWith('وضعیت:'))?.textContent||'';
+      const state=text.trim();
+      if(state&&statusCache.has(target)&&statusCache.get(target)!==state){
+        target.classList.remove('bp-status-changed');
+        void target.offsetWidth;
+        target.classList.add('bp-status-changed');
+      }
+      if(state)statusCache.set(target,state);
+    };
+    const changes=new MutationObserver(readStatus);
+    changes.observe(target,{childList:true,subtree:true,characterData:true});
+    readStatus();
+  }
+  const refresh=document.querySelector('.bp-refresh-note');
+  if(refresh){
+    const update=()=>refresh.dataset.bpLoading=String(/در حال بروزرسانی|در حال دریافت/.test(refresh.textContent||''));
+    new MutationObserver(update).observe(refresh,{childList:true,characterData:true,subtree:true});
+    update();
+  }
+  // Present a non-blocking visual acknowledgment for completed copy operations
+  // only. The trusted original clipboard handler sets these exact messages.
+  const feedback=document.getElementById('tgFeedback');
+  if(feedback){
+    let before=feedback.textContent||'';
+    new MutationObserver(()=>{
+      const now=feedback.textContent||'';
+      if(now!==before&&/کپی شد/.test(now))announce('اطلاعات کپی شد.');
+      before=now;
+    }).observe(feedback,{childList:true,characterData:true,subtree:true});
+  }
+  // Clarify that totals and prices come from the server, not static artwork.
+  document.getElementById('tgItems')?.setAttribute('aria-label','محصولات و قیمت‌های دریافتی از سرویس');
+  const controls=nav.querySelectorAll('button[data-bp-tab]');
+  for(const button of controls){
+    if(!button.getAttribute('aria-label'))button.setAttribute('aria-label',button.textContent.trim());
+  }
+}
