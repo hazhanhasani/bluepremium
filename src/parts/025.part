@@ -154,6 +154,7 @@ function bpPhaseOneClient(){
     orderItems.replaceChildren();
     if(state.guest){orderItems.append(placeholder('تأیید حساب لازم است',state.error==='join_required'?'ابتدا عضویت کانال‌های الزامی را تأیید کن.':'سفارش‌های شخصی فقط داخل مینی‌اپ تلگرام قابل مشاهده هستند.','account'));return}
     if(state.loading&&!state.user){orderItems.append(placeholder('در حال بارگذاری','اطلاعات سفارش‌ها از سرور دریافت می‌شود.'));return}
+    if(!state.user){orderItems.append(placeholder('خطا در دریافت حساب','برای دریافت سفارش‌ها دوباره بروزرسانی را انتخاب کن.','warning'));return}
     const items=allOrders().filter(o=>{
       const stage=(statuses[o.status]||['','waiting'])[1];
       return state.filter==='all'||state.filter==='delivered'&&stage==='done'||
@@ -166,7 +167,7 @@ function bpPhaseOneClient(){
   function renderWallet(){
     timeline.replaceChildren();
     if(state.guest){timeline.append(placeholder('دسترسی به کیف پول',state.error==='join_required'?'ابتدا عضویت کانال‌های الزامی را تأیید کن.':'برای مشاهده کیف پول وارد ربات شو.','wallet'));return}
-    if(!state.user){timeline.append(placeholder('در انتظار اطلاعات','در حال دریافت گردش حساب.','wallet'));return}
+    if(!state.user){timeline.append(placeholder(state.error?'اطلاعات در دسترس نیست':'در انتظار اطلاعات',state.error?'اتصال حساب را بررسی کن و دوباره بروزرسانی بزن.':'در حال دریافت گردش حساب.','wallet'));return}
     const items=(state.user.transactions||[]).slice(0,12);
     if(!items.length){timeline.append(placeholder('هنوز تراکنشی نداری','پس از اولین خرید یا افزایش موجودی، تاریخچه اینجا دیده می‌شود.','wallet'));return}
     for(const tx of items){
