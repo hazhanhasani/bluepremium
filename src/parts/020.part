@@ -95,7 +95,7 @@ function tgDestination(kind,value){
 }
 function tgPublic(order,token=''){
   const obj={code:order.order_code,kind:order.kind,title:order.title,quantity:order.quantity,price_toman:order.price_toman,
-    status:order.status,target:order.target,delivery_code:order.status==='delivered'?order.delivery_code:null};
+    status:order.status,target:order.target,created_at:order.created_at,delivery_code:order.status==='delivered'?order.delivery_code:null};
   if(token)obj.token=token;
   if(order.status==='awaiting_payment'&&/^\d{16}$/.test(order.blupal_card_number||'')&&Number(order.blupal_final_amount_rial)>0)
     obj.payment_instructions={type:'card_transfer',card_number:order.blupal_card_number,amount_rial:order.blupal_final_amount_rial};
