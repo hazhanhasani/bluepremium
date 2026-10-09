@@ -46,3 +46,41 @@ For future UI changes:
 4. Never break the payment contract, price verification, membership gate or order persistence for purely cosmetic changes.
 5. Test six-tab visibility and mobile overflow in a real browser.
 6. Respect `prefers-reduced-motion` and maintain visible focus states.
+
+## Phase one: home, wallet, and unified order history
+
+`src/parts/025.part` is a **presentation-only extension** applied over the existing
+six-tab storefront. It must not create new payments, alter order state or write
+wallet balances. It reads the following authenticated sources:
+
+- `GET /api/me`: verified Telegram user's balance, latest wallet transactions,
+  referral counters, and recent Premium orders.
+- `GET /api/market/my-orders`: up to 40 recently placed market orders for
+  the same authenticated Telegram user.
+- `bp:account-updated`: transient browser event emitted when the existing
+  account widget refreshes. Snapshot remains only in memory.
+
+The Home view shows a wallet balance, recent-order count, and latest purchase
+only when Telegram Mini App authentication and forced-join conditions pass.
+Outside Telegram, it shows a signed-out state; never fake balances or orders.
+
+The Orders view merges recent Premium and digital orders and provides **All**,
+**Delivered**, **In progress**, and **Needs review** filters. It preserves the
+original authenticated checkout and current-order tracking components; filtering
+does not modify server-side status. Status names and dates use Persian locale
+and Jalali calendar where supported.
+
+The Account view presents actual wallet ledger entries and balances, with
+referral controls left connected to the original implementation. Never show
+`initData`, public order tokens, card numbers, or other sensitive payment
+metadata in these dashboard summaries. Private histories are not stored in
+`localStorage`.
+
+### Acceptance checks
+
+- Signed-out browser: no private account data, usable product navigation.
+- Telegram member: real balance, wallet timeline and combined order history.
+- Nonmember: show join-required state in the new dashboard.
+- API error: explicit retry guidance, never an endless loading indicator.
+- Mobile: one active tab, accessible filter controls and no horizontal overflow.
+- Existing wallet purchase and BluePal flows remain unchanged.
