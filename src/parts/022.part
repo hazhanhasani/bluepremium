@@ -12,7 +12,7 @@ function tgStoreClient(){
   css.textContent='.tg-store{margin:22px auto;border:1px solid #24456b;border-radius:24px;background:linear-gradient(140deg,#11243d,#07101c);padding:18px;max-width:1100px;color:#f5f9ff}.tg-store h2{font-size:21px;margin:0 0 12px}.tg-store p{font-size:12px;color:#97acc7;line-height:1.9}.tg-categories{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none}.tg-categories button,.tg-store button{border:1px solid #284665;border-radius:13px;background:#142d4e;color:#eaf5ff;padding:10px 13px;cursor:pointer;font:700 12px Tahoma}.tg-categories button.selected{background:linear-gradient(130deg,#145ffe,#31a8ff);color:#fff}.tg-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}.tg-item{border:1px solid #234366;border-radius:16px;padding:15px;background:#0b1a2e;text-align:right}.tg-item b{font-size:14px;display:block}.tg-item small{display:block;color:#9db5d4;margin:9px 0}.tg-item button{width:100%;background:#206af6}.tg-checkout{max-width:520px;display:none;gap:10px;flex-direction:column;margin-top:14px}.tg-checkout label{font-size:12px}.tg-checkout input{padding:13px;border:1px solid #2b4d76;border-radius:12px;background:#071426;color:white;width:100%;box-sizing:border-box}.tg-order{border:1px solid #2d517d;padding:14px;border-radius:14px;background:#071524;line-height:2;margin-top:14px;font-size:13px}.tg-order button{margin:7px}.tg-paychoices{display:flex;gap:8px;flex-wrap:wrap}.tg-store button:disabled{opacity:.45}@media(max-width:600px){.tg-items{grid-template-columns:repeat(2,minmax(0,1fr))}.tg-store{margin:15px 0;padding:13px}.tg-item{padding:11px}.tg-item b{font-size:12px}}';
   document.head.appendChild(css);
   const section=document.createElement('section');section.id='tg-digital-shop';section.className='tg-store';
-  section.innerHTML='<h2>⭐ فروشگاه خدمات دیجیتال</h2><p>محصولات به‌روز TG Tools با قیمت نهایی تومان؛ کارت مقصد و مبلغ پرداخت داخل بلوپرمیوم نمایش داده می‌شود.</p>'+
+  section.innerHTML='<h2>فروشگاه خدمات دیجیتال</h2><p>محصولات به‌روز TG Tools با قیمت نهایی تومان؛ کارت مقصد و مبلغ پرداخت داخل بلوپرمیوم نمایش داده می‌شود.</p>'+
     '<div class="tg-categories" id="tgCategories"></div>'+
     '<div id="tgCatalogSearchArea" style="display:none;margin:12px 0;gap:8px">'+
     '<input id="tgCatalogSearch" maxlength="55" placeholder="جست‌وجوی برند؛ مانند Steam، Apple، Amazon" style="flex:1;background:#071426;color:white;border:1px solid #2b4d76;border-radius:12px;padding:12px">'+
@@ -22,8 +22,8 @@ function tgStoreClient(){
     '<div id="tgQuoteFields"></div><button type="button" id="tgQuoteButton" style="margin-top:12px">استعلام قیمت لحظه‌ای</button></div>'+
     '<form id="tgCheckout" class="tg-checkout"><b id="tgChosen"></b><label for="tgDestination">مقصد سفارش</label>'+
     '<input id="tgDestination" required placeholder="یوزرنیم تلگرام بدون @" maxlength="320">'+
-    '<div class="tg-paychoices"><button type="submit" value="blupal" id="tgPayCard">🏦 دریافت اطلاعات کارت</button>'+
-    '<button type="button" id="tgPayWallet">💳 خرید با کیف پول</button></div></form>'+
+    '<div class="tg-paychoices"><button type="submit" value="blupal" id="tgPayCard">دریافت اطلاعات کارت</button>'+
+    '<button type="button" id="tgPayWallet">خرید با کیف پول</button></div></form>'+
     '<div class="tg-order" id="tgOrder" style="display:none"></div><p id="tgFeedback" role="status"></p>';
   const checkout=get('checkout');if(checkout)checkout.parentElement.insertBefore(section,checkout);
   const categories=get('tgCategories'),items=get('tgItems'),feedback=get('tgFeedback');
@@ -162,7 +162,7 @@ function tgStoreClient(){
       '<div>مبلغ دقیق: <b>'+format(pay.amount_rial)+' ریال</b> <button data-copy="'+Number(pay.amount_rial)+'">کپی</button></div>':
       '<p>سفارش با کیف پول ثبت شد یا در حال آماده‌سازی است.</p>')+
       (o.delivery_code?'<div>کد تحویل: <code>'+escape(o.delivery_code)+'</code></div>':'')+
-      '<button id="tgCheckOrder">🔄 بررسی وضعیت سفارش</button>';
+      '<button id="tgCheckOrder">بررسی وضعیت سفارش</button>';
     pane.onclick=async e=>{
       const copy=e.target.closest('[data-copy]');
       if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);feedback.textContent='کپی شد ✅'}catch(_){}return}
@@ -221,7 +221,7 @@ function tgAdminClient(){
   for(const selector of ['.side .nav','.mobilebar']){
     const nav=document.querySelector(selector);if(!nav)continue;
     const b=document.createElement('button');b.dataset.tab='tgMarketAdmin';
-    b.textContent='⭐ محصولات TG Tools';
+    b.textContent='محصولات TG Tools';
     b.onclick=()=>open();nav.appendChild(b);
     if(selector==='.mobilebar')nav.style.overflowX='auto';
   }
