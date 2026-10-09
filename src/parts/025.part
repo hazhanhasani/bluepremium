@@ -152,7 +152,7 @@ function bpPhaseOneClient(){
   function renderOrders(){
     filters.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.filter===state.filter)));
     orderItems.replaceChildren();
-    if(state.guest){orderItems.append(placeholder('ورود به حساب لازم است','سفارش‌های شخصی فقط داخل مینی‌اپ تلگرام قابل مشاهده هستند.','account'));return}
+    if(state.guest){orderItems.append(placeholder('تأیید حساب لازم است',state.error==='join_required'?'ابتدا عضویت کانال‌های الزامی را تأیید کن.':'سفارش‌های شخصی فقط داخل مینی‌اپ تلگرام قابل مشاهده هستند.','account'));return}
     if(state.loading&&!state.user){orderItems.append(placeholder('در حال بارگذاری','اطلاعات سفارش‌ها از سرور دریافت می‌شود.'));return}
     const items=allOrders().filter(o=>{
       const stage=(statuses[o.status]||['','waiting'])[1];
@@ -165,7 +165,7 @@ function bpPhaseOneClient(){
   }
   function renderWallet(){
     timeline.replaceChildren();
-    if(state.guest){timeline.append(placeholder('مینی‌اپ تلگرام','برای مشاهده کیف پول وارد ربات شو.','wallet'));return}
+    if(state.guest){timeline.append(placeholder('دسترسی به کیف پول',state.error==='join_required'?'ابتدا عضویت کانال‌های الزامی را تأیید کن.':'برای مشاهده کیف پول وارد ربات شو.','wallet'));return}
     if(!state.user){timeline.append(placeholder('در انتظار اطلاعات','در حال دریافت گردش حساب.','wallet'));return}
     const items=(state.user.transactions||[]).slice(0,12);
     if(!items.length){timeline.append(placeholder('هنوز تراکنشی نداری','پس از اولین خرید یا افزایش موجودی، تاریخچه اینجا دیده می‌شود.','wallet'));return}
@@ -190,7 +190,7 @@ function bpPhaseOneClient(){
       avatar.textContent=(String(state.user.display_name||state.user.username||'B').trim().slice(0,1)||'B').toUpperCase();
     }else if(state.guest){
       walletNumber.textContent='ورود با تلگرام';ordersNumber.textContent='ورود لازم است';
-      hint.textContent='برای نمایش امن موجودی و سفارش‌ها، مینی‌اپ را داخل تلگرام باز کن.';
+      hint.textContent=state.error==='join_required'?'ابتدا عضویت کانال‌های الزامی را داخل ربات تأیید کن.':'برای نمایش امن موجودی و سفارش‌ها، مینی‌اپ را داخل تلگرام باز کن.';
     }else{
       walletNumber.textContent='در حال بررسی';ordersNumber.textContent='در حال بررسی';
       hint.textContent=state.error?'اتصال حساب برقرار نشد؛ صفحه را دوباره بررسی کن.':'اطلاعات حساب در حال دریافت است.';
@@ -212,8 +212,8 @@ function bpPhaseOneClient(){
   let refreshId=0;
   async function refresh(){
     const token=String(window.Telegram?.WebApp?.initData||'');
-    if(!token){state.guest=true;state.loading=false;state.user=null;state.market=[];render();return}
-    const id=++refreshId;state.guest=false;note.textContent='در حال بروزرسانی...';
+    if(!token){state.guest=true;state.loading=false;state.user=null;state.market=[];state.error='';render();return}
+    const id=++refreshId;state.guest=false;state.error='';note.textContent='در حال بروزرسانی...';
     try{
       const [profile,market]=await Promise.allSettled([
         fetchJSON('/api/me',token),fetchJSON('/api/market/my-orders',token)
@@ -228,7 +228,7 @@ function bpPhaseOneClient(){
           hint.textContent='ابتدا عضویت کانال‌های الزامی را از داخل ربات تأیید کن.';
         }
       }else{
-        state.user=null;state.error='profile_unavailable';
+        state.user=null;state.market=[];state.error='profile_unavailable';
       }
       if(market.status==='fulfilled'&&state.user)state.market=Array.isArray(market.value.orders)?market.value.orders:[];
       if(market.status==='rejected')state.error='market_unavailable';
