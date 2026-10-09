@@ -11,7 +11,9 @@ function bpMotionClient(){
   const pulse=(style)=>{
     try{
       const h=window.Telegram?.WebApp?.HapticFeedback;
-      if(h&&typeof h.impactOccurred==='function')h.impactOccurred(style);
+      if(!h)return;
+      if(style==='selection'&&typeof h.selectionChanged==='function')h.selectionChanged();
+      else if(typeof h.impactOccurred==='function')h.impactOccurred(style==='light'?'light':'soft');
     }catch(_){}
   };
   const announce=(text,tone='success')=>{
