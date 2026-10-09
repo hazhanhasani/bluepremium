@@ -37,7 +37,8 @@ test('visual feedback never creates or mutates orders, prices or wallet balances
 test('haptics are only attempted with optional Telegram WebApp API',()=>{
   assert.match(motion,/window\.Telegram\?\.WebApp\?\.HapticFeedback/);
   assert.match(motion,/h\.impactOccurred\('selection'\)|pulse\('selection'\)/);
-  assert.match(motion,/h&&typeof h\.impactOccurred==='function'/);
+  assert.match(motion,/typeof h\.selectionChanged==='function'/);
+  assert.match(motion,/typeof h\.impactOccurred==='function'/);
   assert.match(motion,/nav\.addEventListener\('click'/);
   assert.match(motion,/document\.getElementById\('tgItems'\)/);
 });
