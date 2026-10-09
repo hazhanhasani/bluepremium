@@ -23,7 +23,7 @@ test('Premium pricing remains original and selection is accessible',()=>{
   assert.match(motion,/plan\.setAttribute\('aria-pressed'/);
   assert.match(motion,/event\.key==='Enter'\|\|event\.key===' '/);
   assert.match(motion,/plan\.click\(\)/);
-  assert.match(motion,/requestAnimationFrame\(/);
+  assert.match(motion,/setTimeout\(\(\)=>\{/);
   assert.match(motion,/replacement\.focus\(\{preventScroll:true\}\)/);
   assert.match(visual,/getElementById\('plans'\)/);
 });
