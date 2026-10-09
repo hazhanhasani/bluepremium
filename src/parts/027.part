@@ -45,7 +45,6 @@ function bpMotionClient(){
     plan.click();
     const replacement=[...plans.querySelectorAll('.plan[data-id]')].find(p=>p.dataset.id===id);
     replacement?.focus({preventScroll:true});
-    pulse('selection');
   });
   plans.addEventListener('click',event=>{
     if(event.target.closest('.plan[data-id]'))pulse('selection');
@@ -60,17 +59,6 @@ function bpMotionClient(){
   document.getElementById('tgItems')?.addEventListener('click',event=>{
     if(event.target.closest('[data-index],[data-nft-address]'))pulse('selection');
   });
-  // Only surface an unobtrusive toast for explicit user-initiated copy, not
-  // for ongoing payment polling or automatic state updates.
-  document.addEventListener('click',event=>{
-    const el=event.target.closest('button');
-    if(!el)return;
-    if(el.id==='bpCopyReferral'){
-      // The original handler still performs clipboard operations.
-      // Avoid showing a success toast until it actually reports success.
-      return;
-    }
-  },true);
   // Live orders may refresh often. Animate only actual status changes, not
   // every response, without touching order tokens or payment instructions.
   const statusCache=new WeakMap();
