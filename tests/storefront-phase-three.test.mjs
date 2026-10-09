@@ -39,7 +39,7 @@ test('haptics are only attempted with optional Telegram WebApp API',()=>{
   assert.match(motion,/h\.impactOccurred\('selection'\)|pulse\('selection'\)/);
   assert.match(motion,/h&&typeof h\.impactOccurred==='function'/);
   assert.match(motion,/nav\.addEventListener\('click'/);
-  assert.match(motion,/items/);
+  assert.match(motion,/document\.getElementById\('tgItems'\)/);
 });
 
 test('order state highlights are noninvasive and clipboard acknowledgment uses real feedback',()=>{
