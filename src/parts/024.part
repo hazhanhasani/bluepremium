@@ -1,70 +1,151 @@
-function bpDecorateExperience(html){return html.replace('</head>','<style id="bp-experience-v2">'+bpExperienceCss()+'</style></head>').replace('</body>','<script>('+bpExperienceClient.toString()+')()</script></body>');}
+function bpDecorateExperience(html){return html.replace('</head>','<style id="bp-experience-v3">'+bpExperienceCss()+'</style></head>').replace('</body>','<script>('+bpExperienceClient.toString()+')()</script></body>');}
 
-function bpExperienceCss(){return "\n.bp-experience{--bp-ink:#eef5ff;--bp-soft:#a2bad4}\n.bp-experience .shell{max-width:1100px}\n.bp-experience .product{display:none}\n.bp-experience .topbar{margin-bottom:14px}\n.bp-quick-entry{position:relative;isolation:isolate;margin:16px 0 24px;padding:23px 22px 19px;border-radius:28px;border:1px solid rgba(109,169,245,.22);background:radial-gradient(320px 200px at 20% 0%,rgba(49,124,250,.24),transparent 80%),linear-gradient(145deg,#101c34 0%,#091324 68%,#071120);box-shadow:0 22px 68px rgba(0,7,26,.3);overflow:hidden}\n.bp-quick-entry:after{content:\"\";position:absolute;pointer-events:none;z-index:-1;width:230px;height:230px;left:-100px;top:-100px;border:1px solid rgba(115,189,255,.16);border-radius:50%;box-shadow:0 0 0 36px rgba(55,136,253,.035),0 0 0 72px rgba(55,136,253,.025)}\n.bp-brandline{display:inline-flex;align-items:center;gap:9px;color:#83c4ff;font:800 11px/1.6 Tahoma,sans-serif}\n.bp-brandline:before{content:\"\";width:7px;height:7px;border-radius:50%;background:#4cdea9;box-shadow:0 0 0 5px rgba(76,222,169,.09)}\n.bp-quick-entry h1{margin:11px 0 6px;font-size:clamp(22px,3.4vw,34px);font-weight:900;line-height:1.6;letter-spacing:-.7px;color:#fff}\n.bp-quick-entry h1 span{color:#72beff}\n.bp-intro{max-width:550px;font-size:12px;line-height:2.05;color:#9ab1cf;margin:0 0 20px}\n.bp-quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}\n.bp-action-card{min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:right;gap:8px;border-radius:23px;padding:19px 18px 16px;color:#f1f7ff;cursor:pointer;position:relative;overflow:hidden;border:1px solid rgba(158,187,242,.22);font-family:Tahoma,system-ui,sans-serif;transition:transform .18s ease,box-shadow .2s ease,border-color .2s}\n.bp-action-card:hover,.bp-action-card:focus-visible{transform:translateY(-2px);border-color:#86c8ff;box-shadow:0 14px 34px rgba(12,96,219,.16);outline:none}\n.bp-action-card:active{transform:scale(.98)}\n.bp-action-card.premium{background:radial-gradient(200px 140px at 4% 0%,rgba(116,167,254,.20),transparent),linear-gradient(155deg,#1b3565,#142446 72%,#122038)}\n.bp-action-card.stars{background:radial-gradient(200px 140px at 4% 0%,rgba(92,189,255,.20),transparent),linear-gradient(155deg,#164660,#11334d 72%,#13283a)}\n.bp-card-icon{display:grid;place-items:center;min-width:51px;height:51px;padding:0 8px;border-radius:16px;background:rgba(255,255,255,.095);border:1px solid rgba(255,255,255,.12);font-size:29px;line-height:1;box-shadow:inset 0 1px rgba(255,255,255,.10)}\n.bp-action-card strong{font-size:17px;line-height:1.5;font-weight:900}\n.bp-action-card small{min-height:35px;color:#a8bddc;font-size:11px;line-height:1.75}\n.bp-card-cta{font-size:12px;font-weight:800;margin-top:auto;color:#b7e2ff}\n.bp-card-cta:before{content:\"←\";margin-left:7px;font-size:15px}\n.bp-trust-strip{display:flex;gap:8px;justify-content:space-between;margin-top:17px;flex-wrap:wrap}\n.bp-trust-strip span{display:inline-flex;align-items:center;gap:7px;font:700 11px/1.9 Tahoma,sans-serif;color:#a8bfd9}\n.bp-trust-strip i{font-size:14px;font-style:normal;color:#5be2b5}\n.bp-discover{margin:2px 0 18px}\n.bp-discover-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:0 0 11px}\n.bp-discover-head h2{font-size:17px;line-height:1.6;margin:0;color:#f3f8ff}\n.bp-discover-head p{font-size:11px;color:#91acc9;margin:2px 0 0}\n.bp-discover-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}\n.bp-category{display:flex;flex-direction:column;gap:7px;align-items:center;justify-content:center;text-align:center;background:linear-gradient(150deg,#132640,#091725);border:1px solid rgba(133,176,236,.17);border-radius:17px;color:#e3efff;min-height:110px;padding:12px 7px;font:800 11px/1.55 Tahoma,sans-serif;cursor:pointer}\n.bp-category:hover,.bp-category:focus-visible{border-color:rgba(104,189,255,.7);background:#183456;outline:none}\n.bp-category span{width:46px;height:46px;border:1px solid rgba(141,196,245,.16);background:rgba(80,147,244,.12);border-radius:15px;display:grid;place-items:center;font-size:25px}\n.bp-experience .section-title{margin-top:24px}\n.bp-experience .section-title h2{font-size:18px}\n.bp-experience .section-title p,.bp-experience .section-title span{font-size:11px}\n.bp-experience .plans{scroll-margin-top:100px}\n.bp-experience .plans .plan{border-radius:20px}\n.bp-experience .checkout{scroll-margin-top:90px}\n.bp-experience .tg-store{border-radius:24px;scroll-margin-top:95px;box-shadow:0 14px 44px rgba(0,0,0,.15)}\n.bp-experience .tg-categories{scroll-snap-type:x proximity}\n.bp-experience .tg-categories button{scroll-snap-align:start;min-height:42px;flex-shrink:0}\n.bp-experience .tg-item{min-height:154px;display:flex;flex-direction:column;justify-content:space-between}\n.bp-experience .tg-item button{min-height:40px}\n.bp-experience .tg-store button:focus-visible{outline:2px solid #8bd0ff;outline-offset:2px}\n.bp-experience .bp-account-widget{scroll-margin-top:95px}\n@media(max-width:700px){\n .bp-experience .shell{padding-bottom:calc(112px + env(safe-area-inset-bottom))}\n .bp-experience .topbar{margin-bottom:8px}\n .bp-quick-entry{padding:19px 15px 16px;margin:8px 0 24px;border-radius:24px}\n .bp-quick-entry h1{font-size:24px;letter-spacing:-.4px}\n .bp-intro{font-size:11px;line-height:1.9;margin-bottom:16px}\n .bp-quick-grid{gap:9px}\n .bp-action-card{border-radius:18px;padding:13px 12px;gap:7px;min-height:205px}\n .bp-card-icon{min-width:43px;height:43px;border-radius:13px;font-size:24px}\n .bp-action-card strong{font-size:14px}\n .bp-action-card small{font-size:10px;line-height:1.8}\n .bp-card-cta{font-size:11px}\n .bp-trust-strip{justify-content:flex-start;column-gap:14px;row-gap:4px}\n .bp-trust-strip span{font-size:10px}\n .bp-discover-grid{gap:7px;grid-template-columns:repeat(4,minmax(0,1fr))}\n .bp-category{font-size:10px;border-radius:15px;min-height:93px;padding:9px 3px}\n .bp-category span{width:39px;height:39px;font-size:21px;border-radius:12px}\n .bp-experience .mobile-cta{display:none!important}\n .bp-experience .app-nav{grid-template-columns:repeat(5,minmax(0,1fr));height:70px;z-index:48;background:rgba(8,18,34,.97);border-color:rgba(125,176,244,.22)}\n .bp-experience .app-nav button{font-size:10px;gap:4px}\n .bp-experience .app-nav .ico{width:21px;height:21px}\n .bp-experience .app-nav .bp-stars-nav{font-size:10px}\n .bp-experience .app-nav .bp-stars-nav b{font-size:20px;line-height:1}\n .bp-experience .tg-store{margin:18px 0}\n}\n@media(max-width:360px){.bp-action-card strong{font-size:12px}.bp-action-card small{font-size:9px}.bp-category{font-size:9px}}\n@media(prefers-reduced-motion:reduce){.bp-experience .bp-action-card{transition:none}.bp-experience .bp-action-card:hover{transform:none}}\n/* Checkout polish: readable labels, compact plans and no overlapping mobile CTA. */\n.bp-experience .checkout .box h3{font-size:17px}\n.bp-experience .checkout .hint{font-size:11px;line-height:1.9}\n.bp-experience .checkout .field label{font-size:12px}\n.bp-experience .checkout .btn{font-size:12px}\n.bp-experience .checkout .step{font-size:11px}\n.bp-experience .checkout .summary-row{font-size:11px}\n.bp-experience .checkout .summary-row b{font-size:12px}\n.bp-experience .checkout .secure{font-size:11px;line-height:2}\n.bp-experience .tg-checkout label{font-size:12px}\n.bp-experience .tg-checkout input{min-height:46px;font-size:14px}\n.bp-experience .tg-store p{font-size:12px}\n@media(max-width:700px){\n .bp-experience .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;overflow:visible;scroll-snap-type:none;margin:0;padding:0}\n .bp-experience .plans .plan{min-width:0;max-width:none;min-height:157px;padding:12px 9px;border-radius:18px}\n .bp-experience .plans .months{font-size:23px;margin-top:13px}\n .bp-experience .plans .months small{font-size:10px}\n .bp-experience .plans .type{font-size:9px;line-height:1.5}\n .bp-experience .plans .price{font-size:13px;line-height:1.8;margin-top:10px;overflow-wrap:anywhere}\n .bp-experience .plans .plan-label{font-size:8px}\n .bp-experience .plans .plan-note{display:none}\n .bp-experience .checkout .box{padding:16px}\n .bp-experience .checkout .step{font-size:10px}\n .bp-experience .checkout .step span{display:inline}\n .bp-experience .checkout .actions{grid-template-columns:1fr}\n .bp-experience .checkout .btn{min-height:48px}\n .bp-experience .checkout .summary{order:1}\n .bp-experience .tg-items{grid-template-columns:repeat(2,minmax(0,1fr))}\n}\n@media(max-width:370px){\n .bp-experience .plans .plan{padding:10px 7px}\n .bp-experience .plans .months{font-size:20px}\n .bp-experience .plans .price{font-size:11px}\n .bp-experience .plans .type{font-size:8px}\n}";}
+function bpExperienceCss(){return "\n/* BluePremium app shell v3: genuine views instead of scrolling to stacked sections */\nhtml:has(.bp-shell-v3){scroll-padding-top:94px}\nbody.bp-shell-v3{min-height:100dvh;overflow-x:hidden;background:radial-gradient(480px 360px at 80% 0%,#102c4e70,transparent 80%),#060e1b}\n.bp-shell-v3 .shell{max-width:1050px;padding:9px 16px calc(105px + env(safe-area-inset-bottom,0px))}\n.bp-shell-v3 .topbar{position:sticky;top:0;z-index:35;margin:0 -16px;padding:12px 18px 11px;background:rgba(6,14,27,.91);backdrop-filter:blur(20px);border-bottom:1px solid rgba(146,187,245,.09)}\n.bp-shell-v3 .product{display:none!important}\n.bp-shell-v3 .mobile-cta{display:none!important}\n.bp-shell-v3 .bp-tab-view[hidden]{display:none!important}\n.bp-shell-v3 .bp-tab-view{animation:bpTabIn .19s ease-out both;min-height:calc(100dvh - 210px);outline:none}\n@keyframes bpTabIn{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}\n.bp-shell-v3 .bp-tab-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 17px}\n.bp-shell-v3 .bp-tab-heading h1{font-size:21px;color:#f5faff;margin:0;font-weight:900;line-height:1.6}\n.bp-shell-v3 .bp-tab-heading p{font-size:12px;color:#9cafd0;margin:4px 0 0;line-height:1.85}\n.bp-shell-v3 .bp-tab-symbol{flex:0 0 auto;width:46px;height:46px;border-radius:15px;background:linear-gradient(145deg,#1e4d8c,#132947);display:grid;place-items:center;font-size:22px;border:1px solid rgba(162,201,255,.17)}\n.bp-shell-v3 .bp-hero{position:relative;overflow:hidden;border:1px solid #2b51819e;border-radius:24px;padding:24px 19px 19px;background:radial-gradient(320px 210px at 5% 0%,#3179dc55,transparent),linear-gradient(140deg,#132d51,#0b1c33 76%);box-shadow:0 22px 55px #00000032}\n.bp-shell-v3 .bp-hero:before{content:\"\";position:absolute;left:-72px;top:-89px;width:220px;height:220px;border:1px solid #8dbfff38;border-radius:50%;box-shadow:0 0 0 37px #6cadff0b,0 0 0 72px #6cadff09;pointer-events:none}\n.bp-shell-v3 .bp-eyebrow{display:inline-flex;align-items:center;gap:7px;color:#96d0ff;font-size:11px;font-weight:800}\n.bp-shell-v3 .bp-eyebrow:before{content:\"\";width:6px;height:6px;border-radius:50%;background:#49e2af}\n.bp-shell-v3 .bp-hero h1{font-size:clamp(25px,5vw,39px);line-height:1.43;letter-spacing:-.6px;margin:13px 0 9px}\n.bp-shell-v3 .bp-hero h1 em{color:#72c7ff;font-style:normal}\n.bp-shell-v3 .bp-hero p{font-size:12px;line-height:2;color:#aac1dd;max-width:440px;margin:0 0 19px}\n.bp-shell-v3 .bp-quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}\n.bp-shell-v3 .bp-quick-card{display:flex;position:relative;align-items:flex-start;text-align:right;flex-direction:column;gap:8px;min-height:175px;padding:16px;cursor:pointer;border-radius:20px;border:1px solid #8dbbfb3d;color:#eff7ff;font-family:Tahoma,\"Segoe UI\",sans-serif;transition:transform .2s ease,border-color .2s ease}\n.bp-shell-v3 .bp-quick-card:active{transform:scale(.985)}\n.bp-shell-v3 .bp-quick-card:focus-visible,.bp-shell-v3 .bp-category:focus-visible{outline:2px solid #73caff;outline-offset:3px}\n.bp-shell-v3 .bp-quick-card.premium{background:linear-gradient(145deg,#214778,#142746)}\n.bp-shell-v3 .bp-quick-card.stars{background:linear-gradient(145deg,#205f78,#123445)}\n.bp-shell-v3 .bp-quick-icon{width:49px;height:49px;border:1px solid #ffffff20;border-radius:15px;display:grid;place-items:center;background:#ffffff14;font-size:26px}\n.bp-shell-v3 .bp-quick-card strong{font-size:17px;line-height:1.5}\n.bp-shell-v3 .bp-quick-card small{font-size:11px;color:#a9c7e2;line-height:1.8}\n.bp-shell-v3 .bp-quick-card .bp-inline-arrow{color:#a4dcff;font-size:11px;margin-top:auto;font-weight:800}\n.bp-shell-v3 .bp-discover{margin:23px 0}\n.bp-shell-v3 .bp-discover h2{font-size:17px;margin:0 0 4px}\n.bp-shell-v3 .bp-discover p{font-size:11px;margin:0 0 13px;color:#96b0ce}\n.bp-shell-v3 .bp-discover-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}\n.bp-shell-v3 .bp-category{min-height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid #96bdf52a;border-radius:17px;background:#10213a;color:#e8f5ff;font:800 11px/1.45 Tahoma;cursor:pointer}\n.bp-shell-v3 .bp-category span{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:#2677bf22;font-size:22px}\n.bp-shell-v3 .bp-app-nav{position:fixed;z-index:50;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;bottom:calc(8px + env(safe-area-inset-bottom,0px));right:10px;left:10px;max-width:770px;margin:auto;padding:7px 5px;border:1px solid #82b8fb35;border-radius:24px;background:rgba(10,23,42,.97);backdrop-filter:blur(21px);box-shadow:0 16px 40px #0008}\n.bp-shell-v3 .bp-app-nav button{border:none;border-radius:15px;display:flex;flex-direction:column;gap:4px;justify-content:center;align-items:center;min-width:0;height:58px;cursor:pointer;background:transparent;color:#94aecb;font:700 10px Tahoma,\"Segoe UI\",sans-serif}\n.bp-shell-v3 .bp-app-nav button .bp-nav-icon{font-size:20px;height:25px;line-height:25px}\n.bp-shell-v3[data-bp-active=\"home\"] .bp-app-nav [data-bp-tab=\"home\"],\n.bp-shell-v3[data-bp-active=\"premium\"] .bp-app-nav [data-bp-tab=\"premium\"],\n.bp-shell-v3[data-bp-active=\"stars\"] .bp-app-nav [data-bp-tab=\"stars\"],\n.bp-shell-v3[data-bp-active=\"catalog\"] .bp-app-nav [data-bp-tab=\"catalog\"],\n.bp-shell-v3[data-bp-active=\"orders\"] .bp-app-nav [data-bp-tab=\"orders\"],\n.bp-shell-v3[data-bp-active=\"account\"] .bp-app-nav [data-bp-tab=\"account\"]{background:#173a66;color:#f7fbff}\n.bp-shell-v3 .bp-app-nav button:focus-visible{outline:2px solid #78cbff;outline-offset:-2px}\n.bp-shell-v3 .bp-premium-view .section-title{margin:15px 0 12px}\n.bp-shell-v3 .bp-premium-view .section-title h2{font-size:16px}\n.bp-shell-v3 .bp-premium-view .section-title p,.bp-shell-v3 .bp-premium-view .section-title span{font-size:11px}\n.bp-shell-v3 .bp-premium-view .plans{scroll-margin-top:90px}\n.bp-shell-v3 .bp-premium-view .checkout{display:flex;flex-direction:column;gap:13px;margin:12px 0}\n.bp-shell-v3 .bp-premium-view .checkout .box{border-radius:22px}\n.bp-shell-v3 .bp-premium-view .checkout .summary{order:2}\n.bp-shell-v3 .bp-premium-view .checkout .hint{font-size:11px}\n.bp-shell-v3 .bp-premium-view .checkout .field label{font-size:12px}\n.bp-shell-v3 .bp-premium-view .checkout .btn{font-size:12px}\n.bp-shell-v3 .bp-premium-view .checkout .summary-row{font-size:11px}\n.bp-shell-v3 .bp-premium-view .checkout .summary-row b{font-size:12px}\n.bp-shell-v3 .bp-market-view .tg-store{margin:0 0 17px;max-width:none;border-radius:22px;padding:16px}\n.bp-shell-v3 .bp-market-view .tg-store h2{display:none}\n.bp-shell-v3 .bp-market-view .tg-store>p:first-of-type{font-size:11px;line-height:1.8;margin:3px 0 14px}\n.bp-shell-v3 .bp-market-view .tg-items{grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:11px}\n.bp-shell-v3 .bp-market-view .tg-item{min-height:145px;display:flex;flex-direction:column;justify-content:space-between}\n.bp-shell-v3 .bp-market-view .tg-item b{font-size:13px}\n.bp-shell-v3 .bp-market-view .tg-item button{min-height:43px}\n.bp-shell-v3 .bp-market-view .tg-categories{scrollbar-width:none}\n.bp-shell-v3 .bp-market-view .tg-categories button{flex:0 0 auto;min-height:42px;scroll-snap-align:center}\n.bp-shell-v3 .bp-account-view .bp-account-widget{margin:0;max-width:none}\n.bp-shell-v3 .bp-orders-card{padding:16px;border:1px solid #8dadf638;border-radius:21px;background:linear-gradient(155deg,#112642,#0a1829);margin-bottom:13px}\n.bp-shell-v3 .bp-orders-card h2{font-size:14px;margin:0 0 9px;line-height:1.8}\n.bp-shell-v3 .bp-orders-card p{font-size:11px;color:#9db6d1;line-height:1.9;margin:0 0 8px}\n.bp-shell-v3 .bp-orders-card .order{margin-top:13px}\n.bp-shell-v3 .bp-orders-card .tg-order{margin:13px 0 0}\n.bp-shell-v3 .bp-orders-card .bp-empty{padding:14px;border:1px dashed #7997bd50;border-radius:14px;text-align:center;color:#8ca7c3;font-size:12px;line-height:1.9}\n.bp-shell-v3 .bp-orders-card .bp-link-button{border:1px solid #508bc950;border-radius:12px;background:#122b4b;color:#cbe9ff;font:800 11px Tahoma;padding:10px 13px;cursor:pointer}\n@media(max-width:700px){\n .bp-shell-v3 .shell{padding:9px 12px calc(105px + env(safe-area-inset-bottom,0px))}\n .bp-shell-v3 .topbar{margin:0 -12px;padding:9px 14px 12px}\n .bp-shell-v3 .bp-tab-view{min-height:calc(100dvh - 200px)}\n .bp-shell-v3 .bp-hero{padding:20px 15px 17px;border-radius:23px}\n .bp-shell-v3 .bp-hero h1{font-size:26px}\n .bp-shell-v3 .bp-hero p{font-size:11px}\n .bp-shell-v3 .bp-quick-grid{gap:9px}\n .bp-shell-v3 .bp-quick-card{min-height:160px;padding:13px 11px;border-radius:17px;gap:6px}\n .bp-shell-v3 .bp-quick-icon{width:43px;height:43px;font-size:23px;border-radius:13px}\n .bp-shell-v3 .bp-quick-card strong{font-size:14px}\n .bp-shell-v3 .bp-quick-card small{font-size:10px}\n .bp-shell-v3 .bp-quick-card .bp-inline-arrow{font-size:10px}\n .bp-shell-v3 .bp-discover-grid{gap:7px}\n .bp-shell-v3 .bp-category{border-radius:15px;font-size:10px;min-height:86px}\n .bp-shell-v3 .bp-category span{width:36px;height:36px;font-size:21px}\n .bp-shell-v3 .bp-premium-view .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;scroll-snap-type:none;gap:8px;margin:0;padding:0}\n .bp-shell-v3 .bp-premium-view .plans .plan{min-width:0;max-width:none;min-height:155px;padding:11px 9px}\n .bp-shell-v3 .bp-premium-view .plans .months{font-size:23px}\n .bp-shell-v3 .bp-premium-view .plans .price{font-size:13px;line-height:1.75;overflow-wrap:anywhere}\n .bp-shell-v3 .bp-premium-view .plans .plan-note{display:none}\n .bp-shell-v3 .bp-premium-view .checkout .actions{grid-template-columns:1fr}\n .bp-shell-v3 .bp-market-view .tg-items{grid-template-columns:repeat(2,minmax(0,1fr))}\n .bp-shell-v3 .bp-app-nav{bottom:calc(7px + env(safe-area-inset-bottom,0px));right:7px;left:7px;padding:6px 3px}\n .bp-shell-v3 .bp-app-nav button{font-size:9px;height:56px}\n .bp-shell-v3 .bp-app-nav button .bp-nav-icon{font-size:19px}\n}\n@media(max-width:360px){.bp-shell-v3 .bp-app-nav button{font-size:8px}.bp-shell-v3 .bp-quick-card strong{font-size:12px}.bp-shell-v3 .bp-category{font-size:9px}}\n@media(prefers-reduced-motion:reduce){.bp-shell-v3 .bp-tab-view{animation:none}.bp-shell-v3 .bp-quick-card{transition:none}}\n";}
 
 function bpExperienceClient(){
-  if(document.body.classList.contains('bp-experience'))return;
-  document.body.classList.add('bp-experience');
-  const main=document.querySelector('main.shell');
-  const header=main?.querySelector('.topbar');
-  if(!main||!header)return;
-  const hero=document.createElement('section');
-  hero.className='bp-quick-entry';hero.setAttribute('aria-label','خرید سریع بلوپرمیوم');
-  hero.innerHTML=[
-    '<div class="bp-brandline">فروشگاه رسمی بلوپرمیوم</div>',
-    '<h1>پرمیوم و استارز، <span>سریع و ساده.</span></h1>',
-    '<p class="bp-intro">خرید خدمات تلگرام با قیمت شفاف، پیگیری سفارش و تجربه‌ای یکپارچه در بلوپرمیوم.</p>',
+  const root=document.querySelector('main.shell');
+  const header=root?.querySelector('.topbar');
+  if(!root||!header||document.body.classList.contains('bp-shell-v3'))return;
+  document.body.classList.add('bp-shell-v3');
+  document.body.dataset.bpActive='home';
+  const mk=(tag,cls,html)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(html!==undefined)el.innerHTML=html;return el};
+  const headings={
+    premium:['خرید تلگرام پرمیوم','انتخاب پلن، حساب مقصد و پرداخت امن','👑'],
+    stars:['خرید استارز تلگرام','بسته دلخواه رو انتخاب کن و مقصد رو وارد کن','⭐'],
+    catalog:['محصولات دیجیتال','گیفت، گیفت‌کارت، NFT و شارژ بازی','🛍'],
+    orders:['سفارش‌های من','پرداخت، وضعیت تحویل و کدهای سفارش','📦'],
+    account:['حساب کاربری','کیف پول، تراکنش‌ها و معرفی دوستان','👤']
+  };
+  const panel={};
+  for(const name of ['home','premium','market','orders','account']){
+    const el=mk('section','bp-tab-view'+(name==='premium'?' bp-premium-view':name==='market'?' bp-market-view':name==='orders'?' bp-orders-view':name==='account'?' bp-account-view':''));
+    el.dataset.bpView=name;el.hidden=name!=='home';el.setAttribute('aria-label',name);
+    el.setAttribute('tabindex','-1');panel[name]=el;root.appendChild(el);
+  }
+  function heading(name){const [title,description,icon]=headings[name];return mk('div','bp-tab-heading','<div><h1>'+title+'</h1><p>'+description+'</p></div><span class="bp-tab-symbol" aria-hidden="true">'+icon+'</span>')}
+  const home=panel.home;
+  home.appendChild(mk('div','bp-hero',[
+    '<span class="bp-eyebrow">بلوپرمیوم | BLUE PREMIUM</span>',
+    '<h1>پرمیوم و استارز،<br><em>ساده‌تر از همیشه</em></h1>',
+    '<p>محصولت رو انتخاب کن، قیمت نهایی رو ببین و با خیال راحت سفارش بده.</p>',
     '<div class="bp-quick-grid">',
-    '<button class="bp-action-card premium" type="button" data-bp-target="premium">',
-    '<span class="bp-card-icon" aria-hidden="true">👑</span>',
-    '<strong>تلگرام پرمیوم</strong><small>پلن دلخواهت رو انتخاب کن و مستقیم خرید کن.</small>',
-    '<span class="bp-card-cta">انتخاب پلن</span></button>',
-    '<button class="bp-action-card stars" type="button" data-bp-target="stars">',
-    '<span class="bp-card-icon" aria-hidden="true">⭐</span>',
-    '<strong>استارز تلگرام</strong><small>برای خودت یا دوستات، بسته استارز بخر.</small>',
-    '<span class="bp-card-cta">خرید استارز</span></button>',
-    '</div>',
-    '<div class="bp-trust-strip"><span><i>✓</i>قیمت‌های به‌روز</span><span><i>✓</i>پرداخت امن</span><span><i>✓</i>پیگیری سفارش</span></div>'
-  ].join('');
-  header.insertAdjacentElement('afterend',hero);
-  const discover=document.createElement('section');discover.className='bp-discover';
-  discover.setAttribute('aria-label','سایر محصولات دیجیتال');
-  discover.innerHTML=[
-    '<div class="bp-discover-head"><div><h2>دنیای محصولات دیجیتال</h2><p>خدمات بیشتر، در یک فروشگاه</p></div></div>',
+    '<button type="button" class="bp-quick-card premium" data-bp-go="premium"><span class="bp-quick-icon" aria-hidden="true">👑</span>',
+    '<strong>تلگرام پرمیوم</strong><small>انتخاب پلن و فعال‌سازی</small><span class="bp-inline-arrow">مشاهده پلن‌ها ←</span></button>',
+    '<button type="button" class="bp-quick-card stars" data-bp-go="stars"><span class="bp-quick-icon" aria-hidden="true">⭐</span>',
+    '<strong>استارز تلگرام</strong><small>بسته‌های استارز به‌روز</small><span class="bp-inline-arrow">خرید استارز ←</span></button>',
+    '</div>'
+  ].join('')));
+  home.appendChild(mk('section','bp-discover',[
+    '<h2>سایر محصولات</h2><p>انتخاب کن تا وارد بخش مخصوص همون محصول بشی</p>',
     '<div class="bp-discover-grid">',
     '<button type="button" class="bp-category" data-bp-kind="gift"><span aria-hidden="true">🎁</span>گیفت تلگرام</button>',
     '<button type="button" class="bp-category" data-bp-kind="catalog"><span aria-hidden="true">🎮</span>گیفت‌کارت</button>',
     '<button type="button" class="bp-category" data-bp-kind="nft"><span aria-hidden="true">💎</span>گیفت NFT</button>',
-    '<button type="button" class="bp-category" data-bp-kind="steam"><span aria-hidden="true">🎯</span>شارژ Steam</button>',
+    '<button type="button" class="bp-category" data-bp-kind="steam"><span aria-hidden="true">💻</span>شارژ Steam</button>',
     '</div>'
-  ].join('');
-  hero.insertAdjacentElement('afterend',discover);
-  const nav=document.querySelector('.app-nav');
-  if(nav&&!nav.querySelector('.bp-stars-nav')){
-    const btn=document.createElement('button');btn.type='button';btn.className='bp-stars-nav';btn.dataset.nav='stars';
-    btn.innerHTML='<b aria-hidden="true">★</b><span>استارز</span>';
-    const buy=nav.querySelector('[data-nav="buy"]');
-    if(buy)buy.insertAdjacentElement('beforebegin',btn);else nav.appendChild(btn);
-    btn.addEventListener('click',()=>openMarket('stars'));
+  ].join('')));
+  const pTitle=root.querySelector('.section-title');
+  if(pTitle)panel.premium.appendChild(pTitle);
+  const plans=document.getElementById('plans');if(plans)panel.premium.appendChild(plans);
+  const checkout=document.getElementById('checkout');if(checkout)panel.premium.appendChild(checkout);
+  const market=document.getElementById('tg-digital-shop');
+  if(market)panel.market.appendChild(market);
+  const account=document.getElementById('bp_account');
+  if(account)panel.account.appendChild(account);
+  panel.account.prepend(heading('account'));
+  panel.market.prepend(heading('stars'));
+  panel.premium.prepend(heading('premium'));
+  panel.orders.prepend(heading('orders'));
+  const premiumOrder=mk('article','bp-orders-card','<h2>👑 سفارش پرمیوم</h2><p>جزئیات سفارش پرمیوم و وضعیت پرداخت اینجا نمایش داده می‌شه.</p>');
+  const legacy=document.getElementById('order');
+  if(legacy)premiumOrder.appendChild(legacy);
+  const premiumEmpty=mk('div','bp-empty','هنوز سفارش پرمیوم فعالی روی این دستگاه ثبت نشده.');
+  premiumOrder.appendChild(premiumEmpty);
+  panel.orders.appendChild(premiumOrder);
+  const marketOrder=mk('article','bp-orders-card','<h2>⭐ سفارش محصولات دیجیتال</h2><p>سفارش استارز، گیفت و محصولات دیگه رو اینجا پیگیری کن.</p>');
+  const marketDetails=document.getElementById('tgOrder');
+  if(marketDetails)marketOrder.appendChild(marketDetails);
+  const marketEmpty=mk('div','bp-empty','هنوز سفارش دیجیتالی روی این دستگاه ثبت نشده.');
+  marketOrder.appendChild(marketEmpty);
+  panel.orders.appendChild(marketOrder);
+  const currentPremium=()=>{try{return !!localStorage.getItem('bp_order')}catch(_){return false}};
+  const currentMarket=()=>{try{return !!localStorage.getItem('tg_market_order')}catch(_){return false}};
+  function syncOrders(){
+    premiumEmpty.hidden=currentPremium()||Boolean(document.getElementById('order')?.classList.contains('show'));
+    marketEmpty.hidden=currentMarket()||Boolean(marketDetails&&marketDetails.style.display!=='none');
   }
-  function jumpTo(id){
-    const target=document.getElementById(id);
-    if(target)target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+  const oldNav=document.querySelector('.app-nav');
+  const nav=mk('nav','bp-app-nav');
+  nav.setAttribute('aria-label','منوی اصلی بلوپرمیوم');
+  const tabs=[['home','⌂','خانه'],['premium','♛','پرمیوم'],['stars','★','استارز'],['catalog','◈','فروشگاه'],['orders','▤','سفارش‌ها'],['account','◉','حساب']];
+  nav.innerHTML=tabs.map(([id,ico,label])=>'<button type="button" data-bp-tab="'+id+'" aria-label="'+label+'" aria-current="'+(id==='home'?'page':'false')+'"><span class="bp-nav-icon" aria-hidden="true">'+ico+'</span><span>'+label+'</span></button>').join('');
+  if(oldNav)oldNav.replaceWith(nav);else document.body.appendChild(nav);
+  const switchHeading=(kind)=>{
+    const v=kind==='stars'?'stars':'catalog',el=panel.market.querySelector('.bp-tab-heading');
+    if(el)el.replaceWith(heading(v));
+  };
+  function activate(tab,{kind,keepPosition=false}={}){
+    const name=['home','premium','stars','catalog','orders','account'].includes(tab)?tab:'home';
+    if(name==='stars'||name==='catalog'){
+      switchHeading(name==='stars'?'stars':kind||'gift');
+      if(!keepPosition){
+        const selectedKind=name==='stars'?'stars':kind||'gift';
+        if(typeof window.bpSelectMarketKind==='function')window.bpSelectMarketKind(selectedKind);
+      }
+    }
+    const target=name==='stars'||name==='catalog'?'market':name;
+    for(const [key,view] of Object.entries(panel)){view.hidden=key!==target;view.setAttribute('aria-hidden',key===target?'false':'true')}
+    document.body.dataset.bpActive=name;
+    nav.querySelectorAll('button').forEach(x=>x.setAttribute('aria-current',x.dataset.bpTab===name?'page':'false'));
+    if(name==='orders')syncOrders();
+    if(!keepPosition)window.scrollTo({top:0,behavior:'instant'});
   }
-  function openMarket(kind){
-    if(typeof window.bpSelectMarketKind==='function')window.bpSelectMarketKind(kind);
-    else document.querySelector('#tgCategories button[data-kind="'+kind+'"]')?.click();
-    jumpTo('tg-digital-shop');
-    document.querySelectorAll('.app-nav button').forEach(x=>x.classList.toggle('active',x.dataset.nav==='stars'));
-  }
-  hero.addEventListener('click',event=>{
-    const btn=event.target.closest('[data-bp-target]');if(!btn)return;
-    if(btn.dataset.bpTarget==='premium')jumpTo('plans');
-    if(btn.dataset.bpTarget==='stars')openMarket('stars');
+  window.bpOpenTab=(tab,kind)=>activate(tab,{kind});
+  nav.addEventListener('click',e=>{const btn=e.target.closest('button[data-bp-tab]');if(btn)activate(btn.dataset.bpTab)});
+  home.addEventListener('click',e=>{
+    const target=e.target.closest('[data-bp-go],[data-bp-kind]');
+    if(!target)return;
+    if(target.dataset.bpGo)activate(target.dataset.bpGo);
+    else if(target.dataset.bpKind)activate('catalog',{kind:target.dataset.bpKind});
   });
-  discover.addEventListener('click',event=>{
-    const btn=event.target.closest('[data-bp-kind]');
-    if(btn)openMarket(btn.dataset.bpKind);
-  });
-  document.getElementById('tg-digital-shop')?.setAttribute('aria-label','فروشگاه استارز و محصولات دیجیتال');
+  market?.addEventListener('click',e=>{
+    const category=e.target.closest('#tgCategories [data-kind]');
+    if(!category)return;
+    const kind=category.dataset.kind;
+    activate(kind==='stars'?'stars':'catalog',{kind,keepPosition:true});
+  },true);
+  const topOrder=header.querySelector('button[onclick*="goOrder"]');
+  if(topOrder){topOrder.removeAttribute('onclick');topOrder.addEventListener('click',()=>activate('orders'))}
+  // Existing order code still updates original DOM IDs. This only selects a tab
+  // when a new purchase is placed, never on recurring order polling.
+  if(typeof window.showOrder==='function'){
+    const originalShow=window.showOrder;
+    let lastCode='';
+    window.showOrder=function(order){
+      const fresh=String(order?.code||'');
+      const firstNew=fresh&&fresh!==lastCode;
+      lastCode=fresh;
+      const result=originalShow.apply(this,arguments);
+      if(firstNew&&document.body.dataset.bpActive==='premium')activate('orders');
+      syncOrders();
+      return result;
+    };
+  }
+  if(typeof window.goOrder==='function')window.goOrder=function(){activate('orders')};
+  if(typeof window.navTo==='function')window.navTo=function(id){
+    if(id==='plans'||id==='checkout'||id==='buy')activate('premium');
+    else if(id==='order')activate('orders');else activate('home');
+  };
+  if(typeof window.resetOrder==='function'){
+    const oldReset=window.resetOrder;
+    window.resetOrder=function(){const result=oldReset.apply(this,arguments);activate('premium');syncOrders();return result};
+  }
+  window.addEventListener('bp:market-order-created',()=>{activate('orders');syncOrders()});
+  syncOrders();
+  // Preserve an intentionally selected screen when navigating Back in Telegram.
+  if(window.Telegram?.WebApp?.BackButton){
+    try{
+      window.Telegram.WebApp.BackButton.onClick(()=>activate('home'));
+    }catch(_){}
+  }
 }
