@@ -106,6 +106,8 @@ function tgStoreClient(){
       const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'payment_unavailable');
       const order=d.order;
       localStorage.setItem('tg_market_order',JSON.stringify({code:order.code,token:order.token}));
+      // The tabbed storefront renders the order in the dedicated Orders view.
+      window.dispatchEvent(new CustomEvent('bp:market-order-created',{detail:{code:order.code}}));
       render(order);
       feedback.textContent='سفارش ثبت شد.';
     }catch(e){
@@ -166,7 +168,7 @@ function tgStoreClient(){
       if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);feedback.textContent='کپی شد ✅'}catch(_){}return}
       if(e.target.id==='tgCheckOrder')await check();
     };
-    pane.scrollIntoView({behavior:'smooth',block:'nearest'});
+    if(pane.getClientRects().length) pane.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
   async function check(){
     try{
