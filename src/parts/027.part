@@ -47,10 +47,10 @@ function bpMotionClient(){
     plan.click();
     // Selection re-creates all plan cards. Restore keyboard focus after
     // the DOM mutation and selection observer have finished.
-    requestAnimationFrame(()=>{
+    setTimeout(()=>{
       const replacement=[...plans.querySelectorAll('.plan[data-id]')].find(p=>p.dataset.id===id);
       if(replacement&&document.body.dataset.bpActive==='premium')replacement.focus({preventScroll:true});
-    });
+    },0);
   });
   plans.addEventListener('click',event=>{
     if(event.target.closest('.plan[data-id]'))pulse('selection');
