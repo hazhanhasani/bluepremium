@@ -28,6 +28,9 @@ test('catalog loading shows skeletons and is resilient to out-of-order responses
 test('product cards keep exact API price, selected SKU and original checkout',()=>{
   assert.match(market,/all=Array\.isArray\(d\.products\)\?d\.products:\[\]/);
   assert.match(market,/format\(x\.price_toman\)/);
+  assert.match(market,/bp-product-denomination/);
+  assert.match(market,/Number\.isFinite\(Number\(x\.quantity\)\)/);
+  assert.match(polish,/\.bp-product-denomination/);
   assert.match(market,/data-index/);
   assert.match(market,/selected=all\[Number\(b\.dataset\.index\)\]/);
   assert.match(market,/expected_price_toman:selected\.price_toman/);
