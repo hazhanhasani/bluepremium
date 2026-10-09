@@ -33,7 +33,7 @@ async function route(request, env, ctx) {
   if (bpFeature) return bpFeature;
 
 
-  if (path === '/' && request.method === 'GET') return html(tgDecorateStore(bpDecorateStoreHtml(storeHtmlV4())));
+  if (path === '/' && request.method === 'GET') return html(bpDecorateExperience(tgDecorateStore(bpDecorateStoreHtml(storeHtmlV4()))));
   if (path === '/admin' && request.method === 'GET') return html(tgDecorateAdmin(bpDecorateAdminHtml(adminHtmlV2())));
   if (path === '/manifest.webmanifest' && request.method === 'GET') {
     return new Response(JSON.stringify({
