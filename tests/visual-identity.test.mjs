@@ -23,7 +23,7 @@ test('custom editorial identity replaces the generic blue gradient UI',()=>{
 test('Persian font is loaded with local accessible fallback',()=>{
   const decorator=new Function(ui+';return bpDecorateExperience;')();
   const output=decorator('<html lang="fa" dir="rtl"><head></head><body></body></html>');
-  assert.match(output,/cdn\\.jsdelivr\\.net/);
+  assert.ok(output.includes('cdn.jsdelivr.net'));
   assert.match(output,/Vazirmatn/);
   assert.match(output,/Segoe UI/);
   assert.match(output,/bp-experience-v4/);
