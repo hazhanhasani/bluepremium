@@ -1,0 +1,4 @@
+html { scroll-behavior: smooth; background: #07101e; }
+body { margin: 0; min-width: 280px; background: #07101e; }
+button { touch-action: manipulation; }
+button:disabled { opacity: .78; cursor: not-allowed; }
