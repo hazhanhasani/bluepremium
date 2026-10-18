@@ -1,0 +1,32 @@
+
+/**
+ * V6 production route adapters.
+ * The legacy V5 checkout remains fully available under /?legacy=1.
+ * Never forward initData, orders, or checkout state across domains.
+ */
+function bpV6Response() {
+  return new Response(bpV6Html(), {
+    status: 200,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store, max-age=0',
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'same-origin',
+      'x-bluepremium-ui': BP_V6_BUILD_ID,
+    },
+  });
+}
+
+function bpV6LegacyHtml(sourceHtml, url) {
+  const tab = String(url.searchParams.get('tab') || 'home');
+  const kind = String(url.searchParams.get('kind') || 'stars');
+  const allowedTabs = ['home','premium','stars','catalog','orders','account'];
+  const allowedKinds = ['stars','gift','catalog','smm','nft','steam'];
+  const safeTab = allowedTabs.includes(tab) ? tab : 'home';
+  const safeKind = allowedKinds.includes(kind) ? kind : 'stars';
+  const startup = '<script>window.addEventListener("load",function(){'+
+    'if(typeof window.bpOpenTab==="function")window.bpOpenTab('+
+    JSON.stringify(safeTab)+','+JSON.stringify(safeKind)+
+    ');},{once:true});</script>';
+  return sourceHtml.replace('</body>', startup+'</body>');
+}
