@@ -1,0 +1,60 @@
+name: Bundle V6 Into Worker
+
+on:
+  push:
+    branches: [design/storefront-v6-lab]
+    paths:
+      - 'experiments/storefront-v6/**'
+      - '.github/workflows/bundle-v6-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bundle-v6-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    if: github.ref == 'refs/heads/design/storefront-v6-lab'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install V6 dependencies
+        run: npm install --prefix experiments/storefront-v6 --no-audit --no-fund
+      - name: Build production SPA (same-origin read-only mode)
+        run: npm run build --prefix experiments/storefront-v6
+        env:
+          VITE_ENABLE_LIVE_READS: 'true'
+          VITE_API_ORIGIN: 'https://bluepremium.hazhanhasani4268-0f9.workers.dev'
+      - name: Install Playwright Chromium
+        run: npx --prefix experiments/storefront-v6 playwright install --with-deps chromium
+      - name: Validate browser and API contracts
+        run: |
+          npm run test:api --prefix experiments/storefront-v6
+          npm run test:e2e:ci --prefix experiments/storefront-v6
+      - name: Build portable Worker UI
+        run: |
+          node experiments/storefront-v6/scripts/pack-worker-ui.mjs
+          node --input-type=module --check < src/parts/030.part
+          npm test
+      - name: Commit reviewed build artifact into feature branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/parts/030.part
+          if git diff --cached --quiet; then
+            echo "V6 bundle unchanged."
+            exit 0
+          fi
+          git commit -m "build(v6): embed tested storefront bundle in Worker"
+          git push origin "HEAD:design/storefront-v6-lab"
