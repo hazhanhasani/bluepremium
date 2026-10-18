@@ -139,3 +139,36 @@
  .bp-live-product span{font-size:10px;}
  .bp-live-row{padding:11px 10px;}
 }
+
+
+/* Native purchase is deliberately styled inside V6; its form posts to the verified backend only. */
+.bp-native-checkout{margin:19px 0 12px;border:1px solid #64558c;border-radius:22px;padding:17px 15px;background:linear-gradient(160deg,#1b2541,#171b35);text-align:right;box-shadow:0 12px 26px #02051562}
+.bp-native-header{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#acb9d8}
+.bp-native-header strong{font-size:16px;color:#f4f6ff}
+.bp-native-price{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#253054;border-radius:13px;padding:13px 11px;margin:14px 0;font-size:11px;color:#b5c3db}
+.bp-native-price strong{font-size:14px;color:#efdaac}
+.bp-native-form{display:flex;flex-direction:column;gap:11px}
+.bp-native-form>label{font-size:12px;display:flex;flex-direction:column;gap:8px;color:#e4e8fa}
+.bp-native-form input,.bp-native-search{min-height:47px;width:100%;border-radius:12px;padding:11px 12px;border:1px solid #58668b;background:#111c35;color:#fff;font:600 13px Vazirmatn,Tahoma,sans-serif}
+.bp-native-form input:focus-visible,.bp-native-search:focus-visible{outline:2px solid #bd9aff;outline-offset:1px}
+.bp-native-payment{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.bp-native-payment button{min-height:45px;border:1px solid #465777;background:#1a2943;color:#acbad5;border-radius:12px;font-size:12px;font-weight:800}
+.bp-native-payment button[aria-pressed=true]{border-color:#aa8df6;color:#fff;background:#493875}
+.bp-native-payment button:disabled{opacity:.45;cursor:not-allowed}
+.bp-native-submit{min-height:48px;border:none;border-radius:13px;background:linear-gradient(110deg,#6244b4,#8258b7);color:#fff;font-size:13px!important;font-weight:850!important}
+.bp-native-submit:disabled{opacity:.6;cursor:progress}
+.bp-native-muted{font-size:10px;color:#a8b7d2;line-height:1.9;text-align:right}
+.bp-native-error{font-size:11px;line-height:2;padding:11px 13px;background:#4f1f3b6b;border:1px solid #dc7895a0;color:#ffcfdb;border-radius:11px;margin:0}
+.bp-native-success{border-radius:15px;background:#17332f;border:1px solid #5fb79b77;color:#e9f9f3;padding:13px;font-size:12px;line-height:2}
+.bp-native-success h3{margin:0 0 8px;font-size:17px}
+.bp-native-success p{margin:7px 0;line-height:1.9}
+.bp-native-bank{border-top:1px solid #86af9a66;margin-top:13px;padding-top:12px}
+.bp-native-bank label{display:block;font-size:10px;color:#b6d3d0;margin:10px 0 5px}
+.bp-native-copy{display:flex;align-items:center;justify-content:space-between;gap:6px;border-radius:11px;background:#112821;padding:7px 10px;word-break:break-word}
+.bp-native-copy b{font-size:12px}
+.bp-native-copy button{min-height:36px;border:1px solid #7bc9b2;color:#f0fff9;background:#245c4d;border-radius:9px;padding:5px 12px;font-size:11px}
+.bp-native-warning{font-size:11px;color:#d6eee4}
+.bp-native-back{border:none;background:transparent;color:#baa6ff;font-size:12px;display:inline-flex;align-self:flex-start;margin:0 0 17px;padding:8px 0}
+.bp-native-search{margin:15px 0 6px}
+@media(max-width:355px){.bp-native-checkout{padding:12px 9px}.bp-native-price strong{font-size:12px}.bp-native-copy b{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.bp-native-submit,.bp-native-payment button{transition:none!important}}
