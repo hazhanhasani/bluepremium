@@ -21,10 +21,16 @@ const script=js.replace(/<\/script/gi,'<\\/script');
 const javascriptTag=/<script\b[^>]*\bsrc="\/assets\/index-[^"]+\.js"[^>]*><\/script>/;
 const cssTag=/<link\b[^>]*\bhref="\/assets\/index-[^"]+\.css"[^>]*>/;
 if(!javascriptTag.test(markup)||!cssTag.test(markup))throw Error('Could not locate Vite built assets');
-markup=markup.replace(javascriptTag,'<script type="module">'+script+'</script>')
-  .replace(cssTag,'<style>'+css.replace(/<\/style/gi,'<\\/style')+'</style>');
-const unexpected = [...markup.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="\/assets\/[^"]+"[^>]*>/gi)].map(m=>m[0].slice(0,260));
+// Validate external HTML references BEFORE injecting the minified JavaScript.
+// Inline bundles can legitimately contain strings resembling HTML <script> tags.
+const inlinePlaceholder = '<!-- BP_V6_INLINE_JS -->';
+markup = markup.replace(javascriptTag, inlinePlaceholder)
+  .replace(cssTag, '<style>'+css.replace(/<\/style/gi,'<\\/style')+'</style>');
+const unexpected = [...markup.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="\/assets\/[^"]+"[^>]*>/gi)]
+  .map(m => m[0].slice(0,260));
 if (unexpected.length) throw Error('Unbundled HTML assets: '+unexpected.join(' | '));
+if (!markup.includes(inlinePlaceholder)) throw Error('Missing JavaScript placeholder');
+markup = markup.replace(inlinePlaceholder, '<script type="module">'+script+'</script>');
 const commit=String(process.env.GITHUB_SHA||'local').slice(0,16).replace(/[^a-f0-9]/g,'');
 markup=markup.replace('</head>',`<meta name="bluepremium-build" content="v6-${commit}"></head>`);
 if(!markup.includes('bp-demo')&&!markup.includes('id="root"'))throw Error('Root unavailable');
