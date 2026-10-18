@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import "./BluePremiumStorefrontPremiumMobilePrototype.css";
 import { useStorefrontLiveData } from "../../lib/use-storefront";
 import { PremiumLivePanel, StarsLivePanel, OrdersLivePanel, AccountLivePanel } from "./LivePanels";
-type Tab = "home" | "premium" | "stars" | "orders" | "account";
+import {CatalogLivePanel} from "./NativeCheckout";
+type Tab = "home" | "premium" | "stars" | "catalog" | "orders" | "account";
 type Product = "premium" | "stars" | "gift" | "digital";
 type Glyph = "home" | "shield" | "star" | "orders" | "user" | "wallet" | "arrow" | "chevron" | "close" | "check" | "lock";
 function Icon({
@@ -147,16 +148,10 @@ const nav: {
 export const BluePremiumStorefrontPremiumMobilePrototype = () => {
   const [tab, setTab] = useState<Tab>("home");
   const [details, setDetails] = useState<Product | null>(null);
+  const [marketKind, setMarketKind] = useState<"gift"|"catalog">("gift");
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const remote = useStorefrontLiveData(tab);
-  const openExistingCheckout = () => {
-    if (remote.live) {
-      const destination = tab === "premium" ? "premium" : tab === "stars" ? "catalog" : "home";
-      const suffix = destination === "catalog" ? "&kind=stars" : "";
-      window.location.assign("/?legacy=1&from=telegram&tab=" + destination + suffix);
-    }
-  };
   const modalRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!details) return;
@@ -181,8 +176,9 @@ export const BluePremiumStorefrontPremiumMobilePrototype = () => {
   }, [details]);
   const openOffer = (kind: Product) => {
     if(remote.live && (kind === "gift" || kind === "digital")) {
-      const kindQuery = kind === "gift" ? "gift" : "catalog";
-      window.location.assign("/?legacy=1&from=telegram&tab=catalog&kind=" + kindQuery);
+      setMarketKind(kind === "gift" ? "gift" : "catalog");
+      setTab("catalog");
+      setDetails(null);
       return;
     }
     setNotice("");
@@ -233,8 +229,9 @@ export const BluePremiumStorefrontPremiumMobilePrototype = () => {
         <div className="bp-heading bp-heading-secondary"><div><span className="bp-minor">WHY BLUE PREMIUM</span><h2>تجربه‌ای ساده‌تر</h2></div></div>
         <div className="bp-benefits"><span><Icon name="shield" size={18} /> پرداخت ایمن</span><span><Icon name="orders" size={18} /> پیگیری سفارش</span><span><Icon name="check" size={18} /> انتخاب شفاف</span></div>
       </>}
-      {tab === "premium" && (remote.live ? <PremiumLivePanel data={remote.plans} onRetry={remote.reload} goToExistingCheckout={openExistingCheckout}/> : <section className="bp-inner"><div className="bp-inner-art premium"><Art kind="premium" /></div><span className="bp-minor">TELEGRAM PREMIUM</span><h2>اشتراک تلگرام پرمیوم</h2><p className="bp-inner-desc">پلن مناسب خودت را انتخاب کن. گزینه‌های زیر فقط برای نمایش طراحی هستند.</p><div className="bp-plan-grid">{["۳ ماهه", "۶ ماهه", "۱۲ ماهه"].map(x => <button className={"bp-plan " + (selected === x ? "is-selected" : "")} key={x} onClick={() => choose(x)}><span>{x}</span><small>نمونه نمایشی</small>{selected === x && <Icon name="check" size={18} />}</button>)}</div><div className="bp-helper" role="status">{notice || "قیمت نهایی باید از API معتبر فروشگاه دریافت شود."}</div><button type="button" className="bp-disabled-buy" disabled><Icon name="lock" size={17} /> خرید در نسخه نمایشی غیرفعال است</button></section>)}
-      {tab === "stars" && (remote.live ? <StarsLivePanel data={remote.stars} onRetry={remote.reload} goToExistingCheckout={openExistingCheckout}/> : <section className="bp-inner"><div className="bp-inner-art stars"><Art kind="stars" /></div><span className="bp-minor">TELEGRAM STARS</span><h2>استارز تلگرام</h2><p className="bp-inner-desc">بسته‌های زیر نمایشی‌اند. در نسخه واقعی، موجودی و مبلغ باید از تأمین‌کننده خوانده شود.</p><div className="bp-plan-grid">{["۱۰۰ استارز", "۲۵۰ استارز", "۵۰۰ استارز"].map(x => <button className={"bp-plan " + (selected === x ? "is-selected" : "")} key={x} onClick={() => choose(x)}><span>{x}</span><small>نمونه نمایشی</small>{selected === x && <Icon name="check" size={18} />}</button>)}</div><div className="bp-helper" role="status">{notice || "این صفحه هیچ سفارش واقعی ثبت نمی‌کند."}</div><button type="button" className="bp-disabled-buy" disabled><Icon name="lock" size={17} /> پرداخت غیرفعال</button></section>)}
+      {tab === "premium" && (remote.live ? <PremiumLivePanel data={remote.plans} onRetry={remote.reload}/> : <section className="bp-inner"><div className="bp-inner-art premium"><Art kind="premium" /></div><span className="bp-minor">TELEGRAM PREMIUM</span><h2>اشتراک تلگرام پرمیوم</h2><p className="bp-inner-desc">پلن مناسب خودت را انتخاب کن. گزینه‌های زیر فقط برای نمایش طراحی هستند.</p><div className="bp-plan-grid">{["۳ ماهه", "۶ ماهه", "۱۲ ماهه"].map(x => <button className={"bp-plan " + (selected === x ? "is-selected" : "")} key={x} onClick={() => choose(x)}><span>{x}</span><small>نمونه نمایشی</small>{selected === x && <Icon name="check" size={18} />}</button>)}</div><div className="bp-helper" role="status">{notice || "قیمت نهایی باید از API معتبر فروشگاه دریافت شود."}</div><button type="button" className="bp-disabled-buy" disabled><Icon name="lock" size={17} /> خرید در نسخه نمایشی غیرفعال است</button></section>)}
+      {tab === "stars" && (remote.live ? <StarsLivePanel data={remote.stars} onRetry={remote.reload}/> : <section className="bp-inner"><div className="bp-inner-art stars"><Art kind="stars" /></div><span className="bp-minor">TELEGRAM STARS</span><h2>استارز تلگرام</h2><p className="bp-inner-desc">بسته‌های زیر نمایشی‌اند. در نسخه واقعی، موجودی و مبلغ باید از تأمین‌کننده خوانده شود.</p><div className="bp-plan-grid">{["۱۰۰ استارز", "۲۵۰ استارز", "۵۰۰ استارز"].map(x => <button className={"bp-plan " + (selected === x ? "is-selected" : "")} key={x} onClick={() => choose(x)}><span>{x}</span><small>نمونه نمایشی</small>{selected === x && <Icon name="check" size={18} />}</button>)}</div><div className="bp-helper" role="status">{notice || "این صفحه هیچ سفارش واقعی ثبت نمی‌کند."}</div><button type="button" className="bp-disabled-buy" disabled><Icon name="lock" size={17} /> پرداخت غیرفعال</button></section>)}
+      {tab === "catalog" && (remote.live ? <CatalogLivePanel kind={marketKind} onBack={()=>navigate("home")}/> : <section className="bp-inner bp-live"><h2>فروشگاه دیجیتال</h2><p className="bp-inner-desc">این بخش فقط در وب‌اپ اصلی با قیمت معتبر نمایش داده می‌شود.</p></section>)}
       {tab === "orders" && (remote.live ? <OrdersLivePanel session={remote.session} reload={remote.reload}/> : <section className="bp-empty-page"><div className="bp-empty-icon"><Icon name="orders" size={40} /></div><span className="bp-minor">ORDER HISTORY</span><h2>سفارش‌های من</h2><p>این نمونه به حساب تلگرام یا تاریخچه سفارش‌ها متصل نیست. در محصول اصلی فقط سفارش‌های احراز هویت‌شده نمایش داده می‌شوند.</p><button className="bp-secondary-btn" onClick={() => navigate("home")}>بازگشت به فروشگاه <Icon name="chevron" size={16} /></button></section>)}
       {tab === "account" && (remote.live ? <AccountLivePanel session={remote.session} reload={remote.reload}/> : <section className="bp-inner bp-account"><div className="bp-account-head"><div className="bp-account-avatar"><Icon name="user" size={32} /></div><div><h2>حساب کاربری</h2><p>نمایش اطلاعات پس از احراز هویت تلگرام</p></div></div><div className="bp-balance"><span>موجودی کیف پول</span><strong>—</strong><small>برای مشاهده موجودی، ورود امن در Mini App اصلی لازم است</small></div><div className="bp-account-links"><div><Icon name="shield" size={20} /> وضعیت حساب <span>نسخه نمایشی</span></div><div><Icon name="orders" size={20} /> سوابق تراکنش <span>بدون اطلاعات واقعی</span></div></div><button className="bp-secondary-btn" onClick={() => navigate("home")}>بازگشت به فروشگاه</button></section>)}
             </main>
