@@ -1,0 +1,54 @@
+name: BluePremium V5 Preview Smoke
+
+on:
+  push:
+    branches: [design/midnight-luxe-v5]
+    paths:
+      - '.github/workflows/preview-smoke.yml'
+      - 'src/parts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated Cloudflare preview
+        env:
+          PREVIEW: https://bluepremium-v5-preview.hazhanhasani4268-0f9.workers.dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --connect-timeout 10 --max-time 25 "$PREVIEW/health" > /tmp/preview-health.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/preview-health.json'))
+          assert data['preview'] is True
+          assert data['payments_enabled'] is False
+          assert data['database_connected'] is False
+          print('Preview is isolated and read-only.')
+          PY
+
+          curl -fsS --retry 3 --connect-timeout 10 --max-time 25 "$PREVIEW/" > /tmp/preview-home.html
+          grep -q 'id="bp-midnight-v5"' /tmp/preview-home.html
+          grep -q 'PREVIEW V5' /tmp/preview-home.html
+          grep -q 'bp-app-nav' /tmp/preview-home.html
+          echo 'Homepage, V5 theme and navigation are present.'
+
+          curl -fsS --max-time 25 "$PREVIEW/api/plans" > /tmp/preview-plans.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/preview-plans.json'))
+          assert data['preview'] is True and len(data['plans']) == 3
+          print('Demo plans loaded.')
+          PY
+
+          code=$(curl -sS --max-time 25 -o /tmp/preview-post.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' "$PREVIEW/api/orders")
+          test "$code" = 403 || { echo "Write endpoint responded with HTTP $code (wanted 403)"; exit 1; }
+          code=$(curl -sS --max-time 25 -o /tmp/preview-admin.json -w '%{http_code}' "$PREVIEW/admin")
+          test "$code" = 403 || { echo "Admin endpoint responded with HTTP $code (wanted 403)"; exit 1; }
+          echo 'All real checkout and admin actions are denied.'
