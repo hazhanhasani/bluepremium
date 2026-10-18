@@ -95,3 +95,47 @@
 @keyframes bp-modal-in{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
 @media (max-width:370px){.bp-demo-frame{padding:12px 12px 105px}.bp-hero h1{font-size:19px}.bp-hero-image{width:150px;height:150px;top:22px;left:-10px}.bp-card h3{font-size:13px}.bp-card-cta{font-size:10px!important}.bp-card{padding:9px 8px 11px;min-height:255px}.bp-grid{gap:9px}.bp-wallet{padding:0 8px;font-size:10px!important}.bp-identity strong{font-size:12px}.bp-identity span{font-size:8px}.bp-nav button{font-size:9px!important}}
 @media (prefers-reduced-motion:reduce){.bp-main,.bp-modal{animation:none}.bp-card-cta{transition:none}}
+
+
+/* V6 live read-only panels. They never create payment forms or mutate account state. */
+.bp-logo img { display:block; width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.bp-live { padding-top:24px; }
+.bp-live-products,.bp-live-list { display:grid;gap:10px;margin:20px 0 19px; }
+.bp-live-product {
+  min-height:76px;width:100%;display:flex;align-items:center;justify-content:space-between;
+  gap:13px;padding:14px 16px;border-radius:17px;text-align:right;
+  color:#f6f6ff;background:#1a263f;border:1px solid #4c5c7d;
+}
+.bp-live-product strong {font-size:13px;font-weight:800;line-height:1.6;flex:1;}
+.bp-live-product span {font-size:11px;color:#d1c6fc;white-space:nowrap;font-weight:750;}
+.bp-live-product.selected,.bp-live-product[aria-pressed="true"] {border-color:#b79bff;background:linear-gradient(135deg,#34285f,#1c2b4a);}
+.bp-secure-checkout{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  min-height:49px;padding:12px 18px;border:1px solid #a89ce5;border-radius:14px;
+  background:linear-gradient(120deg,#5640a4,#694bba);color:#fff;font-size:12px!important;font-weight:800!important;
+}
+.bp-live-message {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  text-align:center;padding:20px 17px;background:#15243b;border:1px solid #50607e;
+  border-radius:16px;color:#bac9e3;font-size:12px;line-height:2;margin:16px 0;
+}
+.bp-retry {
+  min-height:44px;padding:8px 20px;border-radius:12px;border:1px solid #8775d2;
+  background:#423775;color:#fff;font-weight:800!important;font-size:12px!important;
+}
+.bp-live-row {
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  min-height:66px;padding:14px 16px;border-radius:14px;background:#15233a;
+  border:1px solid #344764;text-align:right;color:#edf2ff;
+}
+.bp-live-row>div{display:flex;flex-direction:column;gap:4px;max-width:68%;word-wrap:break-word;font-size:12px;}
+.bp-live-row strong{font-size:12px;}
+.bp-live-row small{font-size:10px;color:#a8b7d2;}
+.bp-live-row>span,.bp-live-row>strong{font-size:11px;color:#bcefe1;white-space:nowrap;}
+.bp-subheading{font-size:15px;margin:23px 0 9px;text-align:right;}
+@media(max-width:355px) {
+ .bp-live-product{padding:11px 10px;min-height:71px;}
+ .bp-live-product strong{font-size:12px;}
+ .bp-live-product span{font-size:10px;}
+ .bp-live-row{padding:11px 10px;}
+}
