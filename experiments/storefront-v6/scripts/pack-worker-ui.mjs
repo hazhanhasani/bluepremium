@@ -5,6 +5,7 @@
  */
 import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
+import ts from 'typescript';
 
 const root=resolve(import.meta.dirname,'..');
 const dist=join(root,'dist');
@@ -18,6 +19,19 @@ const js=await readFile(join(assetDir,jsFile[0]),'utf8');
 const css=await readFile(join(assetDir,cssFile[0]),'utf8');
 if(/(^|\n)\s*import\s+[^.(]/.test(js)||/import\(/.test(js))throw Error('Dynamic imports are not supported in the single-file Worker UI');
 const script=js.replace(/<\/script/gi,'<\\/script');
+
+function inspectJavaScript(label,code){
+  const parsed=ts.createSourceFile(label,code,ts.ScriptTarget.ESNext,true,ts.ScriptKind.JS);
+  if(!parsed.parseDiagnostics.length)return;
+  const d=parsed.parseDiagnostics[0];
+  const pos=d.start??0;
+  const message=ts.flattenDiagnosticMessageText(d.messageText,' ');
+  throw new Error(label+' syntax failure at '+pos+' / '+code.length+': '+message+
+    '\nContext: '+JSON.stringify(code.slice(Math.max(0,pos-110),Math.min(code.length,pos+110))));
+}
+inspectJavaScript('dist-vite-bundle',js);
+inspectJavaScript('inline-vite-bundle',script);
+
 const javascriptTag=/<script\b[^>]*\bsrc="\/assets\/index-[^"]+\.js"[^>]*><\/script>/;
 const cssTag=/<link\b[^>]*\bhref="\/assets\/index-[^"]+\.css"[^>]*>/;
 if(!javascriptTag.test(markup)||!cssTag.test(markup))throw Error('Could not locate Vite built assets');
