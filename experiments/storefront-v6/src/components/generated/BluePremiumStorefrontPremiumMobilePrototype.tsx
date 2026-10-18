@@ -151,7 +151,11 @@ export const BluePremiumStorefrontPremiumMobilePrototype = () => {
   const [notice, setNotice] = useState("");
   const remote = useStorefrontLiveData(tab);
   const openExistingCheckout = () => {
-    if (remote.live) window.location.assign("/?from=telegram");
+    if (remote.live) {
+      const destination = tab === "premium" ? "premium" : tab === "stars" ? "catalog" : "home";
+      const suffix = destination === "catalog" ? "&kind=stars" : "";
+      window.location.assign("/?legacy=1&from=telegram&tab=" + destination + suffix);
+    }
   };
   const modalRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -176,6 +180,11 @@ export const BluePremiumStorefrontPremiumMobilePrototype = () => {
     };
   }, [details]);
   const openOffer = (kind: Product) => {
+    if(remote.live && (kind === "gift" || kind === "digital")) {
+      const kindQuery = kind === "gift" ? "gift" : "catalog";
+      window.location.assign("/?legacy=1&from=telegram&tab=catalog&kind=" + kindQuery);
+      return;
+    }
     setNotice("");
     if (kind === "premium") {
       setTab("premium");
