@@ -35,6 +35,8 @@ jobs:
         env:
           VITE_ENABLE_LIVE_READS: 'true'
           VITE_API_ORIGIN: 'https://bluepremium.hazhanhasani4268-0f9.workers.dev'
+      - name: Install Playwright Chromium
+        run: npx --prefix experiments/storefront-v6 playwright install --with-deps chromium
       - name: Validate browser and API contracts
         run: |
           npm run test:api --prefix experiments/storefront-v6
