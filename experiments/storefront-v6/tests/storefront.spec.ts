@@ -9,6 +9,8 @@ test('the reference-composition is product-first with four independent service c
   await expect(page.locator('.bp-card')).toHaveCount(4);
   await expect(page.getByRole('navigation', { name: 'ناوبری اصلی' }).getByRole('button')).toHaveCount(5);
   await expect(page.locator('.bp-hero')).toBeVisible();
+  await expect(page.locator('.bp-logo img')).toHaveAttribute('src', /brandmark\.webp\?v=8/);
+  await expect(page.locator('.bp-logo svg')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /مشاهده اشتراک/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /مشاهده استارز/ })).toBeVisible();
   await page.screenshot({ path: `test-results/reference-composition-${test.info().project.name}.png`, fullPage: true });
@@ -31,6 +33,10 @@ test('gift and digital cards open accessible dialogs and close on Escape', async
   await page.getByRole('button', { name: /مشاهده هدایا/ }).click();
   const dialog = page.getByRole('dialog', { name: 'هدایای تلگرام' });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'بستن' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.getByRole('button', { name: /متوجه شدم/ })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(dialog.getByRole('button', { name: 'بستن' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
