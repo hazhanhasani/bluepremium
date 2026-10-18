@@ -33,6 +33,8 @@ jobs:
         run: npm run build
       - name: API privacy and contract tests
         run: npm run test:api
+      - name: Native checkout contract tests
+        run: npm run test:checkout
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Browser and responsive tests
