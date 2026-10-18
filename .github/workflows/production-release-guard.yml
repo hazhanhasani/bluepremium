@@ -1,0 +1,32 @@
+name: BluePremium Production Release Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/parts/**'
+      - 'scripts/production-release-smoke.mjs'
+      - '.github/workflows/production-release-guard.yml'
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bluepremium-prod-guard
+  cancel-in-progress: false
+
+jobs:
+  verify-live-release:
+    name: V6 deployment and API smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify deployed build, rollback, public catalog and auth gate
+        run: node --test scripts/production-release-smoke.mjs
