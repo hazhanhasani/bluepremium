@@ -1,0 +1,46 @@
+name: Storefront V6 Lab
+
+on:
+  push:
+    branches: [design/storefront-v6-lab]
+    paths:
+      - 'experiments/storefront-v6/**'
+      - '.github/workflows/storefront-v6-lab.yml'
+  pull_request:
+    paths:
+      - 'experiments/storefront-v6/**'
+      - '.github/workflows/storefront-v6-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview-build-and-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: experiments/storefront-v6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check and build
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser and responsive tests
+        run: npm run test:e2e:ci
+      - name: Upload screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-v6-browser-review
+          path: |
+            experiments/storefront-v6/test-results/
+            experiments/storefront-v6/playwright-report/
+          retention-days: 14
