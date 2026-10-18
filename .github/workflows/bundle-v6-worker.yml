@@ -2,7 +2,7 @@ name: Bundle V6 Into Worker
 
 on:
   push:
-    branches: [design/storefront-v6-lab]
+    branches: [design/storefront-v6-lab, fix/v6-unified-checkout]
     paths:
       - 'experiments/storefront-v6/**'
       - '.github/workflows/bundle-v6-worker.yml'
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   bundle:
-    if: github.ref == 'refs/heads/design/storefront-v6-lab'
+    if: github.ref == 'refs/heads/design/storefront-v6-lab' || github.ref == 'refs/heads/fix/v6-unified-checkout'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -40,6 +40,7 @@ jobs:
       - name: Validate browser and API contracts
         run: |
           npm run test:api --prefix experiments/storefront-v6
+          npm run test:checkout --prefix experiments/storefront-v6
           npm run test:e2e:ci --prefix experiments/storefront-v6
       - name: Build portable Worker UI
         run: |
@@ -57,4 +58,4 @@ jobs:
             exit 0
           fi
           git commit -m "build(v6): embed tested storefront bundle in Worker"
-          git push origin "HEAD:design/storefront-v6-lab"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
