@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bluepremium",
   "main": "dist/worker.js",
-  "compatibility_date": "2026-10-04",
+  "compatibility_date": "2026-10-07",
   "observability": { "enabled": true },
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [

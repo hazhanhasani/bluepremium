@@ -1,0 +1,141 @@
+name: BluePremium Production Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/parts/**'
+      - 'experiments/storefront-v6/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'wrangler.jsonc'
+      - '.github/workflows/bluepremium-production-deploy.yml'
+  pull_request:
+    paths:
+      - 'src/parts/**'
+      - 'experiments/storefront-v6/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'wrangler.jsonc'
+      - '.github/workflows/bluepremium-production-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bluepremium-production
+  cancel-in-progress: false
+
+jobs:
+  validate-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install isolated frontend dependencies
+        run: npm install --prefix experiments/storefront-v6 --no-audit --no-fund
+
+      - name: Frontend API privacy tests
+        run: npm run test:api --prefix experiments/storefront-v6
+
+      - name: Install Chromium
+        run: npx --prefix experiments/storefront-v6 playwright install --with-deps chromium
+
+      - name: Responsive and navigation tests
+        run: npm run test:e2e:ci --prefix experiments/storefront-v6
+
+      - name: Build same-origin production UI
+        run: npm run build --prefix experiments/storefront-v6
+        env:
+          VITE_ENABLE_LIVE_READS: 'true'
+          VITE_API_ORIGIN: 'https://bluepremium.hazhanhasani4268-0f9.workers.dev'
+
+      - name: Bundle React into Cloudflare Worker
+        run: |
+          node experiments/storefront-v6/scripts/pack-worker-ui.mjs
+          node --input-type=module --check < src/parts/030.part
+
+      - name: Check checkout regression and Worker syntax
+        run: npm test
+
+      - name: Verify production release artifacts
+        run: |
+          node --input-type=module - <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const worker = readFileSync('dist/worker.js', 'utf8');
+          const required = [
+            'function bpV6Html',
+            'function bpV6Response',
+            'telegram-web-app.js',
+            "url.searchParams.get('legacy')",
+            "if (path === '/' && request.method === 'GET') return bpV6Response();"
+          ];
+          for (const marker of required) {
+            if (!worker.includes(marker)) throw Error('Missing safety marker: ' + marker);
+          }
+          if (!worker.includes('BP_V6_BUILD_ID')) throw Error('Missing release ID');
+          console.log('Verified V6 UI, Telegram SDK, and legacy checkout.');
+          NODE
+
+      # Explicit opt-in: requires a repository variable and restricted API token.
+      - name: Deploy tested Worker to production
+        if: ${{ github.ref == 'refs/heads/main' && vars.BLUEPREMIUM_AUTODEPLOY == 'enabled' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.BLUEPREMIUM_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '0f95cd8ab7d1fc13b83577192eeaebf3'
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
+            echo "::error::Add the restricted BLUEPREMIUM_CLOUDFLARE_API_TOKEN repository secret."
+            exit 1
+          fi
+          npx --yes wrangler@4 deploy --config wrangler.jsonc
+
+      - name: Verify live UI release and old checkout
+        if: ${{ github.ref == 'refs/heads/main' && vars.BLUEPREMIUM_AUTODEPLOY == 'enabled' }}
+        run: |
+          node --input-type=module - <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const source=readFileSync('src/parts/030.part','utf8');
+          const expected=source.match(/BP_V6_BUILD_ID = "(v6-[0-9a-f]+)"/)?.[1];
+          if(!expected)throw Error('Missing build identifier');
+          const base='https://bluepremium.hazhanhasani4268-0f9.workers.dev';
+          async function read(path) {
+            for(let attempt=0;attempt<5;attempt++){
+              try{
+                const r=await fetch(base+path,{headers:{'cache-control':'no-cache'}});
+                if(!r.ok)throw Error(path+' status '+r.status);
+                return r;
+              }catch(e){
+                if(attempt===4)throw e;
+                await new Promise(ok=>setTimeout(ok,2500));
+              }
+            }
+            throw Error('Unreachable');
+          }
+          const health=await (await read('/health')).json();
+          if(!health.ok||health.ui!==expected)throw Error('Deployed version mismatch: '+health.ui+' expected '+expected);
+          const main=await read('/?from=telegram');
+          if(main.headers.get('x-bluepremium-ui')!==expected)throw Error('Main Mini App has old UI');
+          if(!(await main.text()).includes('telegram-web-app.js'))throw Error('Missing Telegram SDK');
+          const fallback=await (await read('/?legacy=1&tab=premium')).text();
+          if(!fallback.includes('بلوپرمیوم'))throw Error('Legacy checkout unavailable');
+          const plans=await (await read('/api/plans')).json();
+          if(plans.ok!==true||!Array.isArray(plans.plans))throw Error('Plan API unavailable');
+          console.log('Production health, Telegram UI, V5 checkout and plans verified.');
+          NODE
+
+      - name: Upload browser QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluepremium-v6-release-qa
+          path: |
+            experiments/storefront-v6/test-results/
+            experiments/storefront-v6/playwright-report/
+          retention-days: 14
