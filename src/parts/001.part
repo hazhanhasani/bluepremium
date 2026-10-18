@@ -38,7 +38,7 @@ async function route(request, env, ctx) {
     const oldMarkup = bpRefineDecorate(bpMidnightDecorate(bpMotionDecorate(bpMarketPolishDecorate(bpPhaseOneDecorate(bpDecorateExperience(tgDecorateStore(bpDecorateStoreHtml(storeHtmlV4()))))))));
     return html(bpV6LegacyHtml(oldMarkup, url));
   }
-  if (path === '/' && request.method === 'GET') return html(bpRefineDecorate(bpMidnightDecorate(bpMotionDecorate(bpMarketPolishDecorate(bpPhaseOneDecorate(bpDecorateExperience(tgDecorateStore(bpDecorateStoreHtml(storeHtmlV4())))))))));
+  if (path === '/' && request.method === 'GET') return bpV6Response();
   if (path === '/admin' && request.method === 'GET') return html(tgDecorateAdmin(bpDecorateAdminHtml(adminHtmlV2())));
   if (path === '/manifest.webmanifest' && request.method === 'GET') {
     return new Response(JSON.stringify({
@@ -61,7 +61,7 @@ async function route(request, env, ctx) {
   if (path === '/sw.js' && request.method === 'GET') {
     return new Response(serviceWorkerJs(), { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
   }
-  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.8.0' });
+  if (path === '/health' && request.method === 'GET') return json({ ok: true, service: 'bluepremium', version: '1.8.0', ui: BP_V6_BUILD_ID });
 
   if (path === '/api/build/android-signing' && request.method === 'GET') {
     const claims = await verifyGitHubOidc(request);
