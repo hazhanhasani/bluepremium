@@ -6,6 +6,7 @@
 import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import ts from 'typescript';
+import {Script} from 'node:vm';
 
 const root=resolve(import.meta.dirname,'..');
 const dist=join(root,'dist');
@@ -31,6 +32,13 @@ function inspectJavaScript(label,code){
 }
 inspectJavaScript('dist-vite-bundle',js);
 inspectJavaScript('inline-vite-bundle',script);
+for(const [name,body] of [['raw',js],['inline',script]]){
+  try{new Script(body,{filename:'bluepremium-'+name+'.js'});}
+  catch(error){
+    const msg=String(error?.stack||error);
+    throw Error('V8 rejected the '+name+' bundle: '+msg.slice(0,1400));
+  }
+}
 
 const javascriptTag=/<script\b[^>]*\bsrc="\/assets\/index-[^"]+\.js"[^>]*><\/script>/;
 const cssTag=/<link\b[^>]*\bhref="\/assets\/index-[^"]+\.css"[^>]*>/;
