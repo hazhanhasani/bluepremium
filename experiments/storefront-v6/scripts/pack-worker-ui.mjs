@@ -23,7 +23,7 @@ const cssTag=/<link\b[^>]*\bhref="\/assets\/index-[^"]+\.css"[^>]*>/;
 if(!javascriptTag.test(markup)||!cssTag.test(markup))throw Error('Could not locate Vite built assets');
 markup=markup.replace(javascriptTag,'<script type="module">'+script+'</script>')
   .replace(cssTag,'<style>'+css.replace(/<\/style/gi,'<\\/style')+'</style>');
-const unexpected = [...markup.matchAll(/<(?:script|link)\\b[^>]*(?:src|href)="\\/assets\\/[^"]+"[^>]*>/gi)].map(m => m[0].slice(0,260));
+const unexpected = [...markup.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="\/assets\/[^"]+"[^>]*>/gi)].map(m=>m[0].slice(0,260));
 if (unexpected.length) throw Error('Unbundled HTML assets: '+unexpected.join(' | '));
 const commit=String(process.env.GITHUB_SHA||'local').slice(0,16).replace(/[^a-f0-9]/g,'');
 markup=markup.replace('</head>',`<meta name="bluepremium-build" content="v6-${commit}"></head>`);
