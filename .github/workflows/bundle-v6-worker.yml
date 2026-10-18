@@ -44,7 +44,7 @@ jobs:
       - name: Build portable Worker UI
         run: |
           node experiments/storefront-v6/scripts/pack-worker-ui.mjs
-          node --check src/parts/030.part
+          node --input-type=module --check < src/parts/030.part
           npm test
       - name: Commit reviewed build artifact into feature branch
         shell: bash
