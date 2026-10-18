@@ -220,9 +220,9 @@ export const BluePremiumStorefrontPremiumMobilePrototype = () => {
   };
   return <div className="bp-demo" dir="rtl" lang="fa">
     <div className="bp-demo-frame">
-      <div className="bp-demo-banner"><span className="bp-pulse" /> PREVIEW / DESIGN LAB <span className="bp-banner-copy">فقط نمونه تعاملی · پرداخت غیرفعال</span></div>
+      {!remote.live && <div className="bp-demo-banner"><span className="bp-pulse" /> PREVIEW / DESIGN LAB <span className="bp-banner-copy">فقط نمونه تعاملی · پرداخت غیرفعال</span></div>}
       <header className="bp-top">
-        <div className="bp-identity"><div className="bp-logo"><img src="https://bluepremium.hazhanhasani4268-0f9.workers.dev/brandmark.webp?v=8" alt="لوگوی رسمی بلوپرمیوم" loading="eager" width="54" height="54" /></div><div><strong>سلام، خوش اومدی 👋</strong><span>BLUE PREMIUM</span></div></div>
+        <div className="bp-identity"><div className="bp-logo"><img src="/brandmark.webp?v=8" alt="لوگوی رسمی بلوپرمیوم" loading="eager" width="54" height="54" /></div><div><strong>سلام، خوش اومدی 👋</strong><span>BLUE PREMIUM</span></div></div>
         <button type="button" className="bp-wallet" onClick={() => navigate("account")}><Icon name="wallet" size={17} /> کیف پول</button>
       </header>
       <main id="bp-demo-main" className="bp-main" key={tab}>
