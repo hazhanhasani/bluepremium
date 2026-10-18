@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { formatToman, type MarketItem, type PremiumPlan, type StoreOrder, type StorefrontSession } from '../../lib/bluepremium-api';
 import type { RemoteState } from '../../lib/use-storefront';
+import {NativePurchase} from './NativeCheckout';
 
 function Loading() {return <div className="bp-live-message" role="status">در حال دریافت اطلاعات به‌روز…</div>;}
 function Notice({text,onRetry}:{text:string;onRetry?:()=>void}) {
   return <div role="status" className="bp-live-message">{text}{onRetry&&<button className="bp-retry" onClick={onRetry}>تلاش دوباره</button>}</div>;
 }
 const money=(v:number)=>Number.isFinite(v)?formatToman(v):'نامشخص';
-function SafeCheckout({goToExistingCheckout}:{goToExistingCheckout:()=>void}) {
-  return <button className="bp-secure-checkout" type="button" onClick={goToExistingCheckout}>
-    ادامه در فروشگاه اصلی <span aria-hidden="true">←</span>
-  </button>;
-}
-
-export function PremiumLivePanel({data,onRetry,goToExistingCheckout}:{data:RemoteState<PremiumPlan[]>;onRetry:()=>void;goToExistingCheckout:()=>void}) {
+export function PremiumLivePanel({data,onRetry,}:{data:RemoteState<PremiumPlan[]>;onRetry:()=>void}) {
   const [selection,setSelection]=useState<number|null>(null);
   const selected=data.status==='ready'?data.value!.find(p=>p.id===selection):undefined;
   return <section className="bp-inner bp-live" aria-label="پلن‌های تلگرام پرمیوم">
@@ -25,12 +20,11 @@ export function PremiumLivePanel({data,onRetry,goToExistingCheckout}:{data:Remot
       <div className="bp-live-products">{data.value!.map(p=><button type="button" aria-pressed={selection===p.id} className={"bp-live-product "+(selection===p.id?"selected":"")} key={p.id} onClick={()=>setSelection(p.id)}>
         <strong>{p.title || p.months+' ماهه'}</strong><span>{money(p.price_toman)}</span>
       </button>)}</div>}
-    {selected&&<div className="bp-helper" role="status">پلن {selected.months} ماهه با قیمت {money(selected.price_toman)} انتخاب شد. خرید امن در صفحه اصلی تکمیل می‌شود و نیاز به انتخاب مجدد دارد.</div>}
-    {data.status==='ready'&&data.value!.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
+    {selected&&<NativePurchase key={"premium-"+selected.id} choice={{type:"premium",plan:selected}} resetPrices={onRetry}/>}
   </section>;
 }
 
-export function StarsLivePanel({data,onRetry,goToExistingCheckout}:{data:RemoteState<{enabled:boolean;products:MarketItem[]}>;onRetry:()=>void;goToExistingCheckout:()=>void}) {
+export function StarsLivePanel({data,onRetry,}:{data:RemoteState<{enabled:boolean;products:MarketItem[]}>;onRetry:()=>void}) {
   const [selection,setSelection]=useState<string|null>(null);
   const selected=data.status==='ready'?data.value!.products.find(p=>p.sku===selection):undefined;
   return <section className="bp-inner bp-live" aria-label="بسته‌های استارز تلگرام">
@@ -43,8 +37,7 @@ export function StarsLivePanel({data,onRetry,goToExistingCheckout}:{data:RemoteS
       <div className="bp-live-products">{data.value!.products.map(p=><button type="button" aria-pressed={selection===p.sku} className={"bp-live-product "+(selection===p.sku?"selected":"")} key={p.sku} onClick={()=>setSelection(p.sku)}>
         <strong>{p.title}</strong><span>{money(p.price_toman)}</span>
       </button>)}</div>}
-    {selected&&<div className="bp-helper" role="status">{selected.title} انتخاب شد. قیمت هنگام ثبت سفارش اصلی مجدداً بررسی می‌شود؛ لازم است در فروشگاه اصلی دوباره انتخابش کنی.</div>}
-    {data.status==='ready'&&data.value!.enabled&&data.value!.products.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
+    {selected&&<NativePurchase key={"stars-"+selected.sku} choice={{type:"market",kind:"stars",product:selected}} resetPrices={onRetry}/>}
   </section>;
 }
 
