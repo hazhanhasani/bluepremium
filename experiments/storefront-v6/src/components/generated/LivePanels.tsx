@@ -15,36 +15,36 @@ function SafeCheckout({goToExistingCheckout}:{goToExistingCheckout:()=>void}) {
 
 export function PremiumLivePanel({data,onRetry,goToExistingCheckout}:{data:RemoteState<PremiumPlan[]>;onRetry:()=>void;goToExistingCheckout:()=>void}) {
   const [selection,setSelection]=useState<number|null>(null);
-  const selected=data.status==='ready'?data.value.find(p=>p.id===selection):undefined;
+  const selected=data.status==='ready'?data.value!.find(p=>p.id===selection):undefined;
   return <section className="bp-inner bp-live" aria-label="پلن‌های تلگرام پرمیوم">
     <span className="bp-minor">TELEGRAM PREMIUM</span><h2>تلگرام پرمیوم</h2>
     <p className="bp-inner-desc">قیمت و اعتبار هر پلن مستقیماً از فروشگاه دریافت می‌شود.</p>
     {data.status==='loading'||data.status==='idle'?<Loading/>:
       data.status==='error'?<Notice text={data.error} onRetry={onRetry}/>:
-      !data.value.length?<Notice text="در حال حاضر پلن فعالی برای فروش موجود نیست."/>:
-      <div className="bp-live-products">{data.value.map(p=><button type="button" aria-pressed={selection===p.id} className={"bp-live-product "+(selection===p.id?"selected":"")} key={p.id} onClick={()=>setSelection(p.id)}>
+      !data.value!.length?<Notice text="در حال حاضر پلن فعالی برای فروش موجود نیست."/>:
+      <div className="bp-live-products">{data.value!.map(p=><button type="button" aria-pressed={selection===p.id} className={"bp-live-product "+(selection===p.id?"selected":"")} key={p.id} onClick={()=>setSelection(p.id)}>
         <strong>{p.title || p.months+' ماهه'}</strong><span>{money(p.price_toman)}</span>
       </button>)}</div>}
     {selected&&<div className="bp-helper" role="status">پلن {selected.months} ماهه با قیمت {money(selected.price_toman)} انتخاب شد. خرید امن در صفحه اصلی تکمیل می‌شود و نیاز به انتخاب مجدد دارد.</div>}
-    {data.status==='ready'&&data.value.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
+    {data.status==='ready'&&data.value!.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
   </section>;
 }
 
 export function StarsLivePanel({data,onRetry,goToExistingCheckout}:{data:RemoteState<{enabled:boolean;products:MarketItem[]}>;onRetry:()=>void;goToExistingCheckout:()=>void}) {
   const [selection,setSelection]=useState<string|null>(null);
-  const selected=data.status==='ready'?data.value.products.find(p=>p.sku===selection):undefined;
+  const selected=data.status==='ready'?data.value!.products.find(p=>p.sku===selection):undefined;
   return <section className="bp-inner bp-live" aria-label="بسته‌های استارز تلگرام">
     <span className="bp-minor">TELEGRAM STARS</span><h2>استارز تلگرام</h2>
     <p className="bp-inner-desc">بسته‌های فعال با قیمت معتبر نمایش داده می‌شوند.</p>
     {data.status==='loading'||data.status==='idle'?<Loading/>:
       data.status==='error'?<Notice text={data.error} onRetry={onRetry}/>:
-      !data.value.enabled?<Notice text="فروش استارز فعلاً توسط مدیریت غیرفعال است."/>:
-      !data.value.products.length?<Notice text="محصول قیمت‌گذاری‌شده‌ای در دسترس نیست."/>:
-      <div className="bp-live-products">{data.value.products.map(p=><button type="button" aria-pressed={selection===p.sku} className={"bp-live-product "+(selection===p.sku?"selected":"")} key={p.sku} onClick={()=>setSelection(p.sku)}>
+      !data.value!.enabled?<Notice text="فروش استارز فعلاً توسط مدیریت غیرفعال است."/>:
+      !data.value!.products.length?<Notice text="محصول قیمت‌گذاری‌شده‌ای در دسترس نیست."/>:
+      <div className="bp-live-products">{data.value!.products.map(p=><button type="button" aria-pressed={selection===p.sku} className={"bp-live-product "+(selection===p.sku?"selected":"")} key={p.sku} onClick={()=>setSelection(p.sku)}>
         <strong>{p.title}</strong><span>{money(p.price_toman)}</span>
       </button>)}</div>}
     {selected&&<div className="bp-helper" role="status">{selected.title} انتخاب شد. قیمت هنگام ثبت سفارش اصلی مجدداً بررسی می‌شود؛ لازم است در فروشگاه اصلی دوباره انتخابش کنی.</div>}
-    {data.status==='ready'&&data.value.enabled&&data.value.products.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
+    {data.status==='ready'&&data.value!.enabled&&data.value!.products.length>0&&<SafeCheckout goToExistingCheckout={goToExistingCheckout}/>}
   </section>;
 }
 
