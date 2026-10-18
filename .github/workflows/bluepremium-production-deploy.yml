@@ -63,6 +63,9 @@ jobs:
           node experiments/storefront-v6/scripts/pack-worker-ui.mjs
           node --input-type=module --check < src/parts/030.part
 
+      - name: Render exact bundled Worker UI in Chromium
+        run: node experiments/storefront-v6/scripts/smoke-bundled-ui.mjs
+
       - name: Check checkout regression and Worker syntax
         run: npm test
 
