@@ -44,6 +44,8 @@ jobs:
       - name: Frontend API privacy tests
         run: npm run test:api --prefix experiments/storefront-v6
 
+      - name: Native checkout contract tests
+        run: npm run test:checkout --prefix experiments/storefront-v6
       - name: Install Chromium
         run: npx --prefix experiments/storefront-v6 playwright install --with-deps chromium
 
