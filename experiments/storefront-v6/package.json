@@ -9,7 +9,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=line",
-    "test:api": "node --test tests/api-contract.test.mjs"
+    "test:api": "node --test tests/api-contract.test.mjs",
+    "test:checkout": "node --test tests/native-checkout.test.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

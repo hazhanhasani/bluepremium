@@ -17,6 +17,8 @@ export interface MarketItem {
   title: string;
   quantity?: number;
   price_toman: number;
+  target_type?: string;
+  catalog_key?: string | null;
 }
 export interface StoreOrder {
   code?: string;

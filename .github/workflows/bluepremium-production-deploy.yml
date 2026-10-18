@@ -44,6 +44,8 @@ jobs:
       - name: Frontend API privacy tests
         run: npm run test:api --prefix experiments/storefront-v6
 
+      - name: Native checkout contract tests
+        run: npm run test:checkout --prefix experiments/storefront-v6
       - name: Install Chromium
         run: npx --prefix experiments/storefront-v6 playwright install --with-deps chromium
 
@@ -60,6 +62,9 @@ jobs:
         run: |
           node experiments/storefront-v6/scripts/pack-worker-ui.mjs
           node --input-type=module --check < src/parts/030.part
+
+      - name: Render exact bundled Worker UI in Chromium
+        run: node experiments/storefront-v6/scripts/smoke-bundled-ui.mjs
 
       - name: Check checkout regression and Worker syntax
         run: npm test

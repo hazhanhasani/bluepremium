@@ -1,79 +1,63 @@
-# BluePremium Storefront V6 — Isolated Design Lab
+# BluePremium V6 — Unified Storefront & Checkout
 
-This folder contains the **standalone React + TypeScript implementation** of the original, editable MagicPath design. It is an exploration and a browser-testable implementation—not a replacement for the payment system.
+Production route: `/?from=telegram`. Legacy rollback route: `/?legacy=1`.
 
-## Status & scope
+## Architecture
 
-- Source: MagicPath project `462487314254401536`, component `462487380176277504`, revision `462487380176277505`.
-- UX target: compact hero, four product-specific illustrated service cards, five-tab RTL navigation, accessible dialogs, responsive viewport.
-- **Preview only:** No authentication, live prices, checkout calls, Telegram tokens, payments, D1 bindings or real customer data.
-- Existing production code in `src/parts/`, `wrangler.jsonc`, and database migrations remains unchanged.
-- Do **not** deploy this experiment in place of the production Worker.
+The V6 interface is a React/TypeScript frontend bundled into the existing Cloudflare Worker through `scripts/pack-worker-ui.mjs` and `src/parts/030.part`. The established D1 database, Telegram bot and provider/payment backend are unchanged.
 
-## Start locally
+V6 now handles four product journeys **without redirecting to the V5 interface**:
+
+- Telegram Premium: select a valid server-priced plan, enter recipient username and register the order.
+- Telegram Stars: select an active server-priced package, enter recipient username and register the order.
+- Telegram Gifts: fetch the live `gift` catalog, select a product and submit its destination.
+- Digital Catalog: browse/search real `catalog` products and submit eligible orders.
+
+Checkout routes use **only the established backend**, over HTTPS on the same origin:
+
+| Action | API |
+| --- | --- |
+| Premium card transfer | `POST /api/orders` |
+| Premium wallet | `POST /api/me/wallet/purchase` |
+| Stars/Gifts/Catalog card or wallet | `POST /api/market/orders` |
+
+The backend remains authoritative for prices, eligibility, required-channel checks, wallet balance and invoice payment instructions. The new UI does not call a payment provider directly and does not expose a redirect to the provider website. It renders returned invoice card/amount information and order code inside the same V6 screen. A purchase request is sent **only following an explicit user form submission**. Submitting requests during testing against production may create real charges/orders.
+
+## Safety gates
+
+- `VITE_ENABLE_LIVE_READS=true` plus `VITE_API_ORIGIN` exactly equal to HTTPS `window.location.origin` is mandatory for live read and write actions.
+- Telegram `initData` is attached only to same-origin backend requests. A wallet purchase is blocked client-side without Telegram data and independently verified server-side.
+- Empty or invalid provider pricing never enables a purchase.
+- UI prevents duplicate user clicks while a transaction is in progress; it does not implement financial idempotency in the browser. Investigate the last order before retrying after network errors.
+- Production backend revalidates the current price and can return `price_changed`, `join_required`, or `payment_details_unavailable`.
+- No transaction data or authentication data is put in localStorage. Card payment instructions exist only in the rendered current-session order response.
+- Older checkout remains available at `/?legacy=1` for emergency fallback; it is **not** the normal V6 navigation route.
+
+## Development
 
 ```bash
 cd experiments/storefront-v6
 npm install
 npm run dev
-```
-
-Vite runs at `http://127.0.0.1:4173`.
-
-## Validate
-
-```bash
 npm run build
+npm run test:api
+npm run test:checkout
 npx playwright install chromium
-npm run test:e2e
+npm run test:e2e:ci
 ```
 
-Playwright tests Chrome at 320px, 390px and desktop widths, capture screenshots, verify tab navigation and modal dismissal, and prohibit real payment/API requests. Screenshots and reports are uploaded as GitHub Actions artifacts.
-
-## Real-data read mode (opt-in, no writes)
-
-The live read-only adapter is deliberately disabled in all ordinary previews.
-For a **future same-origin Worker integration only**, build with:
+Ordinary Vite development has no live API access. To build specifically for same-origin Cloudflare production:
 
 ```bash
-VITE_ENABLE_LIVE_READS=true VITE_API_ORIGIN=https://your-actual-worker-domain.example npm run build
+VITE_ENABLE_LIVE_READS=true VITE_API_ORIGIN=https://bluepremium.hazhanhasani4268-0f9.workers.dev npm run build
 ```
 
-Two conditions must hold before the browser uses any authenticated endpoint:
-- `VITE_ENABLE_LIVE_READS` is explicitly `true`.
-- `VITE_API_ORIGIN` must be `https:` and exactly match `window.location.origin`.
+Production CI re-generates `src/parts/030.part` from the exact checked-out source, runs API and browser tests, and only deploys if explicitly enabled via the documented GitHub Actions variable/secret.
 
-The adapter only calls `GET /api/plans`, `GET /api/market/catalog?kind=stars`, `GET /api/me`, and `GET /api/market/my-orders`. It uses Telegram's `initData` only in the `X-Telegram-Init-Data` header, only on that same origin; it is never written to storage or sent to an external preview. Wallet and order data are hidden when joining required channels has not been verified. No write endpoint exists in this lab.
+## Validation
 
-The "Continue in original store" control intentionally redirects back to the trusted existing homepage and **does not carry order details or create any transaction**. Users must reselect products in the original checkout. Do not enable live read mode on a public third-party preview; actual serving from the Worker origin and authenticated Telegram testing are required first.
+- TypeScript build, browser navigation at 320/390/1280px, preview no-network assertions.
+- Native checkout contract tests with **mocked** responses verify real endpoint selection, signed Telegram headers, wallet denial for guests, read-only catalog, and price/error rejection.
+- Production financial transactions were **not** performed during automated QA. Final signed-in Telegram WebView and real provider/card reconciliation still require supervised acceptance testing.
 
-Run `npm run test:api` to verify origin restrictions, token forwarding, real price validation, mandatory-join gate, guest state, and read-only method constraints.
-
-## Verified QA (2026-10-18)
-
-- TypeScript/Vite build: passed.
-- Playwright responsive and interaction checks: passed for 320px, 390px, and desktop.
-- Same-origin API/Telegram privacy contract tests: passed.
-- MagicPath revision updated with the original **BluePremium** logo retrieved from the official `/brandmark.webp?v=8` route and accessible dialog keyboard handling.
-- Production `bluepremium` Worker, D1 data, webhooks and payment flows: **unchanged**.
-- Real authenticated Telegram purchase end-to-end: not performed; requires a dedicated staging setup.
-
-## Visual comparison & known gaps
-
-The user-supplied EsalaT Gift screenshot is a **composition benchmark**, not an asset source.
-
-| Criterion | Reference | Prototype | Status |
-| --- | --- | --- | --- |
-| Home composition | wallet header → hero → 2×2 product cards | same narrative | Implemented |
-| 4 cards | category-specific artwork and direct actions | original SVG illustrations and action buttons | Implemented, art polish still needed |
-| Navigation | five compact tabs with active indicator | five semantic buttons with selected state | Implemented |
-| Product checkout | live commerce | **explicitly disabled demo** | By design |
-| Account | authenticated wallet | anonymous placeholder | By design |
-| Typography | Persian RTL hierarchy | Vazirmatn and mobile-safe responsive CSS | Implemented |
-| Safe area | Telegram WebView-specific | CSS safe-area insets | Needs device QA |
-
-**Before integrating production:** Use approved brandmark resource and verify render on mobile; fetch verified provider catalog/price data; add separate secure authentication and API adapters; accessibility review (dialog focus trap); actual Telegram WebView & server-side checkout integration tests; CI preview URLs and release approvals.
-
-## Not a production deployment
-
-This experiment deliberately remains under `experiments/`, and its CI workflow only builds/tests. Release requires a separate reviewed implementation PR.
+See [Production Deployment](../../docs/PRODUCTION_DEPLOYMENT.md) for rollout controls and rollback.
